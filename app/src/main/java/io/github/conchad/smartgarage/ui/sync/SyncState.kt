@@ -2,7 +2,9 @@ package io.github.conchad.smartgarage.ui.sync
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.conchad.smartgarage.core.cache.OutboxState
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.github.conchad.smartgarage.core.sync.SyncEngine
 import io.github.conchad.smartgarage.core.sync.SyncStatus
@@ -16,8 +18,18 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
 
-/** What every cache-backed screen knows about syncing: the engine's status for the active profile and the last success. */
-data class SyncInfo(val status: SyncStatus = SyncStatus(), val lastSyncedAt: Instant? = null) {
+/**
+ * What every cache-backed screen knows about syncing: the engine's status for the active profile, the last success,
+ * and the state of the write queue (D-A16).
+ */
+data class SyncInfo(
+    val status: SyncStatus = SyncStatus(),
+    val lastSyncedAt: Instant? = null,
+    /** Changes made on this phone that the server hasn't taken yet. */
+    val pending: Int = 0,
+    /** Changes the server rejected; see [GarageWriter.failed] for the details. */
+    val failed: Int = 0,
+) {
     /** Nothing cached yet and nothing has failed: the first sync is running (or about to). Show loading, not "empty". */
     val firstLoad: Boolean get() = lastSyncedAt == null && status.lastProblem == null
 
@@ -29,12 +41,25 @@ data class SyncInfo(val status: SyncStatus = SyncStatus(), val lastSyncedAt: Ins
 
     /** Stale because the server could not be reached at all (as opposed to answering with an error). */
     val offline: Boolean get() = stale && status.lastProblem is ServerProblem.Unreachable
+
+    val hasPending: Boolean get() = pending > 0
+
+    val hasFailed: Boolean get() = failed > 0
 }
 
 /** The sync plumbing a screen needs (D-A13): status to show and a way to pull on demand. */
-class SyncControl @Inject constructor(private val garage: GarageRepository, private val sync: SyncEngine) {
-    val info: Flow<SyncInfo> = combine(garage.activeProfileId, sync.status, garage.lastSyncedAt) { id, statuses, last ->
-        SyncInfo(statuses[id] ?: SyncStatus(), last)
+class SyncControl @Inject constructor(
+    private val garage: GarageRepository,
+    private val sync: SyncEngine,
+    writer: GarageWriter,
+) {
+    val info: Flow<SyncInfo> = combine(garage.activeProfileId, sync.status, garage.lastSyncedAt, writer.entries) { id, statuses, last, outbox ->
+        SyncInfo(
+            status = statuses[id] ?: SyncStatus(),
+            lastSyncedAt = last,
+            pending = outbox.count { it.state != OutboxState.FAILED },
+            failed = outbox.count { it.state == OutboxState.FAILED },
+        )
     }
 
     suspend fun refresh() {

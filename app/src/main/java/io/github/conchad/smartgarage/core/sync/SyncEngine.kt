@@ -11,15 +11,20 @@ import io.github.conchad.smartgarage.core.network.ApiResult
 import io.github.conchad.smartgarage.core.network.ServerConnection
 import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.github.conchad.smartgarage.core.network.SyncPageDto
+import io.github.conchad.smartgarage.core.outbox.GarageStore
+import io.github.conchad.smartgarage.core.outbox.OutboxReplay
+import io.github.conchad.smartgarage.core.outbox.OutboxStores
+import io.github.conchad.smartgarage.core.outbox.ReplayOutcome
+import io.github.conchad.smartgarage.core.outbox.ServerRows
+import io.github.conchad.smartgarage.core.outbox.StagedFiles
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -45,7 +50,7 @@ interface SyncStore {
 }
 
 /**
- * Pulls `/api/v1/sync` into a profile's cache (D-028, D-A12).
+ * Sends the outbox and pulls `/api/v1/sync` into a profile's cache (D-028, D-A12, D-A16).
  *
  * All pages of a session are collected first and applied in one transaction, so a dropped connection halfway leaves
  * the previous cache intact. A personal garage is hundreds of rows, so holding a session in memory is cheap.
@@ -56,8 +61,12 @@ class SyncEngine @Inject constructor(
     private val profiles: ProfileStore,
     private val auth: AuthRepository,
     private val cache: CacheProvider,
+    private val stores: OutboxStores,
+    private val scope: CoroutineScope,
 ) {
     private val locks = ConcurrentHashMap<String, Mutex>()
+    /** Profiles with a sync requested through [syncSoon]; true when one more run should follow the current one. */
+    private val kicks = ConcurrentHashMap<String, Boolean>()
     private val _status = MutableStateFlow<Map<String, SyncStatus>>(emptyMap())
     val status: StateFlow<Map<String, SyncStatus>> = _status.asStateFlow()
 
@@ -67,17 +76,42 @@ class SyncEngine @Inject constructor(
             setStatus(profileId) { it.copy(running = true) }
             var problem: ServerProblem? = null
             try {
-                syncLocked(profileId).also { problem = (it as? SyncOutcome.Failed)?.problem }
+                syncLocked(profileId) { problem = it }.also { (it as? SyncOutcome.Failed)?.let { failed -> problem = failed.problem } }
             } finally {
                 setStatus(profileId) { SyncStatus(running = false, lastProblem = problem) }
             }
         }
     }
 
-    private suspend fun syncLocked(profileId: String): SyncOutcome {
+    /**
+     * Runs a sync on the application scope without blocking the caller, e.g. right after a write was queued.
+     * Requests that arrive while one runs are folded into a single follow-up run, so queuing several writes offline
+     * doesn't line up a connection timeout per write.
+     */
+    fun syncSoon(profileId: String) {
+        if (kicks.putIfAbsent(profileId, false) != null) {
+            kicks[profileId] = true
+            return
+        }
+        scope.launch {
+            while (true) {
+                kicks[profileId] = false
+                sync(profileId)
+                if (kicks.remove(profileId, false)) break
+            }
+        }
+    }
+
+    private suspend fun syncLocked(profileId: String, onPushProblem: (ServerProblem) -> Unit): SyncOutcome {
         val connection = profiles.connection(profileId)?.takeIf { it.token != null } ?: return SyncOutcome.NotSignedIn
-        val store = RoomSyncStore(cache, profileId)
-        val outcome = pull(api, connection, store) { prefs -> applyPreferences(profileId, prefs) }
+        val outcome = session(
+            api = api,
+            connection = connection,
+            store = RoomSyncStore(cache, profileId),
+            outbox = stores.store(profileId),
+            files = stores.files(profileId),
+            onPushProblem = onPushProblem,
+        ) { prefs -> applyPreferences(profileId, prefs) }
         if (outcome == SyncOutcome.SignedOut) auth.sessionRejected(profileId)
         return outcome
     }
@@ -94,6 +128,34 @@ class SyncEngine @Inject constructor(
         const val META_NEXT_SINCE = "nextSince"
         const val META_LAST_SYNC = "lastSyncAt"
         const val META_NOTE_TAGS = "noteTags"
+
+        /**
+         * One sync session: queued writes go out first, then the pull brings back what they changed server-side
+         * (D-A16). When the replay finds the server unreachable the pull is skipped: it would only time out again.
+         * Any other reason the replay stopped is reported through [onPushProblem] and the pull still runs.
+         */
+        internal suspend fun session(
+            api: ApiClient,
+            connection: ServerConnection,
+            store: SyncStore,
+            outbox: GarageStore,
+            files: StagedFiles,
+            now: () -> Instant = Instant::now,
+            onPushProblem: (ServerProblem) -> Unit = {},
+            onPreferences: suspend (DisplayPreferences) -> Unit = {},
+        ): SyncOutcome {
+            when (val replay = OutboxReplay(api, connection, outbox, files).run()) {
+                ReplayOutcome.SignedOut -> return SyncOutcome.SignedOut
+                is ReplayOutcome.Stopped -> {
+                    onPushProblem(replay.problem)
+                    if (replay.problem is ServerProblem.Unreachable || replay.problem is ServerProblem.GatewayError) {
+                        return SyncOutcome.Failed(replay.problem)
+                    }
+                }
+                ReplayOutcome.Done -> Unit
+            }
+            return pull(api, connection, store, now, onPreferences)
+        }
 
         /** The paging loop, separate from Android types so it can be unit tested. */
         internal suspend fun pull(
@@ -120,7 +182,7 @@ class SyncEngine @Inject constructor(
                 }
                 if (first == null) first = page
                 page.changes.forEach { (resource, rows) ->
-                    rows.forEach { json -> json.toCachedRow(resource)?.let { upserts[resource to it.id] = it } }
+                    rows.forEach { json -> ServerRows.toCachedRow(resource, json)?.let { upserts[resource to it.id] = it } }
                 }
                 page.deletions.forEach { (resource, ids) -> deletions.getOrPut(resource) { mutableSetOf() } += ids }
                 if (!page.hasMore) {
@@ -145,18 +207,6 @@ class SyncEngine @Inject constructor(
                 }
                 cursor = page.cursor ?: return SyncOutcome.Failed(ServerProblem.Unexpected(200, "missing cursor"))
             }
-        }
-
-        private fun JsonObject.toCachedRow(resource: String): CachedRow? {
-            val id = this["id"]?.jsonPrimitive?.contentOrNull ?: return null
-            val vehicleId = if (resource == "vehicles") id else this["vehicleId"]?.jsonPrimitive?.contentOrNull
-            return CachedRow(
-                resource = resource,
-                id = id,
-                vehicleId = vehicleId,
-                updatedAt = this["updatedAt"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                json = toString(),
-            )
         }
     }
 }

@@ -17,6 +17,9 @@ import io.github.conchad.smartgarage.core.network.HttpClientFactory
 import io.github.conchad.smartgarage.core.security.KeystoreSecretCipher
 import io.github.conchad.smartgarage.core.security.SecretCipher
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 private val Context.appDataStore: DataStore<Preferences> by preferencesDataStore(name = "app")
@@ -35,6 +38,11 @@ object AppModule {
     @Provides
     @Singleton
     fun secretCipher(): SecretCipher = KeystoreSecretCipher()
+
+    /** Work that must outlive the screen that started it, such as the sync kicked off by a queued write. */
+    @Provides
+    @Singleton
+    fun applicationScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** The server stores this per device, so the web's Mobile devices list shows app and Android version. */
     @Provides

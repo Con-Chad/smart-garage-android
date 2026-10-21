@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.core.network
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -11,11 +13,14 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
@@ -125,6 +130,73 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
         null
     }
 
+    /** One row by id, in the same shape as `/sync` delivers it. */
+    suspend fun fetch(connection: ServerConnection, path: String): ApiResult<JsonObject> =
+        send(connection) { url(connection.url(path)) }
+
+    /**
+     * One queued write (D-A16). [idempotencyKey] is sent as `Idempotency-Key`, so a retry after a dropped
+     * connection gets the stored answer instead of applying twice (D-033). The value is the written row, or null
+     * for a 204.
+     */
+    suspend fun write(
+        connection: ServerConnection,
+        method: HttpMethod,
+        path: String,
+        idempotencyKey: String,
+        json: String?,
+    ): ApiResult<JsonObject?> = sendWrite(connection) {
+        this.method = method
+        url(connection.url(path))
+        header(IDEMPOTENCY_KEY, idempotencyKey)
+        if (json != null) setBody(TextContent(json, ContentType.Application.Json))
+    }
+
+    /** A multipart upload: the text [fields] plus the file in the part named `file`. */
+    suspend fun writeMultipart(
+        connection: ServerConnection,
+        path: String,
+        idempotencyKey: String,
+        fields: Map<String, String>,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+    ): ApiResult<JsonObject?> = sendWrite(connection) {
+        method = HttpMethod.Post
+        url(connection.url(path))
+        header(IDEMPOTENCY_KEY, idempotencyKey)
+        setBody(
+            MultiPartFormDataContent(
+                formData {
+                    fields.forEach { (name, value) -> append(name, value) }
+                    val partHeaders = Headers.build {
+                        append(HttpHeaders.ContentType, mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"${fileName.replace("\"", "")}\"")
+                    }
+                    append("file", bytes, partHeaders)
+                },
+            ),
+        )
+    }
+
+    private suspend fun sendWrite(
+        connection: ServerConnection,
+        configure: HttpRequestBuilder.() -> Unit,
+    ): ApiResult<JsonObject?> {
+        val response: HttpResponse = try {
+            http.request {
+                configure()
+                applyHeaders(connection)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return ApiResult.Failed(ServerProblem.Unreachable(e.toNetworkFailure()))
+        }
+        if (response.status == HttpStatusCode.NoContent) return ApiResult.Ok(null)
+        return readResult(response) { response.body<JsonObject>() }
+    }
+
     suspend inline fun <reified T> send(
         connection: ServerConnection,
         crossinline configure: HttpRequestBuilder.() -> Unit,
@@ -179,6 +251,10 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
         }
         connection.token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
         header(HttpHeaders.Accept, ContentType.Application.Json.toString())
+    }
+
+    private companion object {
+        const val IDEMPOTENCY_KEY = "Idempotency-Key"
     }
 }
 

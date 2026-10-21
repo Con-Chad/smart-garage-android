@@ -125,3 +125,67 @@ App decisions use the `D-A` prefix.
     same record is overwritten without a warning. Fine for one person; two
     people editing the same record at once can lose an edit.
   - Revisit (e.g. compare `updatedAt` and ask) if that ever bites.
+
+## Offline writes (CP11)
+
+- **D-A16: The outbox is a table in the profile's cache database.**
+  - Every write the app makes is first a row in `outbox` (schema version 2):
+    an `Idempotency-Key` (D-033), a monotonic `seq`, the resource, the
+    operation, the target id, the request body, and the optimistic row. It
+    is replayed in `seq` order, one entry at a time, with its key as the
+    header, so a retry after a dropped connection can never apply twice.
+  - It sits in the same database as the cache so sign-out, a revoked token
+    and removing a profile wipe it with everything else (D-A12). A revoked
+    phone may be a lost phone; queued edits are not worth keeping.
+  - The change shows at once: a created row goes into the cache under a
+    temp id, an edit is merged onto the cached row, a delete removes it. The
+    row carries `pendingKey` (the entry's key) until the server answers, so
+    the UI can mark it "waiting to sync". A pull never overwrites a row
+    with a `pendingKey`, and a full resync keeps such rows; the replay that
+    precedes the next pull settles them with the server's answer.
+  - Rights are checked locally from the cached vehicle's `access` (D-030):
+    viewers can't write, only the owner deletes a vehicle. The server checks
+    again, so a stale cache can only cost a FAILED entry, never a wrong write.
+  - Not queued: modifications, custom fields, sharing, preferences and
+    notification settings. They are outside the handoff's scope and most of
+    them need the server's answer to be useful.
+- **D-A17: Temp ids are `tmp-<uuid>` and are remapped when the create replays.**
+  - Rows created offline can be edited, deleted and referenced (a fill-up on
+    a vehicle that doesn't exist on the server yet) before they are sent.
+    When the create succeeds, the server's id replaces the temp id in the
+    cached row, in cached rows that point at it (`vehicleId` and JSON), and
+    in every later outbox entry. The server row replaces the optimistic one,
+    unless a later edit to the same row is still queued; then the local
+    version stays until that edit is answered.
+  - Deleting a row that is still a pending create cancels the create instead
+    of sending both.
+- **D-A18: Transient answers stop the replay; final answers mark one entry
+  FAILED and move on.**
+  - Unreachable, 5xx, 429 and "request still in progress" (409) leave the
+    entry PENDING and stop the run, so order is preserved. The next attempt
+    follows the usual sync timing (D-A13): foreground, pull-to-refresh, the
+    hourly worker. No tight retry loop. When the server is unreachable the
+    pull is skipped too; it would only time out again.
+  - Any other 4xx is final (the server replays it for the same key anyway).
+    The entry keeps the server's status, code and message for the UI; the
+    cache converges back to the server: a failed create disappears, together
+    with every later entry that built on its temp id (`dependency_failed`);
+    a failed edit or delete re-fetches the row by id (`GET /<resource>/<id>`,
+    404 removes it), and if that fetch doesn't settle it the next pull is a
+    full resync. A delete answered 404 counts as done: the goal state is
+    reached.
+  - Retry gives the entry a fresh key (a used key would just replay the
+    rejection) and re-applies its optimistic change; dismiss drops it. An
+    entry that depends on a failed create can only be dismissed.
+  - 401 takes the existing revoked-token path: session and cache (and so
+    the outbox) are cleared.
+- **D-A19: Replay runs before the pull, inside the same sync.**
+  - Writes have server-side effects beyond the row they touch (a service
+    record updates its schedule's due status and the vehicle's odometer, and
+    may create an expense). Pulling right after the replay brings those back
+    in the same session, so the screen is consistent after one sync.
+  - Uploads (documents, vehicle photos) are staged under
+    `files/outbox/<profile>/<key>` so they survive a restart and the cache
+    being cleared; a copy is published to the documents cache under the temp
+    id, so the file opens offline immediately, and is renamed to the server's
+    id on success. Last write wins throughout (D-A15): no conflict detection.

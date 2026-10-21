@@ -40,5 +40,10 @@ class PhotoStore @Inject constructor(
         }
     }
 
-    private fun dir(profileId: String) = File(context.cacheDir, "documents/$profileId").apply { mkdirs() }
+    private fun dir(profileId: String) = dir(context, profileId).apply { mkdirs() }
+
+    companion object {
+        /** Where a profile's downloaded files live; staged uploads are published here too (D-A16). */
+        fun dir(context: Context, profileId: String) = File(context.cacheDir, "documents/$profileId")
+    }
 }
