@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+.kotlin/
+.claude/worktrees/
+# Signing material never goes in the repo (CP13 reads it from CI secrets).
+*.jks
+*.keystore
+keystore.properties

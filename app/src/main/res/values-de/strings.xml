@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smart Garage</string>
+
+    <string name="action_back">Zurück</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_change">Ändern</string>
+    <string name="action_continue">Weiter</string>
+    <string name="action_show">Anzeigen</string>
+    <string name="action_hide">Verbergen</string>
+    <string name="action_more_options">Weitere Optionen</string>
+
+    <string name="tab_home">Start</string>
+    <string name="tab_vehicles">Fahrzeuge</string>
+    <string name="tab_service">Wartung</string>
+    <string name="tab_fuel">Tanken</string>
+    <string name="tab_more">Mehr</string>
+
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_vehicles">Fahrzeuge</string>
+    <string name="nav_maintenance">Wartung</string>
+    <string name="nav_fuel">Kraftstoff</string>
+    <string name="nav_more">Mehr</string>
+    <string name="nav_reminders">Erinnerungen</string>
+    <string name="nav_history">Verlauf</string>
+    <string name="nav_odometer">Kilometerstand</string>
+    <string name="nav_expenses">Ausgaben</string>
+    <string name="nav_documents">Dokumente</string>
+    <string name="nav_notes">Notizen</string>
+    <string name="nav_wishlist">Wunschliste</string>
+    <string name="nav_settings">Einstellungen</string>
+
+    <string name="coming_soon_title">Kommt bald</string>
+    <string name="section_vehicles_desc">Deine Fahrzeuge mit Fotos, Daten, eigenen Feldern und schneller Kilometerstand-Erfassung.</string>
+    <string name="section_maintenance_desc">Wartungspläne nach Fälligkeit sortiert und Service-Einträge mit vorausgefüllten Teilen.</string>
+    <string name="section_fuel_desc">Tanken auf einem Bildschirm, gemacht für die Zapfsäule, dazu Verlauf und Verbrauchsdiagramme.</string>
+    <string name="section_reminders_desc">Anstehende Wartungen, HU/AU und Versicherungen</string>
+    <string name="section_history_desc">Alles, was mit jedem Fahrzeug passiert ist, in einer Zeitleiste</string>
+    <string name="section_odometer_desc">Kilometerstände und Diagramme</string>
+    <string name="section_expenses_desc">Kosten nach Monat und Kategorie</string>
+    <string name="section_documents_desc">Belege, PDFs und Fotos</string>
+    <string name="section_notes_desc">Markdown-Notizen mit Tags</string>
+    <string name="section_wishlist_desc">Geplante Teile und Umbauten</string>
+
+    <string name="more_group_garage">Garage</string>
+    <string name="more_group_app">App</string>
+    <string name="more_settings_desc">Konto, Server, Einheiten und Darstellung</string>
+
+    <string name="dashboard_greeting_morning">Guten Morgen, %1$s</string>
+    <string name="dashboard_greeting_afternoon">Guten Tag, %1$s</string>
+    <string name="dashboard_greeting_evening">Guten Abend, %1$s</string>
+    <string name="dashboard_empty_title">Hier erscheint deine Garage</string>
+    <string name="dashboard_empty_body">Fahrzeuge, fällige Wartungen, HU/AU und letzte Tankstopps erscheinen hier, sobald die App mit deinem Server synchronisiert.</string>
+
+    <string name="welcome_title">Willkommen bei Smart Garage</string>
+    <string name="welcome_body">Die Begleit-App für deinen selbst gehosteten Smart-Garage-Server.</string>
+    <string name="welcome_feature_server_title">Dein Server, deine Daten</string>
+    <string name="welcome_feature_server_body">Die App spricht nur mit deinem Smart Garage. Kein Cloud-Konto, nichts geht an Google.</string>
+    <string name="welcome_feature_offline_title">Funktioniert ohne Empfang</string>
+    <string name="welcome_feature_offline_body">Nachschlagen und Tanken erfassen geht auch offline; synchronisiert wird, sobald du wieder online bist.</string>
+    <string name="welcome_feature_private_title">Bleibt privat</string>
+    <string name="welcome_feature_private_body">Funktioniert mit Cloudflare Access; Anmeldetokens liegen in der Sicherheitshardware des Telefons.</string>
+    <string name="welcome_get_started">Los geht\'s</string>
+
+    <string name="server_title">Mit deinem Server verbinden</string>
+    <string name="server_intro">Gib die Adresse ein, unter der du Smart Garage im Browser öffnest, und teste die Verbindung.</string>
+    <string name="server_url_label">Serveradresse</string>
+    <string name="server_url_hint">Deine Tunnel-Adresse oder eine LAN-Adresse wie http://192.168.1.10:3000</string>
+    <string name="server_url_error_empty">Gib die Serveradresse ein.</string>
+    <string name="server_url_error_malformed">Das sieht nicht nach einer Webadresse aus.</string>
+    <string name="server_url_error_scheme">Verwende eine Adresse, die mit https:// oder http:// beginnt.</string>
+    <string name="server_url_error_cleartext">Unverschlüsseltes http ist nur im Heimnetz erlaubt. Verwende https:// für diese Adresse.</string>
+    <string name="server_name_label">Name (optional)</string>
+    <string name="server_name_hint">Wird beim Wechseln zwischen Servern angezeigt</string>
+    <string name="server_cf_title">Cloudflare Access</string>
+    <string name="server_cf_body">Einschalten, wenn diese Adresse vor Smart Garage eine Cloudflare-Anmeldung verlangt.</string>
+    <string name="server_cf_client_id">Client-ID</string>
+    <string name="server_cf_client_secret">Client-Secret</string>
+    <string name="server_cf_hint">Unter Zero Trust → Access → Service credentials. Die App sendet es bei jeder Anfrage mit.</string>
+    <string name="server_cf_missing">Gib Client-ID und Client-Secret ein.</string>
+    <string name="server_test">Testen</string>
+    <string name="server_ok_title">Mit Smart Garage verbunden</string>
+    <string name="server_ok_version">Serverversion %1$s.</string>
+    <string name="server_ok_cloudflare">Cloudflare hat die App durchgelassen.</string>
+
+    <string name="problem_dns_title">Server nicht gefunden</string>
+    <string name="problem_dns_body">Diese Adresse existiert nicht. Prüfe sie auf Tippfehler, oder ob sie nur im Heimnetz funktioniert.</string>
+    <string name="problem_refused_title">Server nicht erreichbar</string>
+    <string name="problem_refused_body">Unter dieser Adresse und diesem Port antwortet nichts. Prüfe, ob Smart Garage läuft.</string>
+    <string name="problem_network_other_body">Die Verbindung ist fehlgeschlagen, bevor der Server antwortete. Prüfe deine Internetverbindung.</string>
+    <string name="problem_timeout_title">Zeitüberschreitung</string>
+    <string name="problem_timeout_body">Der Server hat nicht rechtzeitig geantwortet. Prüfe deine Verbindung, oder ob die Adresse nur zu Hause funktioniert.</string>
+    <string name="problem_tls_title">Sichere Verbindung fehlgeschlagen</string>
+    <string name="problem_tls_body">Dem HTTPS-Zertifikat des Servers wird nicht vertraut, oder der Server spricht auf diesem Port kein HTTPS.</string>
+    <string name="problem_access_title">Cloudflare Access hat die App blockiert</string>
+    <string name="problem_access_body_token">Cloudflare hat statt Smart Garage geantwortet. Prüfe Client-ID und Secret, und ob die Access-Anwendung eine „Service Auth“-Regel mit diesem Service-Token hat.</string>
+    <string name="problem_access_body_missing">Diese Adresse ist durch Cloudflare Access geschützt. Schalte unten Cloudflare Access ein und gib dein Service-Token ein.</string>
+    <string name="problem_challenge_title">Cloudflare hat die App geprüft</string>
+    <string name="problem_challenge_body">Eine Bot- oder Firewall-Regel zeigt eine Prüfseite, statt die App durchzulassen. Lege für diesen Hostnamen eine Regel an, die Prüfungen überspringt.</string>
+    <string name="problem_gateway_title">Smart Garage hinter dem Tunnel nicht erreichbar</string>
+    <string name="problem_gateway_body">Tunnel oder Proxy haben geantwortet, aber Smart Garage nicht erreicht (HTTP %1$d). Prüfe, ob Container und cloudflared laufen.</string>
+    <string name="problem_redirect_title">Der Server leitet weiter</string>
+    <string name="problem_redirect_body">Diese Adresse leitet zu %1$s weiter. Gib stattdessen diese Adresse ein.</string>
+    <string name="problem_redirect_body_unknown">Diese Adresse leitet woandershin weiter. Prüfe, ob es die richtige ist.</string>
+    <string name="problem_not_sg_title">Das ist nicht Smart Garage</string>
+    <string name="problem_not_sg_body">Es hat etwas geantwortet (HTTP %1$d), aber nicht die Smart-Garage-API. Prüfe die Adresse, und ob der Server eine Version mit Mobil-API nutzt.</string>
+    <string name="problem_api_title">Server braucht ein Update</string>
+    <string name="problem_api_body">Dieses Smart Garage hat nicht die Mobil-API, die die App braucht. Aktualisiere den Container auf das Image des Forks.</string>
+    <string name="problem_db_title">Smart Garage erreicht seine Datenbank nicht</string>
+    <string name="problem_db_body">Der Server läuft, aber seine Datenbank ist nicht verfügbar. Prüfe die Container-Logs.</string>
+    <string name="problem_unexpected_title">Etwas ist schiefgelaufen</string>
+    <string name="problem_unexpected_body">Der Server hat mit HTTP %1$d geantwortet.</string>
+
+    <string name="signin_title">Anmelden</string>
+    <string name="signin_username">Benutzername</string>
+    <string name="signin_password">Passwort</string>
+    <string name="signin_device_name">Gerätename</string>
+    <string name="signin_device_name_hint">Erscheint im Web unter Einstellungen → Mobile Geräte, wo du es widerrufen kannst</string>
+    <string name="signin_submit">Anmelden</string>
+    <string name="signin_session_ended_title">Du wurdest abgemeldet</string>
+    <string name="signin_session_ended_body">Deine Sitzung auf diesem Server ist beendet, vielleicht weil dieses Gerät im Web entfernt wurde. Melde dich erneut an.</string>
+    <string name="signin_switch_server">Server wechseln</string>
+    <string name="signin_remove_server">Diesen Server entfernen</string>
+    <string name="signin_error_missing">Gib Benutzername und Passwort ein.</string>
+    <string name="signin_error_credentials_title">Benutzername oder Passwort falsch</string>
+    <string name="signin_error_credentials_body">Verwende dieselben Zugangsdaten wie auf der Smart-Garage-Website. Konten mit Single Sign-on (OIDC) brauchen zuerst ein Passwort.</string>
+    <string name="signin_error_rate_limited_title">Zu viele Versuche</string>
+    <plurals name="signin_error_rate_limited_minutes">
+        <item quantity="one">Nach mehreren falschen Passwörtern ist die Anmeldung pausiert. Versuche es in %1$d Minute erneut.</item>
+        <item quantity="other">Nach mehreren falschen Passwörtern ist die Anmeldung pausiert. Versuche es in %1$d Minuten erneut.</item>
+    </plurals>
+    <string name="signin_error_rate_limited_later">Nach mehreren falschen Passwörtern ist die Anmeldung pausiert. Versuche es später erneut.</string>
+
+    <string name="settings_account">Konto</string>
+    <string name="settings_signed_in_as">\@%1$s auf %2$s</string>
+    <string name="settings_servers">Server</string>
+    <plurals name="settings_servers_count">
+        <item quantity="one">%1$d Server</item>
+        <item quantity="other">%1$d Server</item>
+    </plurals>
+    <string name="settings_sign_out">Abmelden</string>
+    <string name="settings_device_name">Dieses Gerät: %1$s</string>
+    <string name="settings_sign_out_confirm_title">Abmelden?</string>
+    <string name="settings_sign_out_confirm_body">Das Token dieses Geräts für %1$s wird widerrufen. Die Servereinstellungen bleiben gespeichert, zum erneuten Anmelden brauchst du nur dein Passwort.</string>
+    <string name="settings_units">Einheiten</string>
+    <string name="settings_units_title">Vom Server festgelegt</string>
+    <string name="settings_units_desc">Ändern kannst du sie im Web unter Einstellungen → Regional.</string>
+    <string name="settings_unit_distance">Strecke</string>
+    <string name="settings_unit_volume">Volumen</string>
+    <string name="settings_unit_currency">Währung</string>
+    <string name="settings_unit_timezone">Zeitzone</string>
+    <string name="settings_unknown">Unbekannt</string>
+    <string name="settings_appearance">Darstellung</string>
+    <string name="settings_theme">Design</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_dynamic_color">Hintergrundfarben</string>
+    <string name="settings_dynamic_color_desc">Material-You-Farben deines Telefons statt Smart-Garage-Blau verwenden</string>
+    <string name="settings_about">Über</string>
+    <string name="settings_app_version">App-Version</string>
+    <string name="settings_server_version">Serverversion</string>
+
+    <string name="unit_miles">Meilen</string>
+    <string name="unit_kilometers">Kilometer</string>
+    <string name="unit_gallons">US-Gallonen</string>
+    <string name="unit_liters">Liter</string>
+
+    <string name="profiles_title">Server</string>
+    <string name="profiles_hint">Jeder Server wird separat angemeldet, z. B. einer fürs Heim-WLAN und einer für den Tunnel.</string>
+    <string name="profiles_add">Server hinzufügen</string>
+    <string name="profiles_switch">Zu diesem Server wechseln</string>
+    <string name="profiles_signed_in_as">\@%1$s</string>
+    <string name="profiles_signed_out">Abgemeldet</string>
+    <string name="profiles_remove">Entfernen</string>
+    <string name="profiles_remove_title">%1$s entfernen?</string>
+    <string name="profiles_remove_body">Die App meldet sich von diesem Server ab und vergisst Adresse und Cloudflare-Zugangsdaten. Auf dem Server wird nichts gelöscht.</string>
+</resources>

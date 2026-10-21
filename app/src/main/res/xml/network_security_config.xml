@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext is allowed at the platform level so a LAN profile (http://192.168.x.x:3000) can work: the platform
+    can't scope cleartext to IP ranges. The app enforces the real rule in ServerUrl: plain http is accepted only
+    for private, loopback and .local hosts (D-A04).
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
