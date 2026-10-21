@@ -32,6 +32,7 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoute
 @Serializable object ProfilesRoute
 @Serializable object AddProfileRoute
+@Serializable data class VehicleDetailRoute(val vehicleId: String)
 
 /** A section reached from More that has no screen yet; replaced one by one in CP10. */
 @Serializable data class SectionRoute(val section: Section)

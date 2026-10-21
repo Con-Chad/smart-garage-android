@@ -107,3 +107,13 @@ App decisions use the `D-A` prefix.
     It retries only when the tunnel or proxy answers but the origin is
     down; other failures wait for the next run.
   - Push-triggered sync waits for CP6 (UnifiedPush).
+- **D-A14: Documents open in place for images, in another app for everything else.**
+  - Files download through the authenticated API into the cache (the same
+    store as vehicle photos), so a file opened once also works offline.
+  - Images show in a full-screen viewer inside the app. PDFs and other
+    types go to whatever viewer the phone has, through a FileProvider
+    limited to `cache/documents/` with a read-only grant. Writing our own
+    PDF renderer isn't worth it when every phone already has one.
+  - The More sections (reminders, history, odometer, expenses, documents,
+    notes, wishlist) are read-only for now. Editing arrives with the offline
+    write queue, after the conflict rule is agreed (before CP11).

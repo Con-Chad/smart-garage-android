@@ -15,8 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.DueStatus
+import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 
 /** Small pill with a colored dot, e.g. "2 overdue". Color always comes with text, never color alone. */
@@ -42,5 +46,19 @@ fun Pill(text: String, container: Color, content: Color, modifier: Modifier = Mo
             if (dot != null) Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
             Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
+    }
+}
+
+/** "1 overdue" and "2 due soon" side by side, or "All good". */
+@Composable
+fun VehicleStatusChip(summary: VehicleSummary, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (summary.overdue > 0) {
+            StatusChip(DueStatus.OVERDUE, pluralStringResource(R.plurals.status_overdue_count, summary.overdue, summary.overdue))
+        }
+        if (summary.dueSoon > 0) {
+            StatusChip(DueStatus.DUE_SOON, pluralStringResource(R.plurals.status_due_soon_count, summary.dueSoon, summary.dueSoon))
+        }
+        if (summary.overdue == 0 && summary.dueSoon == 0) StatusChip(DueStatus.OK, stringResource(R.string.status_all_good))
     }
 }

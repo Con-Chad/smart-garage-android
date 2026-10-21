@@ -1,0 +1,138 @@
+package io.github.conchad.smartgarage.feature.fuel
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.feature.vehicles.StatStrip
+import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.EmptyState
+import io.github.conchad.smartgarage.ui.components.FuelRow
+import io.github.conchad.smartgarage.ui.components.FuelSheet
+import io.github.conchad.smartgarage.ui.components.GroupCard
+import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.components.RowDivider
+import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
+import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+@Composable
+fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    var open by rememberSheetTarget()
+    val fmt = state.formatter
+    val monthFormat = remember { DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()) }
+    val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
+
+    AppScaffold(title = stringResource(R.string.nav_fuel)) { padding ->
+        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
+            if (state.loaded && state.months.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Outlined.LocalGasStation,
+                    title = stringResource(R.string.fuel_empty_title),
+                    body = stringResource(R.string.fuel_empty_body),
+                )
+            } else {
+                LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                    state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt) } }
+                    state.months.forEach { month ->
+                        item(key = month.month.toString()) {
+                            GroupHeader(
+                                "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
+                                    fmt.money(month.totalCents, month.entries.first().currency),
+                            )
+                        }
+                        item(key = "${month.month}-list") {
+                            GroupCard {
+                                month.entries.forEachIndexed { index, entry ->
+                                    if (index > 0) RowDivider()
+                                    FuelRow(
+                                        entry,
+                                        vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
+                                        fmt = fmt,
+                                        onClick = { open = SheetTarget.Fuel(entry.id) },
+                                        economy = state.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    (open as? SheetTarget.Fuel)?.let { target ->
+        state.entry(target.id)?.let { entry ->
+            FuelSheet(entry, state.vehicleById[entry.vehicleId], state.segments[entry.id], fmt) { open = null }
+        }
+    }
+}
+
+@Composable
+private fun Summary(summary: FuelSummary, fmt: Formatter) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp)) {
+                Text(
+                    stringResource(R.string.fuel_avg_economy),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    val value = summary.averageConsumption?.let { fmt.economyValue(it) }
+                    Text(
+                        value?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        fmt.economyUnit,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                    )
+                }
+                if (summary.averageConsumption == null) {
+                    Text(
+                        stringResource(R.string.fuel_avg_needs_two),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            }
+        }
+        StatStrip(
+            listOf(
+                stringResource(R.string.fuel_spent) to fmt.money(summary.spentCents, summary.currency),
+                stringResource(R.string.fuel_bought) to fmt.volume(summary.liters),
+                stringResource(R.string.fuel_fill_ups) to summary.fillUps.toString(),
+            ),
+            title = stringResource(R.string.fuel_this_year),
+        )
+    }
+}

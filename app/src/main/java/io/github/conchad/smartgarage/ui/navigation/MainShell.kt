@@ -8,10 +8,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.DirectionsCar
-import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -40,14 +36,16 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
+import io.github.conchad.smartgarage.feature.fuel.FuelScreen
+import io.github.conchad.smartgarage.feature.maintenance.MaintenanceScreen
+import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailScreen
+import io.github.conchad.smartgarage.feature.vehicles.VehiclesScreen
 import io.github.conchad.smartgarage.feature.more.MoreScreen
-import io.github.conchad.smartgarage.feature.more.SectionPlaceholderScreen
+import io.github.conchad.smartgarage.feature.sections.SectionScreen
 import io.github.conchad.smartgarage.feature.profiles.ProfilesScreen
 import io.github.conchad.smartgarage.feature.settings.SettingsScreen
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
-import io.github.conchad.smartgarage.ui.components.AppScaffold
-import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
 import io.github.conchad.smartgarage.ui.components.PhotoLoader
 
@@ -105,21 +103,19 @@ private fun Shell(profile: ServerProfile, account: Account) {
                     profile = profile,
                     account = account,
                     onOpenSettings = { navController.navigate(SettingsRoute) },
-                    // Vehicle detail arrives with the Vehicles screens; until then the tab is the closest place.
-                    onOpenVehicle = { navController.navigateTopLevel(TopLevel.Vehicles) },
+                    onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
                     onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
                     onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
                 )
             }
             composable<VehiclesRoute> {
-                ComingSoon(R.string.nav_vehicles, R.string.section_vehicles_desc, Icons.Outlined.DirectionsCar)
+                VehiclesScreen(onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) })
             }
-            composable<MaintenanceRoute> {
-                ComingSoon(R.string.nav_maintenance, R.string.section_maintenance_desc, Icons.Outlined.Build)
+            composable<VehicleDetailRoute> {
+                VehicleDetailScreen(onBack = navController::popBackStack)
             }
-            composable<FuelRoute> {
-                ComingSoon(R.string.nav_fuel, R.string.section_fuel_desc, Icons.Outlined.LocalGasStation)
-            }
+            composable<MaintenanceRoute> { MaintenanceScreen() }
+            composable<FuelRoute> { FuelScreen() }
             composable<MoreRoute> {
                 MoreScreen(
                     onOpenSection = { navController.navigate(SectionRoute(it)) },
@@ -127,7 +123,11 @@ private fun Shell(profile: ServerProfile, account: Account) {
                 )
             }
             composable<SectionRoute> { entry ->
-                SectionPlaceholderScreen(section = entry.toRoute<SectionRoute>().section, onBack = navController::popBackStack)
+                SectionScreen(
+                    section = entry.toRoute<SectionRoute>().section,
+                    onBack = navController::popBackStack,
+                    onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                )
             }
             composable<SettingsRoute> {
                 SettingsScreen(
@@ -146,18 +146,6 @@ private fun Shell(profile: ServerProfile, account: Account) {
                 SetupFlow(mode = SetupMode.AddProfile, onCancel = navController::popBackStack)
             }
         }
-    }
-}
-
-@Composable
-private fun ComingSoon(title: Int, description: Int, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    AppScaffold(title = stringResource(title)) { padding ->
-        EmptyState(
-            icon = icon,
-            title = stringResource(R.string.coming_soon_title),
-            body = stringResource(description),
-            modifier = Modifier.padding(padding),
-        )
     }
 }
 

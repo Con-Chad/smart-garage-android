@@ -194,5 +194,53 @@ data class InsurancePolicy(
     val autoRenew: Boolean = true,
 )
 
+/** An uploaded file; its bytes come from `/api/v1/documents/{id}/content` when opened. */
+@Serializable
+data class Document(
+    val id: String,
+    val vehicleId: String? = null,
+    val maintenanceRecordId: String? = null,
+    val expenseId: String? = null,
+    val purpose: String = "OTHER",
+    val category: String? = null,
+    val title: String? = null,
+    val originalFilename: String,
+    val mimeType: String,
+    val sizeBytes: Long = 0,
+    val createdAt: String,
+) {
+    val isImage: Boolean get() = mimeType.startsWith("image/")
+    val displayName: String get() = title?.takeIf { it.isNotBlank() } ?: originalFilename
+}
+
+/** Notes are private to their author, even on a shared vehicle. */
+@Serializable
+data class Note(
+    val id: String,
+    val title: String,
+    val content: String = "",
+    val vehicleId: String? = null,
+    val isPinned: Boolean = false,
+    val tags: List<String> = emptyList(),
+    val updatedAt: String,
+)
+
+@Serializable
+data class WishlistItem(
+    val id: String,
+    val vehicleId: String? = null,
+    val title: String,
+    val description: String? = null,
+    val category: String = "OTHER",
+    /** IDEA, PLANNED, ORDERED or DONE. */
+    val status: String = "IDEA",
+    val priority: Int = 0,
+    val targetDate: String? = null,
+    val url: String? = null,
+    val estimatedCostCents: Long? = null,
+    val currency: String = "EUR",
+    val createdAt: String,
+)
+
 /** Parses the server's ISO timestamps; null for missing or malformed values. */
 fun String?.toInstantOrNull(): Instant? = this?.let { runCatching { Instant.parse(it) }.getOrNull() }

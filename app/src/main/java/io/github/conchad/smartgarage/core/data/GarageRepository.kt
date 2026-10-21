@@ -1,15 +1,19 @@
 package io.github.conchad.smartgarage.core.data
 
 import io.github.conchad.smartgarage.core.cache.CacheProvider
+import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.Document
 import io.github.conchad.smartgarage.core.model.Expense
 import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.Inspection
 import io.github.conchad.smartgarage.core.model.InsurancePolicy
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.MaintenanceTemplate
+import io.github.conchad.smartgarage.core.model.Note
 import io.github.conchad.smartgarage.core.model.OdometerLog
 import io.github.conchad.smartgarage.core.model.Schedule
 import io.github.conchad.smartgarage.core.model.Vehicle
+import io.github.conchad.smartgarage.core.model.WishlistItem
 import io.github.conchad.smartgarage.core.network.ApiJson
 import io.github.conchad.smartgarage.core.sync.SyncEngine
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +37,7 @@ import javax.inject.Singleton
 @Singleton
 class GarageRepository @Inject constructor(
     private val cache: CacheProvider,
-    profiles: ProfileStore,
+    private val profiles: ProfileStore,
 ) {
     /** The signed-in active profile; switches (and re-queries) when the user changes servers. */
     val activeProfileId: Flow<String> = profiles.state
@@ -50,6 +54,12 @@ class GarageRepository @Inject constructor(
     val expenses: Flow<List<Expense>> = observe("expenses", Expense.serializer())
     val inspections: Flow<List<Inspection>> = observe("inspections", Inspection.serializer())
     val insurancePolicies: Flow<List<InsurancePolicy>> = observe("insurancePolicies", InsurancePolicy.serializer())
+    val documents: Flow<List<Document>> = observe("documents", Document.serializer())
+    val notes: Flow<List<Note>> = observe("notes", Note.serializer())
+    val wishlist: Flow<List<WishlistItem>> = observe("wishlistItems", WishlistItem.serializer())
+
+    /** Formats values with the active server's unit, currency and time zone preferences. */
+    val formatter: Flow<Formatter> = profiles.state.map { it.active?.preferences }.distinctUntilChanged().map { Formatter(it) }
 
     /** When the cache last synced successfully; null before the first sync. */
     val lastSyncedAt: Flow<Instant?> = activeProfileId.flatMapLatest { id ->

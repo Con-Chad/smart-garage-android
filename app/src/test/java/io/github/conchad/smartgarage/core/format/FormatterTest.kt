@@ -49,4 +49,11 @@ class FormatterTest {
         assertThat(us.daysFromToday(instant, LocalDate.parse("2026-10-21"))).isEqualTo(0)
         assertThat(metric.daysFromToday(instant, LocalDate.parse("2026-10-21"))).isEqualTo(1)
     }
+
+    @Test
+    fun `short dates add the year only outside the current year`() {
+        val today = LocalDate.parse("2026-10-21")
+        assertThat(us.shortDate(Instant.parse("2026-03-05T18:00:00Z"), today)).isEqualTo("Mar 5")
+        assertThat(us.shortDate(Instant.parse("2027-01-19T18:00:00Z"), today)).isEqualTo("Jan 19, 2027")
+    }
 }

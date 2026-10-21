@@ -76,8 +76,15 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
     fun date(instant: Instant): String =
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).withZone(zone).format(instant)
 
-    fun shortDate(instant: Instant): String =
-        DateTimeFormatter.ofPattern(if (locale.language == "de") "d. MMM" else "MMM d", locale).withZone(zone).format(instant)
+    /** "Oct 19" this year, "Dec 25, 2025" for other years. */
+    fun shortDate(instant: Instant, today: LocalDate = LocalDate.now(zone)): String {
+        val sameYear = instant.atZone(zone).year == today.year
+        val pattern = when {
+            locale.language == "de" -> if (sameYear) "d. MMM" else "d. MMM yyyy"
+            else -> if (sameYear) "MMM d" else "MMM d, yyyy"
+        }
+        return DateTimeFormatter.ofPattern(pattern, locale).withZone(zone).format(instant)
+    }
 
     /** Whole days from today (in the server's time zone) to [instant]; negative when it's in the past. */
     fun daysFromToday(instant: Instant, today: LocalDate = LocalDate.now(zone)): Long =

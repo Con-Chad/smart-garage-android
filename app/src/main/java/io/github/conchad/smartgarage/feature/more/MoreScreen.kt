@@ -71,15 +71,3 @@ fun NavRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> U
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
-
-@Composable
-fun SectionPlaceholderScreen(section: Section, onBack: () -> Unit) {
-    AppScaffold(title = stringResource(section.label), onBack = onBack) { padding ->
-        EmptyState(
-            icon = section.icon,
-            title = stringResource(R.string.coming_soon_title),
-            body = stringResource(section.description),
-            modifier = Modifier.padding(padding),
-        )
-    }
-}
