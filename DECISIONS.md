@@ -117,3 +117,11 @@ App decisions use the `D-A` prefix.
   - The More sections (reminders, history, odometer, expenses, documents,
     notes, wishlist) are read-only for now. Editing arrives with the offline
     write queue, after the conflict rule is agreed (before CP11).
+- **D-A15: Offline edits use last write wins (user sign-off 2026-10-21).**
+  - Edits made offline queue locally and replay in order when the server is
+    reachable. Each request carries an Idempotency-Key (D-033), so a retry
+    after a dropped connection can't apply twice.
+  - Whichever write reaches the server last wins; an earlier change to the
+    same record is overwritten without a warning. Fine for one person; two
+    people editing the same record at once can lose an edit.
+  - Revisit (e.g. compare `updatedAt` and ask) if that ever bites.
