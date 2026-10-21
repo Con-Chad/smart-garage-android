@@ -36,7 +36,7 @@ sealed interface SetupMode {
 enum class SetupStep { Welcome, Server, SignIn }
 
 data class ServerForm(
-    val url: String = DEFAULT_SERVER_URL,
+    val url: String = "",
     val name: String = "",
     val useCfAccess: Boolean = false,
     val cfClientId: String = "",
@@ -109,7 +109,7 @@ class SetupViewModel @Inject constructor(
         when (mode) {
             SetupMode.FirstRun -> _state.update { it.copy(mode = mode, step = SetupStep.Welcome) }
             SetupMode.AddProfile -> _state.update {
-                it.copy(mode = mode, step = SetupStep.Server, form = ServerForm(url = ""))
+                it.copy(mode = mode, step = SetupStep.Server, form = ServerForm())
             }
             is SetupMode.Reauth -> {
                 _state.update { it.copy(mode = mode, loading = true, step = SetupStep.SignIn, profileId = mode.profileId) }
@@ -253,8 +253,6 @@ class SetupViewModel @Inject constructor(
         )
     }
 }
-
-const val DEFAULT_SERVER_URL = "https://garage.chadwickserver.com"
 
 private fun defaultDeviceName(): String {
     val manufacturer = Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }

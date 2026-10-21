@@ -12,7 +12,7 @@ class ServerUrlTest {
 
     @Test
     fun `adds https when no scheme is given`() {
-        assertThat(valid("garage.chadwickserver.com").url).isEqualTo("https://garage.chadwickserver.com")
+        assertThat(valid("garage.example.com").url).isEqualTo("https://garage.example.com")
     }
 
     @Test
@@ -40,7 +40,7 @@ class ServerUrlTest {
             "http://[fd00::1]:3000",
         ).forEach { assertThat(ServerUrl.parse(it)).isInstanceOf(Result.Valid::class.java) }
 
-        assertThat(reason("http://garage.chadwickserver.com")).isEqualTo(Reason.CleartextPublicHost)
+        assertThat(reason("http://garage.example.com")).isEqualTo(Reason.CleartextPublicHost)
         assertThat(reason("http://172.32.0.1")).isEqualTo(Reason.CleartextPublicHost)
         assertThat(reason("http://8.8.8.8")).isEqualTo(Reason.CleartextPublicHost)
     }

@@ -33,12 +33,16 @@ App decisions use the `D-A` prefix.
 - **D-A10: Appearance is per device; units are per server.**
   - Wallpaper (Material You) colors are on by default. Turning them off
     gives a palette built on the web app's accent, `#2563EB`.
-  - Theme: System, Light or Dark.
+  - Theme: Dark by default (the user's choice, 2026-10-21); System and Light
+    stay available in Settings.
   - Distance, volume, currency and time zone come from the server's
     preferences (`/me`). The app shows them but doesn't edit them, so the
     web and the app never disagree.
 
 ## Auth and server profiles (CP8)
+
+- **D-A11: The server address starts blank.** The app isn't tied to one
+  person's server, so anyone can point it at their own instance.
 
 - **D-A02: Independent server profiles.**
   - Each profile has a URL, an optional Cloudflare Access service token,
