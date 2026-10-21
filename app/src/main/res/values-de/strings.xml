@@ -7,6 +7,8 @@
     <string name="action_change">Ändern</string>
     <string name="action_continue">Weiter</string>
     <string name="action_show">Anzeigen</string>
+    <string name="action_retry">Erneut versuchen</string>
+    <string name="action_see_all">Alle</string>
     <string name="action_hide">Verbergen</string>
     <string name="action_more_options">Weitere Optionen</string>
 
@@ -16,7 +18,6 @@
     <string name="tab_fuel">Tanken</string>
     <string name="tab_more">Mehr</string>
 
-    <string name="nav_dashboard">Dashboard</string>
     <string name="nav_vehicles">Fahrzeuge</string>
     <string name="nav_maintenance">Wartung</string>
     <string name="nav_fuel">Kraftstoff</string>
@@ -49,8 +50,48 @@
     <string name="dashboard_greeting_morning">Guten Morgen, %1$s</string>
     <string name="dashboard_greeting_afternoon">Guten Tag, %1$s</string>
     <string name="dashboard_greeting_evening">Guten Abend, %1$s</string>
-    <string name="dashboard_empty_title">Hier erscheint deine Garage</string>
-    <string name="dashboard_empty_body">Fahrzeuge, fällige Wartungen, HU/AU und letzte Tankstopps erscheinen hier, sobald die App mit deinem Server synchronisiert.</string>
+    <string name="dashboard_vehicles">Deine Fahrzeuge</string>
+    <string name="dashboard_attention">Braucht Aufmerksamkeit</string>
+    <string name="dashboard_all_caught_up">Alles erledigt</string>
+    <string name="dashboard_all_caught_up_body">Nichts ist überfällig oder bald fällig.</string>
+    <string name="dashboard_coming_up">Demnächst</string>
+    <string name="dashboard_inspection">Prüfung (%1$s)</string>
+    <string name="dashboard_insurance">Versicherung</string>
+    <string name="dashboard_insurance_until">bis %1$s</string>
+    <string name="dashboard_recent_fuel">Letzte Tankstopps</string>
+    <string name="dashboard_first_sync">Deine Garage wird synchronisiert…</string>
+    <string name="dashboard_no_vehicles_title">Noch keine Fahrzeuge</string>
+    <string name="dashboard_no_vehicles_body">Lege in Smart Garage im Browser ein Fahrzeug an; nach der nächsten Synchronisierung erscheint es hier.</string>
+    <string name="dashboard_cant_reach_title">Server nicht erreichbar</string>
+    <string name="dashboard_cant_reach_body">Auf diesem Telefon ist noch nichts gespeichert. Prüfe die Verbindung und versuche es erneut.</string>
+
+    <string name="sync_running">synchronisiert…</string>
+    <string name="sync_updated">aktualisiert %1$s</string>
+    <string name="sync_offline">offline, aktualisiert %1$s</string>
+    <string name="sync_failed">Sync fehlgeschlagen, aktualisiert %1$s</string>
+
+    <string name="status_all_good">Alles in Ordnung</string>
+    <plurals name="status_overdue_count">
+        <item quantity="one">%1$d überfällig</item>
+        <item quantity="other">%1$d überfällig</item>
+    </plurals>
+    <plurals name="status_due_soon_count">
+        <item quantity="one">%1$d bald fällig</item>
+        <item quantity="other">%1$d bald fällig</item>
+    </plurals>
+
+    <string name="due_overdue_by">%1$s überfällig</string>
+    <string name="due_in">in %1$s</string>
+    <string name="due_no_interval">Kein Intervall festgelegt</string>
+    <string name="due_today">heute</string>
+    <plurals name="due_in_days">
+        <item quantity="one">in %1$d Tag</item>
+        <item quantity="other">in %1$d Tagen</item>
+    </plurals>
+    <plurals name="due_days_ago">
+        <item quantity="one">vor %1$d Tag</item>
+        <item quantity="other">vor %1$d Tagen</item>
+    </plurals>
 
     <string name="welcome_title">Willkommen bei Smart Garage</string>
     <string name="welcome_body">Die Begleit-App für deinen selbst gehosteten Smart-Garage-Server.</string>

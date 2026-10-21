@@ -18,10 +18,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -44,9 +48,25 @@ import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.EmptyState
+import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
+import io.github.conchad.smartgarage.ui.components.PhotoLoader
 
 @Composable
-fun MainShell(profile: ServerProfile, account: Account) {
+fun MainShell(profile: ServerProfile, account: Account, shell: ShellViewModel = hiltViewModel()) {
+    // Pull changes every time the app comes to the foreground (D-A13); the hourly worker covers the background.
+    LifecycleStartEffect(profile.id) {
+        shell.syncNow(profile.id)
+        onStopOrDispose {}
+    }
+    val photoLoader = remember(profile.id) { PhotoLoader(profile.id, shell.photos) }
+
+    CompositionLocalProvider(LocalPhotoLoader provides photoLoader) {
+        Shell(profile, account)
+    }
+}
+
+@Composable
+private fun Shell(profile: ServerProfile, account: Account) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -85,6 +105,10 @@ fun MainShell(profile: ServerProfile, account: Account) {
                     profile = profile,
                     account = account,
                     onOpenSettings = { navController.navigate(SettingsRoute) },
+                    // Vehicle detail arrives with the Vehicles screens; until then the tab is the closest place.
+                    onOpenVehicle = { navController.navigateTopLevel(TopLevel.Vehicles) },
+                    onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
+                    onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
                 )
             }
             composable<VehiclesRoute> {

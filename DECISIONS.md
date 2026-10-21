@@ -88,3 +88,22 @@ App decisions use the `D-A` prefix.
     the password. Being offline changes nothing.
   - Sign-out and removal revoke the device server-side (5 s timeout); the
     local session is cleared either way.
+- **D-A12: The cache is one Room database per profile, rows kept as JSON.**
+  - Each row is (resource, id, vehicleId, updatedAt, json), decoded into
+    typed models when read. A new server field can't break the schema, and
+    a resource the app doesn't show yet is still cached for later.
+  - All pages of a sync session are collected first, then applied in one
+    transaction. A connection that drops halfway leaves the old cache
+    intact. A row deleted later in the same session is never written.
+  - Sign-out, a revoked token and removing a profile wipe its cache and
+    downloaded photos. Tables are emptied rather than the file deleted,
+    because screens may still be observing it. Files of profiles that no
+    longer exist are deleted at startup.
+  - A schema change drops the cache; the next sync refills it.
+- **D-A13: When the app syncs.**
+  - Every time the app comes to the foreground, and on pull-to-refresh.
+    Incremental sync (D-028) makes this cheap when nothing changed.
+  - Hourly in the background through WorkManager, only with a network.
+    It retries only when the tunnel or proxy answers but the origin is
+    down; other failures wait for the next run.
+  - Push-triggered sync waits for CP6 (UnifiedPush).

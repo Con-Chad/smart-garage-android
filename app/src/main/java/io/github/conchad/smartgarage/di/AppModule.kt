@@ -11,6 +11,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.github.conchad.smartgarage.BuildConfig
+import io.github.conchad.smartgarage.core.cache.CacheProvider
+import io.github.conchad.smartgarage.core.data.ProfileDataCleaner
 import io.github.conchad.smartgarage.core.network.HttpClientFactory
 import io.github.conchad.smartgarage.core.security.KeystoreSecretCipher
 import io.github.conchad.smartgarage.core.security.SecretCipher
@@ -26,6 +28,9 @@ object AppModule {
     @Provides
     @Singleton
     fun dataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.appDataStore
+
+    @Provides
+    fun profileDataCleaner(cache: CacheProvider): ProfileDataCleaner = cache
 
     @Provides
     @Singleton

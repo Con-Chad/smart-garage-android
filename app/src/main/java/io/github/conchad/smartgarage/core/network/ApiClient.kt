@@ -5,6 +5,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
@@ -106,6 +107,23 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
             method = HttpMethod.Post
             url(connection.url("/api/v1/auth/logout"))
         }
+
+    /** One `/sync` page: `since` starts a session, `cursor` continues it. */
+    suspend fun sync(connection: ServerConnection, since: String?, cursor: String?): ApiResult<SyncPageDto> =
+        send(connection) {
+            url(connection.url("/api/v1/sync"))
+            if (cursor != null) parameter("cursor", cursor) else if (since != null) parameter("since", since)
+        }
+
+    /** Raw bytes of a document or vehicle photo; null when it isn't available (offline, gone, no access). */
+    suspend fun documentContent(connection: ServerConnection, documentId: String): ByteArray? = try {
+        val response = http.get(connection.url("/api/v1/documents/$documentId/content")) { applyHeaders(connection) }
+        if (response.status.isSuccess() && !response.isJson()) response.body<ByteArray>() else null
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
 
     suspend inline fun <reified T> send(
         connection: ServerConnection,

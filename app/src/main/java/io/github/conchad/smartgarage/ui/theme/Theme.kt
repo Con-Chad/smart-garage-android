@@ -8,6 +8,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -45,7 +46,9 @@ fun SmartGarageTheme(
             }
         }
     }
-    MaterialTheme(colorScheme = colors, typography = AppTypography, content = content)
+    CompositionLocalProvider(LocalStatusColors provides if (dark) DarkStatusColors else LightStatusColors) {
+        MaterialTheme(colorScheme = colors, typography = AppTypography, content = content)
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

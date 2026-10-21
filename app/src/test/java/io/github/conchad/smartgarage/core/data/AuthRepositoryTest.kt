@@ -43,6 +43,8 @@ class AuthRepositoryTest {
 
     private var meStatus = HttpStatusCode.OK
     private val calls = mutableListOf<String>()
+    /** Profiles whose cached data was wiped (D-A12). */
+    private val cleared = mutableListOf<String>()
 
     private fun TestScope.setup(loginStatus: HttpStatusCode = HttpStatusCode.Created): Pair<AuthRepository, ProfileStore> {
         val dataStore = PreferenceDataStoreFactory.create(
@@ -67,7 +69,7 @@ class AuthRepositoryTest {
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
-        return AuthRepository(ApiClient(HttpClientFactory.create("test", engine)), store) to store
+        return AuthRepository(ApiClient(HttpClientFactory.create("test", engine)), store) { cleared += it } to store
     }
 
     /**
@@ -122,6 +124,7 @@ class AuthRepositoryTest {
         assertThat(state.active?.lastUsername).isEqualTo("connor")
         assertThat(store.connection(id)?.token).isNull()
         assertThat(store.cfAccess(id)).isNotNull()
+        assertThat(cleared).containsExactly(id)
     }
 
     @Test
@@ -133,6 +136,7 @@ class AuthRepositoryTest {
 
         assertThat(calls).contains("POST /api/v1/auth/logout")
         assertThat(store.current().isSignedIn(id)).isFalse()
+        assertThat(cleared).containsExactly(id)
     }
 
     @Test
@@ -149,5 +153,6 @@ class AuthRepositoryTest {
         assertThat(state.profiles.map { it.id }).containsExactly(first)
         assertThat(state.activeId).isEqualTo(first)
         assertThat(store.connection(second)).isNull()
+        assertThat(cleared).contains(second)
     }
 }

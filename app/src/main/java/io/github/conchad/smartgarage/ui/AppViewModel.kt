@@ -3,6 +3,7 @@ package io.github.conchad.smartgarage.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.conchad.smartgarage.core.cache.CacheProvider
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.AppearanceSettings
@@ -38,6 +39,7 @@ class AppViewModel @Inject constructor(
     profileStore: ProfileStore,
     private val auth: AuthRepository,
     settings: AppSettings,
+    cache: CacheProvider,
 ) : ViewModel() {
 
     val state: StateFlow<RootUiState> = combine(profileStore.state, settings.appearance) { profiles, appearance ->
@@ -51,6 +53,7 @@ class AppViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, RootUiState())
 
     init {
+        viewModelScope.launch { cache.deleteOrphans(profileStore.current().profiles.mapTo(mutableSetOf()) { it.id }) }
         // Check the session once per active profile: picks up revoked tokens and changed display preferences.
         viewModelScope.launch {
             state.map { (it.root as? RootState.Ready)?.profile?.id }

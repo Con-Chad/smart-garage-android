@@ -8,6 +8,8 @@
     <string name="action_change">Change</string>
     <string name="action_continue">Continue</string>
     <string name="action_show">Show</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_see_all">See all</string>
     <string name="action_hide">Hide</string>
     <string name="action_more_options">More options</string>
 
@@ -19,7 +21,6 @@
     <string name="tab_fuel">Fuel</string>
     <string name="tab_more">More</string>
 
-    <string name="nav_dashboard">Dashboard</string>
     <string name="nav_vehicles">Vehicles</string>
     <string name="nav_maintenance">Maintenance</string>
     <string name="nav_fuel">Fuel</string>
@@ -53,8 +54,48 @@
     <string name="dashboard_greeting_morning">Good morning, %1$s</string>
     <string name="dashboard_greeting_afternoon">Good afternoon, %1$s</string>
     <string name="dashboard_greeting_evening">Good evening, %1$s</string>
-    <string name="dashboard_empty_title">Your garage will show up here</string>
-    <string name="dashboard_empty_body">Vehicles, services coming due, inspections and recent fill-ups appear here once the app syncs with your server.</string>
+    <string name="dashboard_vehicles">Your vehicles</string>
+    <string name="dashboard_attention">Needs attention</string>
+    <string name="dashboard_all_caught_up">All caught up</string>
+    <string name="dashboard_all_caught_up_body">Nothing is overdue or due soon.</string>
+    <string name="dashboard_coming_up">Coming up</string>
+    <string name="dashboard_inspection">Inspection (%1$s)</string>
+    <string name="dashboard_insurance">Insurance</string>
+    <string name="dashboard_insurance_until">until %1$s</string>
+    <string name="dashboard_recent_fuel">Recent fill-ups</string>
+    <string name="dashboard_first_sync">Syncing your garage…</string>
+    <string name="dashboard_no_vehicles_title">No vehicles yet</string>
+    <string name="dashboard_no_vehicles_body">Add a vehicle in Smart Garage on the web and it shows up here after the next sync.</string>
+    <string name="dashboard_cant_reach_title">Can\'t reach your server</string>
+    <string name="dashboard_cant_reach_body">Nothing is saved on this phone yet. Check your connection and try again.</string>
+
+    <string name="sync_running">syncing…</string>
+    <string name="sync_updated">updated %1$s</string>
+    <string name="sync_offline">offline, updated %1$s</string>
+    <string name="sync_failed">sync failed, updated %1$s</string>
+
+    <string name="status_all_good">All good</string>
+    <plurals name="status_overdue_count">
+        <item quantity="one">%1$d overdue</item>
+        <item quantity="other">%1$d overdue</item>
+    </plurals>
+    <plurals name="status_due_soon_count">
+        <item quantity="one">%1$d due soon</item>
+        <item quantity="other">%1$d due soon</item>
+    </plurals>
+
+    <string name="due_overdue_by">%1$s overdue</string>
+    <string name="due_in">in %1$s</string>
+    <string name="due_no_interval">No interval set</string>
+    <string name="due_today">today</string>
+    <plurals name="due_in_days">
+        <item quantity="one">in %1$d day</item>
+        <item quantity="other">in %1$d days</item>
+    </plurals>
+    <plurals name="due_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
 
     <!-- Welcome -->
     <string name="welcome_title">Welcome to Smart Garage</string>

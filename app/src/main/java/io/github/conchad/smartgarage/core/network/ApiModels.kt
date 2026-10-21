@@ -2,6 +2,8 @@ package io.github.conchad.smartgarage.core.network
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 /** The only `/api/v1` major version this app understands (the server's `API_VERSION`). */
 const val SUPPORTED_API_VERSION = 1
@@ -69,3 +71,18 @@ data class PreferencesDto(
 
 @Serializable
 data class ServerInfoDto(val version: String? = null, val apiVersion: Int? = null)
+
+/** A `/sync` page (server `lib/api/v1/sync.ts`). `changes` stay raw JSON; the cache stores them as-is. */
+@Serializable
+data class SyncPageDto(
+    val serverTime: String,
+    val fullResync: Boolean = false,
+    val hasMore: Boolean = false,
+    val cursor: String? = null,
+    val nextSince: String? = null,
+    val changes: Map<String, List<JsonObject>> = emptyMap(),
+    val deletions: Map<String, List<String>> = emptyMap(),
+    /** First page only. */
+    val preferences: PreferencesDto? = null,
+    val noteTags: JsonElement? = null,
+)

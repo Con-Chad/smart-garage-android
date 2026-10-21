@@ -19,10 +19,16 @@ sealed interface SignInResult {
     data class Problem(val problem: ServerProblem) : SignInResult
 }
 
+/** Deletes data cached for a profile; the Room cache in the app, a fake in tests. */
+fun interface ProfileDataCleaner {
+    suspend fun clear(profileId: String)
+}
+
 @Singleton
 class AuthRepository @Inject constructor(
     private val api: ApiClient,
     private val profiles: ProfileStore,
+    private val cleaner: ProfileDataCleaner,
 ) {
     suspend fun testConnection(draft: ServerDraft): HealthResult =
         api.health(ServerConnection(baseUrl = draft.baseUrl, cfAccess = draft.cfAccess))
@@ -77,25 +83,38 @@ class AuthRepository @Inject constructor(
         val connection = profiles.connection(profileId) ?: return
         if (connection.token == null) {
             // Account recorded but the token can't be decrypted (Keystore key lost): same as signed out.
-            profiles.clearSession(profileId)
+            sessionRejected(profileId)
             return
         }
         when (val result = api.me(connection)) {
             is ApiResult.Ok -> applyMe(profileId, result.value)
-            is ApiResult.HttpError -> if (result.status == 401) profiles.clearSession(profileId)
+            is ApiResult.HttpError -> if (result.status == 401) sessionRejected(profileId)
             is ApiResult.Failed -> Unit
         }
     }
 
-    /** Revokes this device's token on the server when reachable; the local session is cleared either way. */
+    /**
+     * Revokes this device's token on the server when reachable; the local session and cached data are cleared
+     * either way.
+     */
     suspend fun signOut(profileId: String) {
         revokeQuietly(profileId)
-        profiles.clearSession(profileId)
+        sessionRejected(profileId)
     }
 
     suspend fun removeProfile(profileId: String) {
         revokeQuietly(profileId)
         profiles.remove(profileId)
+        cleaner.clear(profileId)
+    }
+
+    /**
+     * The server no longer accepts this device (revoked on the web, or signed out). Cached garage data goes too:
+     * a revoked phone may be a lost phone (D-A12).
+     */
+    suspend fun sessionRejected(profileId: String) {
+        profiles.clearSession(profileId)
+        cleaner.clear(profileId)
     }
 
     private suspend fun revokeQuietly(profileId: String) {
