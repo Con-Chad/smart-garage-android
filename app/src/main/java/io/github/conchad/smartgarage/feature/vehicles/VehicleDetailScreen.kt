@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,10 +56,13 @@ import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
 import io.github.conchad.smartgarage.ui.components.IconBadge
+import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RecordSheet
+import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
@@ -70,24 +76,27 @@ import io.github.conchad.smartgarage.ui.components.inspectionLabel
 @Composable
 fun VehicleDetailScreen(onBack: () -> Unit, viewModel: VehicleDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val detail = state.detail
     val listState = rememberLazyListState()
     // The heading below the photo names the vehicle; the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 2 } }
     AppScaffold(title = if (headingGone) detail?.vehicle?.displayName.orEmpty() else "", onBack = onBack) { padding ->
-        when {
-            detail != null -> VehicleDetailContent(
-                detail,
-                state,
-                listState,
-                PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp),
-            )
-            state.loaded -> EmptyState(
-                icon = Icons.Outlined.DirectionsCar,
-                title = stringResource(R.string.vehicle_gone_title),
-                body = stringResource(R.string.vehicle_gone_body),
-                modifier = Modifier.padding(padding),
-            )
+        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            SyncBanner(sync, onRetry = viewModel::refresh)
+            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    if (detail != null) {
+                        VehicleDetailContent(detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp))
+                    } else {
+                        EmptyState(
+                            icon = Icons.Outlined.DirectionsCar,
+                            title = stringResource(R.string.vehicle_gone_title),
+                            body = stringResource(R.string.vehicle_gone_body),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -105,7 +114,7 @@ private fun VehicleDetailContent(
     var allFuel by rememberSaveable { mutableStateOf(false) }
     var allRecords by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(state = listState, contentPadding = contentPadding) {
+    LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         item {
             VehiclePhoto(
                 vehicle,
@@ -247,7 +256,8 @@ private fun Stats(detail: VehicleDetail, fmt: Formatter) {
 
 /**
  * Up to three figures side by side, value above label. Values stay on one line and shrink to fit rather than wrap;
- * labels may take two lines.
+ * labels may take two lines and hyphenate, so "Durchschnittsverbrauch" breaks at a syllable rather than anywhere.
+ * Each figure is one TalkBack item ("123,456 km, Odometer").
  */
 @Composable
 fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, title: String? = null) {
@@ -256,10 +266,11 @@ fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, 
         title?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
+            val labelStyle = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto)
             stats.forEach { (label, value) ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     BasicText(value, style = style, maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = style.fontSize))
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                    Text(label, style = labelStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -269,7 +280,7 @@ fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, 
 
 @Composable
 private fun PaperRow(icon: ImageVector, title: String, subtitle: String) {
-    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(icon)
         Column(Modifier.padding(start = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)

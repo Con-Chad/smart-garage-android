@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.feature.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,22 +22,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -48,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,7 +54,7 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Dashboard
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
-import io.github.conchad.smartgarage.core.network.ServerProblem
+import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.FuelRow
@@ -66,15 +62,19 @@ import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
 import io.github.conchad.smartgarage.ui.components.IconBadge
+import io.github.conchad.smartgarage.ui.components.LoadedContent
+import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
 import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
+import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import java.time.LocalTime
 
@@ -92,51 +92,46 @@ fun DashboardScreen(
     val greeting = stringResource(greetingFor(remember { LocalTime.now() }), account.greetingName)
     val settingsLabel = stringResource(R.string.nav_settings)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(greeting, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            syncLine(profile.name, state.sync),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onOpenSettings, modifier = Modifier.semantics { contentDescription = settingsLabel }) {
-                        Avatar(account.greetingName)
-                    }
-                },
-            )
+    AppScaffold(
+        title = {
+            Column {
+                Text(greeting, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    syncLine(profile.name, state.sync),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onOpenSettings, modifier = Modifier.semantics { contentDescription = settingsLabel }) {
+                Avatar(account.greetingName)
+            }
         },
     ) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.sync.status.running && !state.firstLoad,
-            onRefresh = viewModel::refresh,
-            modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-            val dashboard = state.dashboard
-            when {
-                state.firstLoad -> FirstSync()
-                dashboard == null -> Unit
-                dashboard.vehicles.isEmpty() && state.sync.lastSyncedAt == null -> CantReach(onRetry = viewModel::refresh)
-                dashboard.vehicles.isEmpty() -> EmptyState(
-                    icon = Icons.Outlined.Garage,
-                    title = stringResource(R.string.dashboard_no_vehicles_title),
-                    body = stringResource(R.string.dashboard_no_vehicles_body),
-                )
-                else -> DashboardContent(
-                    dashboard = dashboard,
-                    fmt = state.formatter,
-                    onOpenVehicle = onOpenVehicle,
-                    onOpenMaintenance = onOpenMaintenance,
-                    onOpenFuel = onOpenFuel,
-                )
+        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            SyncBanner(state.sync, onRetry = viewModel::refresh)
+            RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
+                    val dashboard = state.dashboard ?: return@LoadedContent
+                    if (dashboard.vehicles.isEmpty()) {
+                        EmptyState(
+                            icon = Icons.Outlined.Garage,
+                            title = stringResource(R.string.dashboard_no_vehicles_title),
+                            body = stringResource(R.string.dashboard_no_vehicles_body),
+                        )
+                    } else {
+                        DashboardContent(
+                            dashboard = dashboard,
+                            fmt = state.formatter,
+                            onOpenVehicle = onOpenVehicle,
+                            onOpenMaintenance = onOpenMaintenance,
+                            onOpenFuel = onOpenFuel,
+                        )
+                    }
+                }
             }
         }
     }
@@ -154,9 +149,13 @@ private fun DashboardContent(
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
         item { GroupHeader(stringResource(R.string.dashboard_vehicles)) }
         item {
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(dashboard.vehicles, key = { it.vehicle.id }) { summary ->
-                    VehicleCard(summary, fmt, onClick = { onOpenVehicle(summary.vehicle.id) })
+            // One vehicle fills the width; more peek the next card so the row reads as scrollable.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val cardWidth: Dp = if (dashboard.vehicles.size == 1) maxWidth - 32.dp else (maxWidth * 0.68f).coerceIn(240.dp, 320.dp)
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(dashboard.vehicles, key = { it.vehicle.id }) { summary ->
+                        VehicleCard(summary, fmt, width = cardWidth, onClick = { onOpenVehicle(summary.vehicle.id) })
+                    }
                 }
             }
         }
@@ -233,13 +232,13 @@ private fun DashboardContent(
 }
 
 @Composable
-private fun VehicleCard(summary: VehicleSummary, fmt: Formatter, onClick: () -> Unit) {
+private fun VehicleCard(summary: VehicleSummary, fmt: Formatter, width: Dp, onClick: () -> Unit) {
     val vehicle = summary.vehicle
     Card(
         onClick = onClick,
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        modifier = Modifier.width(272.dp),
+        modifier = Modifier.width(width),
     ) {
         VehiclePhoto(vehicle, Modifier.fillMaxWidth().aspectRatio(16f / 9f), iconSize = 56.dp)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -264,7 +263,7 @@ private fun AllCaughtUp() {
         color = colors.okContainer,
         contentColor = colors.onOkContainer,
         shape = MaterialTheme.shapes.extraLarge,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).semantics(mergeDescendants = true) {},
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.CheckCircle, contentDescription = null)
@@ -276,6 +275,7 @@ private fun AllCaughtUp() {
     }
 }
 
+/** Icon, label, headline value and detail lines. Two lines each at most, so large fonts wrap rather than cut. */
 @Composable
 private fun InfoTile(
     icon: ImageVector,
@@ -295,13 +295,13 @@ private fun InfoTile(
             IconBadge(icon, size = 36)
             Spacer(Modifier.height(4.dp))
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             detail.forEach {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -309,38 +309,12 @@ private fun InfoTile(
     }
 }
 
-@Composable
-private fun FirstSync() {
-    Column(
-        Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(16.dp))
-        Text(stringResource(R.string.dashboard_first_sync), style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun CantReach(onRetry: () -> Unit) {
-    EmptyState(
-        icon = Icons.Outlined.CloudOff,
-        title = stringResource(R.string.dashboard_cant_reach_title),
-        body = stringResource(R.string.dashboard_cant_reach_body),
-        action = { Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } },
-    )
-}
-
-/** "Garage · updated 5 min ago", "Garage · syncing…" or "Garage · offline, updated 2 h ago". */
+/** "Garage · updated 5 min ago" or "Garage · syncing…"; a failed sync is the banner's job, so it isn't repeated here. */
 @Composable
 private fun syncLine(profileName: String, sync: SyncInfo): String {
-    val last = sync.lastSyncedAt?.let { relativeTime(it) }
     val status = when {
         sync.status.running -> stringResource(R.string.sync_running)
-        sync.status.lastProblem is ServerProblem.Unreachable && last != null -> stringResource(R.string.sync_offline, last)
-        sync.status.lastProblem != null && last != null -> stringResource(R.string.sync_failed, last)
-        last != null -> stringResource(R.string.sync_updated, last)
+        sync.lastSyncedAt != null -> stringResource(R.string.sync_updated, relativeTime(sync.lastSyncedAt))
         else -> null
     }
     return listOfNotNull(profileName, status).joinToString(" · ")

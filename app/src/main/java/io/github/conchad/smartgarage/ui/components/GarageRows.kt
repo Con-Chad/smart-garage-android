@@ -27,7 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -60,7 +62,11 @@ fun GroupHeader(text: String, modifier: Modifier = Modifier, action: String? = n
     }
 }
 
-/** Rounded surface holding a list of rows separated by [RowDivider]. */
+/**
+ * The one card for a group of rows, on every screen: data rows separated by [RowDivider] under a [GroupHeader], and
+ * settings-style `ListItem`s under a [SectionLabel]. One tone (`surfaceContainer`) so cards read the same on the
+ * Dashboard, the lists and Settings; on the dark theme the lower tones all but vanish against the background.
+ */
 @Composable
 fun GroupCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(
@@ -77,20 +83,23 @@ fun RowDivider() {
 
 /**
  * Label on the left, value on the right; for detail sheets and spec lists. A long value (notes, a long product name)
- * goes under its label instead, so neither side gets squeezed into breaking words.
+ * goes under its label instead, so neither side gets squeezed into breaking words. The threshold shrinks with the
+ * font scale, since the row doesn't get any wider when the text does. TalkBack reads label and value as one item.
  */
 @Composable
 fun DetailRow(label: String, value: String?, modifier: Modifier = Modifier) {
     if (value.isNullOrBlank()) return
     val labelStyle = MaterialTheme.typography.bodyMedium
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    if (value.length > STACK_AFTER || '\n' in value) {
-        Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val stackAfter = (STACK_AFTER / LocalDensity.current.fontScale).toInt()
+    val rowModifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}
+    if (value.length > stackAfter || '\n' in value) {
+        Column(rowModifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, style = labelStyle, color = labelColor)
             Text(value, style = MaterialTheme.typography.bodyLarge)
         }
     } else {
-        Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+        Row(rowModifier, verticalAlignment = Alignment.Top) {
             Text(label, style = labelStyle, color = labelColor, modifier = Modifier.weight(1f).padding(end = 16.dp))
             Text(value, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End)
         }
@@ -149,7 +158,7 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
             Text(
                 vehicle?.displayName ?: entry.stationName ?: "—",
                 style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -165,9 +174,14 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
             )
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(fmt.money(entry.totalCostCents, entry.currency), style = MaterialTheme.typography.titleSmall)
+            Text(fmt.money(entry.totalCostCents, entry.currency), style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.End)
             entry.liters?.let {
-                Text(fmt.volume(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    fmt.volume(it),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                )
             }
         }
     }

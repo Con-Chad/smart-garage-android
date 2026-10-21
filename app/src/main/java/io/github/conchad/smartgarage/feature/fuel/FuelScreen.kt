@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,8 +33,11 @@ import io.github.conchad.smartgarage.ui.components.FuelRow
 import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.components.LoadedContent
+import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.format.DateTimeFormatter
@@ -42,6 +46,7 @@ import java.util.Locale
 @Composable
 fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     var open by rememberSheetTarget()
     val fmt = state.formatter
     val monthFormat = remember { DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()) }
@@ -49,34 +54,39 @@ fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
 
     AppScaffold(title = stringResource(R.string.nav_fuel)) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            SyncBanner(sync, onRetry = viewModel::refresh)
             VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
-            if (state.loaded && state.months.isEmpty()) {
-                EmptyState(
-                    icon = Icons.Outlined.LocalGasStation,
-                    title = stringResource(R.string.fuel_empty_title),
-                    body = stringResource(R.string.fuel_empty_body),
-                )
-            } else {
-                LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                    state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt) } }
-                    state.months.forEach { month ->
-                        item(key = month.month.toString()) {
-                            GroupHeader(
-                                "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
-                                    fmt.money(month.totalCents, month.entries.first().currency),
-                            )
-                        }
-                        item(key = "${month.month}-list") {
-                            GroupCard {
-                                month.entries.forEachIndexed { index, entry ->
-                                    if (index > 0) RowDivider()
-                                    FuelRow(
-                                        entry,
-                                        vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
-                                        fmt = fmt,
-                                        onClick = { open = SheetTarget.Fuel(entry.id) },
-                                        economy = state.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    if (state.months.isEmpty()) {
+                        EmptyState(
+                            icon = Icons.Outlined.LocalGasStation,
+                            title = stringResource(R.string.fuel_empty_title),
+                            body = stringResource(R.string.fuel_empty_body),
+                        )
+                    } else {
+                        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+                            state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt) } }
+                            state.months.forEach { month ->
+                                item(key = month.month.toString()) {
+                                    GroupHeader(
+                                        "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
+                                            fmt.money(month.totalCents, month.entries.first().currency),
                                     )
+                                }
+                                item(key = "${month.month}-list") {
+                                    GroupCard {
+                                        month.entries.forEachIndexed { index, entry ->
+                                            if (index > 0) RowDivider()
+                                            FuelRow(
+                                                entry,
+                                                vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
+                                                fmt = fmt,
+                                                onClick = { open = SheetTarget.Fuel(entry.id) },
+                                                economy = state.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -96,7 +106,11 @@ fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
 @Composable
 private fun Summary(summary: FuelSummary, fmt: Formatter) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        ) {
             Column(Modifier.padding(20.dp)) {
                 Text(
                     stringResource(R.string.fuel_avg_economy),

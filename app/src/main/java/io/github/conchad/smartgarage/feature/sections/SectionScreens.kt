@@ -99,6 +99,7 @@ fun SectionScreen(section: Section, onBack: () -> Unit, onOpenVehicle: (String) 
 @Composable
 private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit, viewModel: RemindersViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var openSchedule by rememberSaveable { mutableStateOf<String?>(null) }
     SectionScaffold(
@@ -108,6 +109,8 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.NotificationsActive,
         emptyTitle = stringResource(R.string.reminders_empty_title),
@@ -169,6 +172,7 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
 @Composable
 private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
@@ -179,6 +183,8 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.events.isEmpty(),
         emptyIcon = Icons.Outlined.History,
         emptyTitle = stringResource(R.string.history_empty_title),
@@ -246,6 +252,7 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
 @Composable
 private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
     SectionScaffold(
@@ -255,6 +262,8 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.logs.isEmpty(),
         emptyIcon = Icons.Outlined.Speed,
         emptyTitle = stringResource(R.string.odometer_empty_title),
@@ -291,6 +300,7 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
 @Composable
 private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
     SectionScaffold(
@@ -300,6 +310,8 @@ private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hi
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.AutoMirrored.Outlined.ReceiptLong,
         emptyTitle = stringResource(R.string.expenses_empty_title),
@@ -337,6 +349,7 @@ private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hi
 @Composable
 private fun DocumentsScreen(onBack: () -> Unit, viewModel: DocumentsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val open by viewModel.open.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val context = LocalContext.current
@@ -348,6 +361,8 @@ private fun DocumentsScreen(onBack: () -> Unit, viewModel: DocumentsViewModel = 
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.Description,
         emptyTitle = stringResource(R.string.documents_empty_title),
@@ -419,6 +434,7 @@ private fun InfoDialog(text: String, onDismiss: () -> Unit) {
 @Composable
 private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     SectionScaffold(
@@ -428,6 +444,8 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.AutoMirrored.Outlined.StickyNote2,
         emptyTitle = stringResource(R.string.notes_empty_title),
@@ -445,7 +463,6 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
                             detail = note.content.lineSequence().firstOrNull { it.isNotBlank() }?.trim(),
                             onClick = { open = note.id },
                             trailingDetail = note.updatedAt.toInstantOrNull()?.let(fmt::shortDate),
-                            trailing = "",
                         )
                     }
                 }
@@ -480,6 +497,7 @@ private val wishlistOrder = listOf("PLANNED", "ORDERED", "IDEA", "DONE")
 @Composable
 private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
@@ -490,6 +508,8 @@ private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hi
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
         loaded = state.loaded,
+        sync = sync,
+        onRefresh = viewModel::refresh,
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.ShoppingBag,
         emptyTitle = stringResource(R.string.wishlist_empty_title),

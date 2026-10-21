@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
@@ -138,7 +139,10 @@ fun FuelSheet(entry: FuelEntry, vehicle: Vehicle?, segment: FuelSegment?, fmt: F
 /** A part or fluid: name, then brand, part number and specification; quantity and cost on the right. */
 @Composable
 private fun ItemRow(item: MaintenanceItem, fmt: Formatter, currency: String) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 item.name ?: item.productName ?: item.category.lowercase().replaceFirstChar { it.uppercase() },

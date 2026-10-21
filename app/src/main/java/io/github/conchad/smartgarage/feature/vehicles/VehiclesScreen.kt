@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,27 +32,38 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.EmptyState
+import io.github.conchad.smartgarage.ui.components.LoadedContent
+import io.github.conchad.smartgarage.ui.components.RefreshBox
+import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 
 @Composable
 fun VehiclesScreen(onOpenVehicle: (String) -> Unit, viewModel: VehiclesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     AppScaffold(title = stringResource(R.string.nav_vehicles)) { padding ->
-        if (state.loaded && state.vehicles.isEmpty()) {
-            EmptyState(
-                icon = Icons.Outlined.DirectionsCar,
-                title = stringResource(R.string.dashboard_no_vehicles_title),
-                body = stringResource(R.string.dashboard_no_vehicles_body),
-                modifier = Modifier.padding(padding),
-            )
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                items(state.vehicles, key = { it.vehicle.id }) { summary ->
-                    VehicleListCard(summary, state.formatter, onClick = { onOpenVehicle(summary.vehicle.id) })
+        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            SyncBanner(sync, onRetry = viewModel::refresh)
+            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    if (state.vehicles.isEmpty()) {
+                        EmptyState(
+                            icon = Icons.Outlined.DirectionsCar,
+                            title = stringResource(R.string.dashboard_no_vehicles_title),
+                            body = stringResource(R.string.dashboard_no_vehicles_body),
+                        )
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            items(state.vehicles, key = { it.vehicle.id }) { summary ->
+                                VehicleListCard(summary, state.formatter, onClick = { onOpenVehicle(summary.vehicle.id) })
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -69,7 +81,7 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, onClick: ()
     ) {
         VehiclePhoto(vehicle, Modifier.fillMaxWidth().aspectRatio(2f), iconSize = 64.dp)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(vehicle.displayName, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(vehicle.displayName, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,

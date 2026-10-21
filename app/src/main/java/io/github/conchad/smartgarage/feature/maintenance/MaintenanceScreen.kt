@@ -31,10 +31,13 @@ import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RecordSheet
+import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.ZoneId
@@ -42,12 +45,14 @@ import java.time.ZoneId
 @Composable
 fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var open by rememberSheetTarget()
     val fmt = state.formatter
 
     AppScaffold(title = stringResource(R.string.tab_service)) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            SyncBanner(sync, onRetry = viewModel::refresh)
             PrimaryTabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.maintenance_upcoming)) })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.maintenance_history)) })
@@ -58,20 +63,23 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
                 viewModel::selectVehicle,
                 Modifier.padding(top = 12.dp),
             )
-            when {
-                !state.loaded -> Unit
-                tab == 0 && state.due.isEmpty() -> EmptyState(
-                    icon = Icons.Outlined.Build,
-                    title = stringResource(R.string.maintenance_no_schedules_title),
-                    body = stringResource(R.string.maintenance_no_schedules_body),
-                )
-                tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
-                state.records.isEmpty() -> EmptyState(
-                    icon = Icons.Outlined.History,
-                    title = stringResource(R.string.maintenance_no_records_title),
-                    body = stringResource(R.string.maintenance_no_records_body),
-                )
-                else -> History(state, onOpen = { open = SheetTarget.Record(it) })
+            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    when {
+                        tab == 0 && state.due.isEmpty() -> EmptyState(
+                            icon = Icons.Outlined.Build,
+                            title = stringResource(R.string.maintenance_no_schedules_title),
+                            body = stringResource(R.string.maintenance_no_schedules_body),
+                        )
+                        tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
+                        state.records.isEmpty() -> EmptyState(
+                            icon = Icons.Outlined.History,
+                            title = stringResource(R.string.maintenance_no_records_title),
+                            body = stringResource(R.string.maintenance_no_records_body),
+                        )
+                        else -> History(state, onOpen = { open = SheetTarget.Record(it) })
+                    }
+                }
             }
         }
     }
@@ -89,7 +97,7 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
 private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (DueItem) -> Unit) {
     val groups = due.groupBy { it.status }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
         listOf(
             DueStatus.OVERDUE to R.string.status_overdue,
             DueStatus.DUE_SOON to R.string.status_due_soon,
@@ -117,7 +125,7 @@ private fun History(state: MaintenanceUiState, onOpen: (String) -> Unit) {
     val zone: ZoneId = fmt.zone
     val byYear = state.records.groupBy { it.performedAt.toInstantOrNull()?.atZone(zone)?.year }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
         byYear.forEach { (year, records) ->
             item(key = "y$year") {
                 val total = records.groupBy { it.currency }.map { (currency, list) -> fmt.money(list.sumOf { it.costCents }, currency) }

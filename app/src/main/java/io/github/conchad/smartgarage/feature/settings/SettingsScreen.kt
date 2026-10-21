@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,7 +50,7 @@ import io.github.conchad.smartgarage.feature.dashboard.Avatar
 import io.github.conchad.smartgarage.feature.more.NavRow
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.IconBadge
-import io.github.conchad.smartgarage.ui.components.SectionCard
+import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.SectionLabel
 
 @Composable
@@ -67,7 +68,7 @@ fun SettingsScreen(
         LazyColumn(contentPadding = padding) {
             item { SectionLabel(stringResource(R.string.settings_account)) }
             item {
-                SectionCard {
+                GroupCard {
                     if (account != null) {
                         ListItem(
                             headlineContent = { Text(account.greetingName, style = MaterialTheme.typography.titleMedium) },
@@ -111,7 +112,7 @@ fun SettingsScreen(
 
             item { SectionLabel(stringResource(R.string.settings_appearance)) }
             item {
-                SectionCard {
+                GroupCard {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.settings_theme)) },
                         leadingContent = { IconBadge(Icons.Outlined.Palette) },
@@ -136,7 +137,7 @@ fun SettingsScreen(
 
             item { SectionLabel(stringResource(R.string.settings_about)) }
             item {
-                SectionCard {
+                GroupCard {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.settings_app_version)) },
                         supportingContent = { Text(BuildConfig.VERSION_NAME) },
@@ -177,7 +178,7 @@ fun SettingsScreen(
 
 @Composable
 private fun UnitsCard(preferences: DisplayPreferences?) {
-    SectionCard {
+    GroupCard {
         ListItem(
             headlineContent = { Text(stringResource(R.string.settings_units_title)) },
             supportingContent = { Text(stringResource(R.string.settings_units_desc)) },
@@ -199,7 +200,7 @@ private fun UnitsCard(preferences: DisplayPreferences?) {
 
 @Composable
 private fun UnitLine(label: Int, value: String) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(label),
             style = MaterialTheme.typography.bodyMedium,

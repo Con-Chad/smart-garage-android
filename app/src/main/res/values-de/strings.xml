@@ -52,16 +52,17 @@
     <string name="dashboard_insurance">Versicherung</string>
     <string name="dashboard_insurance_until">bis %1$s</string>
     <string name="dashboard_recent_fuel">Letzte Tankstopps</string>
-    <string name="dashboard_first_sync">Deine Garage wird synchronisiert…</string>
+    <string name="loading_first_sync">Deine Garage wird synchronisiert…</string>
+    <string name="loading">Wird geladen…</string>
     <string name="dashboard_no_vehicles_title">Noch keine Fahrzeuge</string>
     <string name="dashboard_no_vehicles_body">Lege in Smart Garage im Browser ein Fahrzeug an; nach der nächsten Synchronisierung erscheint es hier.</string>
-    <string name="dashboard_cant_reach_title">Server nicht erreichbar</string>
-    <string name="dashboard_cant_reach_body">Auf diesem Telefon ist noch nichts gespeichert. Prüfe die Verbindung und versuche es erneut.</string>
+    <string name="cant_reach_title">Server nicht erreichbar</string>
+    <string name="cant_reach_body">Auf diesem Telefon ist noch nichts gespeichert. Prüfe die Verbindung und versuche es erneut.</string>
 
     <string name="sync_running">synchronisiert…</string>
     <string name="sync_updated">aktualisiert %1$s</string>
-    <string name="sync_offline">offline, aktualisiert %1$s</string>
-    <string name="sync_failed">Sync fehlgeschlagen, aktualisiert %1$s</string>
+    <string name="sync_banner_offline">Offline · zuletzt aktualisiert %1$s</string>
+    <string name="sync_banner_failed">Sync fehlgeschlagen · zuletzt aktualisiert %1$s</string>
 
     <string name="status_all_good">Alles in Ordnung</string>
     <plurals name="status_overdue_count">

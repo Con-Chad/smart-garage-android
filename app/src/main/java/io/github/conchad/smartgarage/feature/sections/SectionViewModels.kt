@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,6 +22,8 @@ import io.github.conchad.smartgarage.core.model.TimelineEvent
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.WishlistItem
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.sync.SyncControl
+import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +53,11 @@ data class SectionUiState<T>(
  * A screen under More: the garage's vehicles with an optional filter, plus the section's own [content]. [content]
  * emits a function from (vehicle ids in view, filter) to the data, so filtering never re-reads the cache.
  */
-abstract class SectionViewModel<T>(private val garage: GarageRepository, private val initial: T) : ViewModel() {
+abstract class SectionViewModel<T>(
+    private val garage: GarageRepository,
+    private val initial: T,
+    control: SyncControl,
+) : SyncedViewModel(control) {
     private val selected = MutableStateFlow<String?>(null)
 
     protected abstract fun content(): Flow<(Set<String>, String?) -> T>
@@ -77,8 +82,8 @@ abstract class SectionViewModel<T>(private val garage: GarageRepository, private
 private val german get() = Locale.getDefault().language == "de"
 
 @HiltViewModel
-class RemindersViewModel @Inject constructor(garage: GarageRepository) :
-    SectionViewModel<List<Reminder>>(garage, emptyList()) {
+class RemindersViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<List<Reminder>>(garage, emptyList(), control) {
     private val source = combine(garage.vehicles, garage.schedules, garage.templates, garage.inspections, garage.insurancePolicies) {
             vehicles, schedules, templates, inspections, policies ->
         { ids: Set<String>, filter: String? ->
@@ -97,7 +102,8 @@ data class HistoryData(
 )
 
 @HiltViewModel
-class HistoryViewModel @Inject constructor(garage: GarageRepository) : SectionViewModel<HistoryData>(garage, HistoryData()) {
+class HistoryViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<HistoryData>(garage, HistoryData(), control) {
     private val names = combine(garage.records, garage.schedules, garage.templates) { records, schedules, templates ->
         val scheduleById = schedules.associateBy { it.id }
         val templateById = templates.associateBy { it.id }
@@ -120,7 +126,8 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository) : SectionVi
 data class OdometerData(val logs: List<OdometerLog> = emptyList(), val deltas: Map<String, Int> = emptyMap())
 
 @HiltViewModel
-class OdometerViewModel @Inject constructor(garage: GarageRepository) : SectionViewModel<OdometerData>(garage, OdometerData()) {
+class OdometerViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<OdometerData>(garage, OdometerData(), control) {
     private val source = garage.odometerLogs.map { logs ->
         val deltas = SectionMath.odometerDeltas(logs)
         val build = { ids: Set<String>, filter: String? ->
@@ -136,7 +143,8 @@ class OdometerViewModel @Inject constructor(garage: GarageRepository) : SectionV
 }
 
 @HiltViewModel
-class ExpensesViewModel @Inject constructor(garage: GarageRepository) : SectionViewModel<List<Expense>>(garage, emptyList()) {
+class ExpensesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<List<Expense>>(garage, emptyList(), control) {
     private val source = garage.expenses.map { expenses ->
         val build = { ids: Set<String>, filter: String? ->
             expenses.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.occurredAt.toInstantOrNull() ?: Instant.MIN }
@@ -161,7 +169,8 @@ class DocumentsViewModel @Inject constructor(
     private val garage: GarageRepository,
     private val photos: PhotoStore,
     @ApplicationContext private val context: Context,
-) : SectionViewModel<List<Document>>(garage, emptyList()) {
+    control: SyncControl,
+) : SectionViewModel<List<Document>>(garage, emptyList(), control) {
     private val source = garage.documents.map { documents ->
         val build = { ids: Set<String>, filter: String? ->
             documents.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.createdAt }
@@ -207,7 +216,8 @@ class DocumentsViewModel @Inject constructor(
 }
 
 @HiltViewModel
-class NotesViewModel @Inject constructor(garage: GarageRepository) : SectionViewModel<List<Note>>(garage, emptyList()) {
+class NotesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<List<Note>>(garage, emptyList(), control) {
     private val source = garage.notes.map { notes ->
         val build = { ids: Set<String>, filter: String? ->
             // Notes without a vehicle are general notes: shown under "All vehicles" only.
@@ -221,7 +231,8 @@ class NotesViewModel @Inject constructor(garage: GarageRepository) : SectionView
 }
 
 @HiltViewModel
-class WishlistViewModel @Inject constructor(garage: GarageRepository) : SectionViewModel<List<WishlistItem>>(garage, emptyList()) {
+class WishlistViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
+    SectionViewModel<List<WishlistItem>>(garage, emptyList(), control) {
     private val source = garage.wishlist.map { items ->
         val build = { ids: Set<String>, filter: String? ->
             items.filter { it.vehicleId.inView(ids, filter) }

@@ -38,7 +38,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.IconBadge
-import io.github.conchad.smartgarage.ui.components.SectionCard
+import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.SectionLabel
 
 @Composable
@@ -65,7 +65,7 @@ fun ProfilesScreen(
         LazyColumn(contentPadding = padding) {
             item { SectionLabel(stringResource(R.string.profiles_hint)) }
             item {
-                SectionCard {
+                GroupCard {
                     current.profiles.forEach { profile ->
                         ProfileRow(
                             profile = profile,

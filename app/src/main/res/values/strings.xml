@@ -56,16 +56,17 @@
     <string name="dashboard_insurance">Insurance</string>
     <string name="dashboard_insurance_until">until %1$s</string>
     <string name="dashboard_recent_fuel">Recent fill-ups</string>
-    <string name="dashboard_first_sync">Syncing your garage…</string>
+    <string name="loading_first_sync">Syncing your garage…</string>
+    <string name="loading">Loading…</string>
     <string name="dashboard_no_vehicles_title">No vehicles yet</string>
     <string name="dashboard_no_vehicles_body">Add a vehicle in Smart Garage on the web and it shows up here after the next sync.</string>
-    <string name="dashboard_cant_reach_title">Can\'t reach your server</string>
-    <string name="dashboard_cant_reach_body">Nothing is saved on this phone yet. Check your connection and try again.</string>
+    <string name="cant_reach_title">Can\'t reach your server</string>
+    <string name="cant_reach_body">Nothing is saved on this phone yet. Check your connection and try again.</string>
 
     <string name="sync_running">syncing…</string>
     <string name="sync_updated">updated %1$s</string>
-    <string name="sync_offline">offline, updated %1$s</string>
-    <string name="sync_failed">sync failed, updated %1$s</string>
+    <string name="sync_banner_offline">Offline · last updated %1$s</string>
+    <string name="sync_banner_failed">Sync failed · last updated %1$s</string>
 
     <string name="status_all_good">All good</string>
     <plurals name="status_overdue_count">

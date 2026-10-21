@@ -1,9 +1,10 @@
 package io.github.conchad.smartgarage.feature.fuel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.ui.sync.SyncControl
+import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.FuelSegment
@@ -48,7 +49,7 @@ data class FuelUiState(
 }
 
 @HiltViewModel
-class FuelViewModel @Inject constructor(garage: GarageRepository) : ViewModel() {
+class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
     private val selected = MutableStateFlow<String?>(null)
 
     val state: StateFlow<FuelUiState> = combine(garage.vehicles, garage.fuelEntries, garage.formatter, selected) { allVehicles, all, fmt, vehicleId ->

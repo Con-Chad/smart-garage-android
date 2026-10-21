@@ -1,7 +1,6 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,6 +11,8 @@ import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.navigation.VehicleDetailRoute
+import io.github.conchad.smartgarage.ui.sync.SyncControl
+import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,7 +28,7 @@ data class VehiclesUiState(
 )
 
 @HiltViewModel
-class VehiclesViewModel @Inject constructor(garage: GarageRepository) : ViewModel() {
+class VehiclesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
     private val german = Locale.getDefault().language == "de"
 
     val state: StateFlow<VehiclesUiState> = combine(
@@ -54,7 +55,8 @@ data class VehicleDetailUiState(
 class VehicleDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     garage: GarageRepository,
-) : ViewModel() {
+    control: SyncControl,
+) : SyncedViewModel(control) {
     private val vehicleId = savedStateHandle.toRoute<VehicleDetailRoute>().vehicleId
     private val german = Locale.getDefault().language == "de"
 

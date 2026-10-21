@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.DueStatus
@@ -44,15 +46,15 @@ fun Pill(text: String, container: Color, content: Color, modifier: Modifier = Mo
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (dot != null) Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
-            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
-/** "1 overdue" and "2 due soon" side by side, or "All good". */
+/** "1 overdue" and "2 due soon" side by side, or "All good". Wraps onto a second line when the card is narrow or the font large. */
 @Composable
 fun VehicleStatusChip(summary: VehicleSummary, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (summary.overdue > 0) {
             StatusChip(DueStatus.OVERDUE, pluralStringResource(R.plurals.status_overdue_count, summary.overdue, summary.overdue))
         }

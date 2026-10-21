@@ -1,9 +1,10 @@
 package io.github.conchad.smartgarage.feature.maintenance
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.ui.sync.SyncControl
+import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.DueItem
 import io.github.conchad.smartgarage.core.model.GarageMath
@@ -36,7 +37,7 @@ data class MaintenanceUiState(
 }
 
 @HiltViewModel
-class MaintenanceViewModel @Inject constructor(garage: GarageRepository) : ViewModel() {
+class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
     private val german = Locale.getDefault().language == "de"
     private val selected = MutableStateFlow<String?>(null)
 

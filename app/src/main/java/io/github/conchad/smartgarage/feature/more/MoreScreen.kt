@@ -22,7 +22,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.IconBadge
-import io.github.conchad.smartgarage.ui.components.SectionCard
+import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.SectionLabel
 import io.github.conchad.smartgarage.ui.navigation.Section
 
@@ -32,7 +32,7 @@ fun MoreScreen(onOpenSection: (Section) -> Unit, onOpenSettings: () -> Unit) {
         LazyColumn(contentPadding = padding) {
             item { SectionLabel(stringResource(R.string.more_group_garage)) }
             item {
-                SectionCard {
+                GroupCard {
                     Section.entries.forEach { section ->
                         NavRow(
                             icon = section.icon,
@@ -45,7 +45,7 @@ fun MoreScreen(onOpenSection: (Section) -> Unit, onOpenSettings: () -> Unit) {
             }
             item { SectionLabel(stringResource(R.string.more_group_app)) }
             item {
-                SectionCard {
+                GroupCard {
                     NavRow(
                         icon = Icons.Outlined.Settings,
                         title = stringResource(R.string.nav_settings),
