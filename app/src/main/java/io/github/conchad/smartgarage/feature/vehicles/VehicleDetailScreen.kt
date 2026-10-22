@@ -135,6 +135,7 @@ import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberInsurerIcon
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.links.renewalCalendarEvent
+import kotlinx.coroutines.delay
 
 /** What the detail screen can start: the quick logs, and every editor that belongs to one vehicle (CP11 B). */
 class VehicleActions(
@@ -182,6 +183,11 @@ fun VehicleDetailScreen(
     AuroraTint(VehicleTint.color(detail?.vehicle?.color, MaterialTheme.colorScheme.primary))
 
     var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var spinnerDue by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(SPINNER_HOLD_MS)
+        spinnerDue = true
+    }
     var confirmDelete by rememberSaveable { mutableIntStateOf(0) }
 
     // The photo card carries the vehicle's name (note 13); the bar takes the name over once that scrolls away.
@@ -251,6 +257,11 @@ fun VehicleDetailScreen(
                 Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                     WriteQueueBanner(sync, viewModel)
                     RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                        // Arriving from a card (D-A33): the cached vehicle lands within a frame or two, so until then the page
+                        // stays empty instead of showing the spinner; LoadedContent then opens straight on the content with no
+                        // cross-fade, and the photo card is there at full size from its first frame. A slow load still gets
+                        // the spinner after SPINNER_HOLD_MS.
+                        if (!state.loaded && !sync.firstLoad && !spinnerDue) return@RefreshBox
                         LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                             if (detail != null) {
                                 VehicleDetailContent(
@@ -326,13 +337,14 @@ private fun VehicleDetailContent(
     var quickOpen by rememberSaveable { mutableStateOf(true) }
     val addToCalendar = rememberAddToCalendar(snackbar)
     val sections = detailSections(vehicle, detail, state, fmt)
-    // Every card bubbles in at once when the page opens (D-A32); the nav transition into this route is `None`.
+    // Every card under the photo bubbles in at once when the page opens (D-A32, D-A33); the nav transition into this route is `None`.
     val popIn = rememberPopIn()
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
-        item { PhotoCard(vehicle, cardActions, Modifier.popIn(popIn)) }
+        // The photo card is the card one tapped, so it never pops (D-A33): it is simply there; the cards beneath grow in.
+        item { PhotoCard(vehicle, cardActions) }
         item { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.popIn(popIn)) }
         item {
             GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).popIn(popIn)) {
@@ -998,3 +1010,6 @@ private fun ModificationRow(mod: Modification, fmt: Formatter) {
 }
 
 private const val PREVIEW = 3
+
+/** How long the page stays empty waiting for the cached vehicle before it shows the loading spinner (D-A33). */
+private const val SPINNER_HOLD_MS = 300L

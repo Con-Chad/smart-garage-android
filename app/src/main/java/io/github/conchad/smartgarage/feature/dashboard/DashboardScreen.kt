@@ -77,7 +77,7 @@ import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.feature.vehicles.OdometerSheet
 import io.github.conchad.smartgarage.feature.vehicles.QuickInfoActions
 import io.github.conchad.smartgarage.feature.vehicles.QuickInfoDetails
-import io.github.conchad.smartgarage.feature.vehicles.QuickInfoToggle
+import io.github.conchad.smartgarage.feature.vehicles.VehicleCardFooter
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActionsViewModel
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardMenu
@@ -107,7 +107,6 @@ import io.github.conchad.smartgarage.ui.glass.FanFab
 import io.github.conchad.smartgarage.ui.glass.FanScrim
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
-import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
@@ -502,27 +501,21 @@ private fun VehicleCard(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            MetallicText(
-                listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             VehicleStatusChip(summary)
         }
-        // "View all" as its own centred row between the details and the "Quick info" toggle (D-A31, 2026-10-22).
-        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            GlassPillButton(
-                label = stringResource(R.string.card_view_all),
-                icon = Icons.Outlined.ChevronRight,
-                onClick = {
-                    // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
-                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onOpen()
-                },
-            )
-        }
-        QuickInfoToggle(expanded = expanded, onToggle = { expanded = !expanded })
+        // Mileage, "View all" and "Quick info" on one centred line (D-A33).
+        VehicleCardFooter(
+            mileage = fmt.distance(vehicle.currentOdometerKm),
+            expanded = expanded,
+            onToggle = { expanded = !expanded },
+            onViewAll = {
+                // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                onOpen()
+            },
+            modifier = Modifier.padding(top = 4.dp),
+        )
         if (expanded) {
             RowDivider()
             QuickInfoDetails(

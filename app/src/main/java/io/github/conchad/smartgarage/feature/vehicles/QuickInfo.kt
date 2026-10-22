@@ -7,13 +7,17 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.ExpandCircleDown
 import androidx.compose.material.icons.outlined.OpenInNew
@@ -28,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -68,12 +73,46 @@ class QuickInfoActions(
 )
 
 /**
- * The "Quick info" row (D-A31, shared by the home card and the vehicles list since D-A32): the whole row is the
- * 48 dp target, the label and a 28 dp ring chevron in the sheen on the right; the chevron turns 180° on a spring
- * (snaps under reduced motion). TalkBack reads it as a button with its state and the show / hide action.
+ * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list): the mileage on the
+ * left, the "View all" pill exactly centred (both sides take an equal weight), the "Quick info" bubble on the right,
+ * all centred on one line. [onViewAll] null leaves the centre empty.
  */
 @Composable
-fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit) {
+fun VehicleCardFooter(
+    mileage: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onViewAll: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            MetallicText(mileage, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        if (onViewAll != null) {
+            GlassPillButton(
+                label = stringResource(R.string.card_view_all),
+                icon = Icons.Outlined.ChevronRight,
+                onClick = onViewAll,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+            QuickInfoToggle(expanded = expanded, onToggle = onToggle)
+        }
+    }
+}
+
+/**
+ * The "Quick info" bubble (D-A31, D-A33): the label stacked over a 28 dp ring chevron, and the whole bubble — label,
+ * chevron and padding, at least 48 dp — is the target, with a ripple clipped to its rounded shape. The chevron turns
+ * 180° on a spring (snaps under reduced motion). TalkBack reads it as a button with its state and the show / hide action.
+ */
+@Composable
+fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val tokens = glass
     val reduced = rememberReducedMotion()
     val rotation by animateFloatAsState(
@@ -83,22 +122,22 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit) {
     )
     val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
     val actionText = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
-    Row(
-        Modifier
-            .fillMaxWidth()
+    Column(
+        modifier
+            .clip(RoundedCornerShape(tokens.radiusMedium))
             .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
             .semantics(mergeDescendants = true) { stateDescription = stateText }
-            .heightIn(min = 48.dp)
-            .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen)
+        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1)
         Icon(
             Icons.Outlined.ExpandCircleDown,
             contentDescription = null,
             tint = tokens.sheen,
-            modifier = Modifier.padding(start = 6.dp).size(28.dp).graphicsLayer { rotationZ = rotation },
+            modifier = Modifier.padding(top = 2.dp).size(28.dp).graphicsLayer { rotationZ = rotation },
         )
     }
 }

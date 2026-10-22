@@ -217,16 +217,17 @@ private fun VehicleListCard(
             }
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            MetallicText(
-                listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
             Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary) }
         }
-        QuickInfoToggle(expanded = expanded, onToggle = { expanded = !expanded })
+        // Mileage, "View all" and "Quick info" on one centred line, as on the home card (D-A33).
+        VehicleCardFooter(
+            mileage = fmt.distance(vehicle.currentOdometerKm),
+            expanded = expanded,
+            onToggle = { expanded = !expanded },
+            onViewAll = onClick,
+        )
         if (expanded) {
             RowDivider()
             QuickInfoDetails(

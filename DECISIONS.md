@@ -1018,3 +1018,28 @@ App decisions use the `D-A` prefix.
   - New strings (en + de): `fab_petal_service`, `fab_petal_expense`,
     `fab_petal_fuel`, `fab_petal_scan`. No new dependencies; `core/`, `di/`,
     `scripts/` and the build files are untouched.
+- **D-A33: vehicle-card footer on one line, a stacked "Quick info" bubble,
+  and the tapped card never pops.**
+  - **Footer** (`VehicleCardFooter` in `feature/vehicles/QuickInfo.kt`, on the
+    home card and the Vehicles-tab cards): one `Row` — the mileage on the
+    left, the "View all" pill exactly centred (the two sides take an equal
+    `weight(1f)`), the "Quick info" bubble on the right, all vertically
+    centred. The plate moved to its own line above the status chip (it no
+    longer shares a line with the mileage). The Vehicles cards gain the same
+    "View all" pill (opens the vehicle, as the card tap does) so both cards
+    read alike.
+  - **"Quick info" bubble** (`QuickInfoToggle`): the label stacked over the
+    28 dp ring chevron; the whole bubble (label, chevron and padding, at
+    least 48 × 48 dp) is one clickable, its ripple clipped to a
+    `radiusMedium` rounded shape. No longer full-width.
+  - **No pop on the tapped card.** The vehicle page's photo card no longer
+    takes `Modifier.popIn`: it is at full scale and alpha from its first
+    frame, and only the cards beneath it grow in. The ~¼ s blink also came
+    from `LoadedContent`'s Crossfade: the page's state starts unloaded, so
+    the spinner showed for a frame or two and then cross-faded into the
+    content. The page now draws nothing while `!loaded && !firstLoad` for up
+    to **300 ms** (`SPINNER_HOLD_MS`; a slower load still shows the
+    spinner), so the content opens with no cross-fade. Nav transitions are
+    unchanged (already `None` in both directions into the page). A true
+    frame-1 hero would need the detail ViewModel to seed its initial state
+    from the cached vehicle — left for a logic change.
