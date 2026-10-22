@@ -654,19 +654,38 @@ private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions) {
     }
 }
 
-/** "Owner: Connor" under the photo (note 14) with the service status chips on the right; the owner line is one TalkBack item. */
+/**
+ * "Owner: Connor" under the photo (note 14) with the service status chips on the right; the owner line is one TalkBack
+ * item. It sits on a frosted panel pill (the same fill as the cards) rather than straight on the aurora, because the
+ * aurora's bright spot often lands right under the photo and bare text vanished there in dark theme.
+ */
 @Composable
 private fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail) {
     val tokens = glass
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .weight(1f, fill = false)
+                .clip(CircleShape)
+                .background(tokens.panel)
+                .border(1.dp, tokens.panelBorder, CircleShape)
+                .padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
+                .semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(
                 if (shared) Icons.Outlined.People else Icons.Outlined.Person,
                 contentDescription = null,
                 tint = tokens.sheen,
                 modifier = Modifier.padding(end = 8.dp).size(22.dp),
             )
-            MetallicText(stringResource(R.string.vehicle_owner, ownerName ?: "—"), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(R.string.vehicle_owner, ownerName ?: "—"),
+                style = MaterialTheme.typography.bodyLarge,
+                color = tokens.textPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         VehicleStatusChip(detail.summary, Modifier.padding(start = 8.dp))
     }
@@ -683,7 +702,9 @@ private fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
         Triple(Icons.Outlined.Speed, stringResource(R.string.vehicle_mileage), fmt.distance(vehicle.currentOdometerKm)),
         Triple(Icons.Outlined.Shield, stringResource(R.string.vehicle_insurance_plan), detail.currentPolicy?.provider ?: "—"),
         Triple(Icons.Outlined.Badge, stringResource(R.string.field_plate), vehicle.licensePlate ?: "—"),
-        Triple(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents, vehicle.purchaseCurrency)),
+        // The sum is fuel + service + expenses, each stored in the server's preferred currency (D-A20), so it is
+        // labelled with that currency, not the vehicle's purchaseCurrency, which the server may default differently.
+        Triple(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents)),
     )
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.chunked(2).forEach { pair ->

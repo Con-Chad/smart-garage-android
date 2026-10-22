@@ -597,7 +597,7 @@ private fun AllCaughtUp() {
 private fun syncLine(profileName: String, sync: SyncInfo): String {
     val status = when {
         sync.status.running -> stringResource(R.string.sync_running)
-        sync.lastSyncedAt != null -> stringResource(R.string.sync_updated, relativeTime(sync.lastSyncedAt))
+        sync.lastSyncedAt != null -> stringResource(R.string.sync_updated, relativeTime(sync.lastSyncedAt, abbreviated = true))
         else -> null
     }
     return listOfNotNull(profileName, status).joinToString(" · ")

@@ -15,7 +15,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,6 +61,7 @@ import io.github.conchad.smartgarage.feature.setup.SetupMode
 import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
 import io.github.conchad.smartgarage.ui.components.PhotoLoader
 import io.github.conchad.smartgarage.ui.glass.AuroraBackground
+import io.github.conchad.smartgarage.ui.glass.AuroraTintHolder
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
 import io.github.conchad.smartgarage.ui.glass.MorphingBottomNav
 import io.github.conchad.smartgarage.ui.glass.NavTab
@@ -92,13 +92,13 @@ private fun Shell(profile: ServerProfile, account: Account) {
     // (and doesn't animate) there.
     val glassRoute = destination == null || destination.isOn(TopLevel.Dashboard) || destination.isOn(TopLevel.Vehicles) ||
         destination.hasRoute<VehicleDetailRoute>()
-    val auroraTint = remember { mutableStateOf<Color?>(null) }
+    val auroraTint = remember { AuroraTintHolder() }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
 
     CompositionLocalProvider(LocalAuroraTint provides auroraTint) {
         Box(Modifier.fillMaxSize()) {
             if (glassRoute) {
-                AuroraBackground(tint = auroraTint.value ?: MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxSize())
+                AuroraBackground(tint = auroraTint.color ?: MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxSize())
             }
             Scaffold(
                 // Screens draw their own top bars; this Scaffold only reserves room for the bottom bar.

@@ -1,6 +1,8 @@
 package io.github.conchad.smartgarage.ui.components.forms
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -10,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -72,9 +73,18 @@ fun AddFab(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, ic
  */
 @Composable
 fun ActionButton(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 48.dp), contentPadding = ButtonDefaults.ContentPadding) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Text(label, modifier = Modifier.padding(start = 8.dp), maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+    // Icon above a centred label: a half-width chip at font scale 1.3 holds "Update odometer" on two whole lines
+    // instead of an icon pinned left beside a truncated label. Nothing is ellipsized; the button grows instead.
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(label, maxLines = 2, overflow = TextOverflow.Clip, textAlign = TextAlign.Center)
+        }
     }
 }
 

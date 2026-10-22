@@ -227,14 +227,18 @@ fun rememberNow(periodMillis: Long = 30_000): Long {
     return now
 }
 
-/** "just now" under a minute, else the platform's localized "5 minutes ago". */
+/**
+ * "just now" under a minute, else the platform's localized "5 minutes ago"; [abbreviated] gives "5 min. ago" for a
+ * one-line slot such as the home subtitle, which ran out of room at font scale 1.3.
+ */
 @Composable
-fun relativeTime(instant: Instant, now: Long = rememberNow()): String {
+fun relativeTime(instant: Instant, now: Long = rememberNow(), abbreviated: Boolean = false): String {
     val millis = instant.toEpochMilli()
     return if (now - millis < DateUtils.MINUTE_IN_MILLIS) {
         stringResource(R.string.time_just_now)
     } else {
-        DateUtils.getRelativeTimeSpanString(millis, now, DateUtils.MINUTE_IN_MILLIS).toString()
+        val flags = if (abbreviated) DateUtils.FORMAT_ABBREV_RELATIVE else 0
+        DateUtils.getRelativeTimeSpanString(millis, now, DateUtils.MINUTE_IN_MILLIS, flags).toString()
     }
 }
 

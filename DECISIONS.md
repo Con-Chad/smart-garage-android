@@ -472,6 +472,19 @@ App decisions use the `D-A` prefix.
     from both locales; new labels (`vehicle_at_a_glance`,
     `vehicle_quick_actions`, `vehicle_purchase`, `vehicle_custom_fields`,
     `vehicle_photo_options`) are in EN and DE.
+  - Visual pass (Pixel 10 Pro, font scale 1.3, dark): the page's aurora read
+    grey over a green car because `AuroraTint`'s dispose on the outgoing
+    Dashboard ran after the incoming vehicle page had set its tint and wiped
+    it back to theme primary. `LocalAuroraTint` is now an `AuroraTintHolder`
+    that remembers which `AuroraTint` set it and only clears on that owner's
+    dispose, so the handover in either direction keeps the newer screen's
+    tint. `VehicleTint` itself is unchanged. "Spent this year" is labelled in
+    the formatter's (server-preference) currency, since the sum is of entries
+    stored in it (D-A20), not the vehicle's `purchaseCurrency`; the owner
+    line sits on a panel-fill pill so it reads over the aurora's bright spot;
+    `ActionButton` stacks icon over a centred two-line label; the fill-up
+    Price/Total row uses one text size so the outlined fields align; the home
+    subtitle uses the abbreviated relative time ("5 min. ago").
 - **D-A27: The receipt scanner is a hook, not a feature: everything the
   real call needs is wired, the scanner itself is a stub.**
   - The server has `POST /api/v1/fuel/receipt-scan` and announces it via

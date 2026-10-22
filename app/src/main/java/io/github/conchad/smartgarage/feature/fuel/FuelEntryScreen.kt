@@ -57,8 +57,8 @@ import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.files.PickedFile
 
 /**
- * The gas-station form (D-A20): vehicle, date, then the three big numbers (odometer, volume, price), the total,
- * station and notes. Prefilled so the usual fill-up is three taps: check the odometer, type the volume, save.
+ * The gas-station form (D-A20): vehicle, date, then the two big numbers (odometer, volume), price and total side by
+ * side, station and notes. Prefilled so the usual fill-up is three taps: check the odometer, type the volume, save.
  */
 @Composable
 fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltViewModel()) {
@@ -170,13 +170,14 @@ fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltView
                 modifier = Modifier.weight(1f),
                 error = if (state.priceInvalid) stringResource(R.string.form_invalid_number) else null,
             )
+            // Same size as its neighbour: an outlined field rests its label at the text size, so a large Total next
+            // to a regular price sat lower and taller. The big numbers are the odometer and the volume above.
             FormMoneyField(
                 value = state.total,
                 onValueChange = viewModel::setTotal,
                 label = stringResource(R.string.fuel_form_total),
                 fmt = fmt,
                 modifier = Modifier.weight(1f),
-                large = true,
                 error = if (state.totalInvalid) stringResource(R.string.form_invalid_number) else null,
             )
         }

@@ -13,8 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -36,15 +37,39 @@ private val easeInOut = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
  * The tint the shell's aurora should drift in, set by whichever glass screen is showing (the Dashboard sets the
  * current vehicle's tint). Null means "theme primary". Lives above the screens so the aurora runs behind the
  * floating bottom bar as well, not just inside one screen's bounds.
+ *
+ * The holder remembers which [AuroraTint] last set it: during a navigation transition the incoming screen sets its
+ * tint while the outgoing one is still composed, and the outgoing one's dispose must not wipe it (that left the
+ * vehicle page on the theme-primary fallback, a grey aurora over a green car).
  */
-val LocalAuroraTint = staticCompositionLocalOf<MutableState<Color?>> { mutableStateOf(null) }
+class AuroraTintHolder {
+    var color: Color? by mutableStateOf(null)
+        private set
+    private var owner: Any? = null
 
-/** Sets the shell aurora's tint while this composable is in the tree; cleared again when it leaves. */
+    fun set(owner: Any, tint: Color?) {
+        this.owner = owner
+        color = tint
+    }
+
+    /** Clears the tint only if [owner] is still the one that set it. */
+    fun clear(owner: Any) {
+        if (this.owner === owner) {
+            this.owner = null
+            color = null
+        }
+    }
+}
+
+val LocalAuroraTint = staticCompositionLocalOf { AuroraTintHolder() }
+
+/** Sets the shell aurora's tint while this composable is in the tree; cleared again when it leaves, unless a newer screen has taken it over. */
 @Composable
 fun AuroraTint(tint: Color?) {
-    val state = LocalAuroraTint.current
-    LaunchedEffect(tint) { state.value = tint }
-    DisposableEffect(Unit) { onDispose { state.value = null } }
+    val holder = LocalAuroraTint.current
+    val owner = remember { Any() }
+    LaunchedEffect(tint) { holder.set(owner, tint) }
+    DisposableEffect(Unit) { onDispose { holder.clear(owner) } }
 }
 
 /**
