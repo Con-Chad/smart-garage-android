@@ -2,6 +2,8 @@ package io.github.conchad.smartgarage.core.outbox
 
 import io.github.conchad.smartgarage.core.cache.CachedRow
 import io.github.conchad.smartgarage.core.cache.OutboxEntry
+import io.github.conchad.smartgarage.core.network.ServerIds
+import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,17 +25,20 @@ object WriteRoutes {
         "insurancePolicies" to "insurance",
     )
 
-    /** The request path for an entry: the collection for a plain POST, `/{id}[/{subpath}]` for everything else. */
+    /**
+     * The request path for an entry: the collection for a plain POST, `/{id}[/{subpath}]` for everything else.
+     * The id is percent-encoded as a single path segment, so it can never add or escape a segment (D-A28).
+     */
     fun path(entry: OutboxEntry): String {
         val base = collectionPath(entry.resource)
         if (entry.method == "POST" && entry.subpath == null) return base
         return buildString {
-            append(base).append('/').append(entry.targetId)
+            append(base).append('/').append(entry.targetId.encodeURLPathPart())
             entry.subpath?.let { append('/').append(it) }
         }
     }
 
-    fun itemPath(resource: String, id: String) = "${collectionPath(resource)}/$id"
+    fun itemPath(resource: String, id: String) = "${collectionPath(resource)}/${id.encodeURLPathPart()}"
 
     private fun collectionPath(resource: String) =
         "/api/v1/" + (apiPath[resource] ?: throw IllegalArgumentException("no write route for $resource"))
@@ -52,11 +57,16 @@ object TempIds {
     fun findAll(text: String?): Set<String> = text?.let { pattern.findAll(it).map { m -> m.value }.toSet() }.orEmpty()
 }
 
-/** One server row as the cache stores it; shared by the pull and the replay. */
+/**
+ * One server row as the cache stores it; shared by the pull and the replay. This is the trust boundary for server
+ * ids (D-A28): a row whose `id` or `vehicleId` isn't a plain [ServerIds] token is dropped here, so nothing downstream
+ * (file names, URL segments, cascade deletes) ever sees it.
+ */
 object ServerRows {
     fun toCachedRow(resource: String, json: JsonObject): CachedRow? {
-        val id = json["id"]?.jsonPrimitive?.contentOrNull ?: return null
+        val id = json["id"]?.jsonPrimitive?.contentOrNull?.takeIf(ServerIds::isValid) ?: return null
         val vehicleId = if (resource == "vehicles") id else json["vehicleId"]?.jsonPrimitive?.contentOrNull
+        if (vehicleId != null && !ServerIds.isValid(vehicleId)) return null
         return CachedRow(
             resource = resource,
             id = id,

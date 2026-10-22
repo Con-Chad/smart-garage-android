@@ -34,7 +34,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed interface SyncOutcome {
-    data class Success(val upserted: Int, val deleted: Int, val fullResync: Boolean) : SyncOutcome
+    /** [rejected] counts rows the server sent that were dropped for an unusable id (D-A28); the sync still succeeds. */
+    data class Success(val upserted: Int, val deleted: Int, val fullResync: Boolean, val rejected: Int = 0) : SyncOutcome
     data class Failed(val problem: ServerProblem) : SyncOutcome
 
     /** The token was rejected; the session and cache were cleared. */
@@ -197,6 +198,7 @@ class SyncEngine @Inject constructor(
             val deletions = mutableMapOf<String, MutableSet<String>>()
             var first: SyncPageDto? = null
             var cursor: String? = null
+            var rejected = 0
 
             while (true) {
                 val page = when (val result = api.sync(connection, since = since, cursor = cursor)) {
@@ -209,7 +211,10 @@ class SyncEngine @Inject constructor(
                 }
                 if (first == null) first = page
                 page.changes.forEach { (resource, rows) ->
-                    rows.forEach { json -> ServerRows.toCachedRow(resource, json)?.let { upserts[resource to it.id] = it } }
+                    rows.forEach { json ->
+                        val row = ServerRows.toCachedRow(resource, json)
+                        if (row == null) rejected++ else upserts[resource to row.id] = row
+                    }
                 }
                 page.deletions.forEach { (resource, ids) -> deletions.getOrPut(resource) { mutableSetOf() } += ids }
                 if (!page.hasMore) {
@@ -230,7 +235,7 @@ class SyncEngine @Inject constructor(
                     head.preferences?.let {
                         onPreferences(DisplayPreferences(it.locale, it.timezone, it.currency, it.distanceUnit, it.volumeUnit))
                     }
-                    return SyncOutcome.Success(upserts.size, deletions.values.sumOf { it.size }, head.fullResync)
+                    return SyncOutcome.Success(upserts.size, deletions.values.sumOf { it.size }, head.fullResync, rejected)
                 }
                 cursor = page.cursor ?: return SyncOutcome.Failed(ServerProblem.Unexpected(200, "missing cursor"))
             }

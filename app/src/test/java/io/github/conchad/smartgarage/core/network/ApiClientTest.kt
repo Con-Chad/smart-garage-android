@@ -72,6 +72,19 @@ class ApiClientTest {
     }
 
     @Test
+    fun `a 302 to another host is not followed and credentials never leave the origin`() = runTest {
+        val api = client { html(HttpStatusCode.Found, HttpHeaders.Location to "https://evil.example.net/api/v1/me") }
+        val result = api.me(connection.copy(token = "sgd_abc"))
+
+        assertThat(result).isEqualTo(ApiResult.Failed(ServerProblem.Redirected("https://evil.example.net/api/v1/me")))
+        assertThat(requests).hasSize(1)
+        val sent = requests.single()
+        assertThat(sent.url.host).isEqualTo("garage.example.com")
+        assertThat(sent.headers[HttpHeaders.Authorization]).isEqualTo("Bearer sgd_abc")
+        assertThat(sent.headers["CF-Access-Client-Secret"]).isEqualTo("secret")
+    }
+
+    @Test
     fun `Cloudflare challenge, tunnel errors and foreign servers are told apart`() = runTest {
         assertThat(client { html(HttpStatusCode.Forbidden, "cf-mitigated" to "challenge", "cf-ray" to "x") }.health(connection))
             .isEqualTo(HealthResult.Problem(ServerProblem.Challenge))

@@ -367,6 +367,7 @@
     <string name="documents_vehicle_photo">Vehicle photo</string>
     <string name="documents_failed">This file could not be downloaded. Check your connection and try again.</string>
     <string name="documents_no_viewer">No app on this phone can open this file type.</string>
+    <string name="documents_invalid_id">The server sent an invalid id for this document, so the app didn\'t download it.</string>
     <string name="notes_empty_title">No notes</string>
     <string name="notes_empty_body">Notes written on the web show up here.</string>
     <string name="notes_pinned">Pinned</string>
@@ -773,6 +774,8 @@
     <string name="settings_fuel">Fuel</string>
     <string name="settings_track_fuel_economy">Track fuel economy</string>
     <string name="settings_track_fuel_economy_desc">Ask for the odometer at each fill-up and show consumption. Turn off to log only what you paid.</string>
+    <string name="settings_cleartext_background_sync">Sync hourly in the background</string>
+    <string name="settings_cleartext_background_sync_desc">This server uses plain http. Off, the app only syncs while you use it, so your login token is never sent to whatever answers at this address on another network.</string>
     <string name="vehicle_owner">Owner: %1$s</string>
     <string name="vehicle_mileage">Mileage</string>
     <string name="vehicle_insurance_plan">Insurance plan</string>

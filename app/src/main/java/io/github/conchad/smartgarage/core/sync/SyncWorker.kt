@@ -26,6 +26,9 @@ import java.util.concurrent.TimeUnit
  * minutes after the user put the phone down (the foreground sync covered it) costs no network, Keystore or
  * database work. Retries back off from ten minutes, not WorkManager's thirty seconds: an origin that is down
  * stays down for a while, and the next hourly run comes anyway.
+ *
+ * Cleartext (D-A28): a plain-http profile is skipped unless the user turned on `backgroundSyncOnCleartext` for it,
+ * so the device token isn't sent to whatever answers at a home-network address while the phone is elsewhere.
  */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -41,6 +44,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val state = deps.profileStore().current()
         var retry = false
         for (id in state.signedInIds) {
+            val profile = state.profiles.firstOrNull { it.id == id } ?: continue
+            if (!profile.syncsInBackground) continue
             val outcome = deps.syncEngine().syncIfStale(id, FRESH_FOR) ?: continue
             // Unreachable is normal away from home for a LAN profile; only retry what may be transient.
             if (outcome is SyncOutcome.Failed && outcome.problem is ServerProblem.GatewayError) retry = true

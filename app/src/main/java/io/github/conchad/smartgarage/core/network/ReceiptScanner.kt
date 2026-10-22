@@ -36,7 +36,13 @@ import javax.inject.Singleton
  * 4. Offline: queue the photo plus an "unscanned" outbox item; scan when back online and notify to review.
  */
 interface ReceiptScanner {
-    /** Sends [photo] (a JPEG file from `CameraCapture`) for [vehicleId]; never throws for server answers. */
+    /**
+     * Sends [photo] (a JPEG file from `CameraCapture`) for [vehicleId]; never throws for server answers.
+     *
+     * Deliberately no host, base URL or endpoint parameter (D-A28): an implementation resolves the active profile's
+     * `ServerConnection` through `ProfileStore.connection(profileId)` itself, so the photo can only ever go to that
+     * profile's own server through [ApiClient]. It must not log the response (station name and address are PII).
+     */
     suspend fun scan(vehicleId: String, photo: File): ReceiptScanResult
 }
 

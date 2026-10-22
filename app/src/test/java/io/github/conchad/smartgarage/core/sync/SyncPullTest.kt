@@ -137,4 +137,18 @@ class SyncPullTest {
         assertThat(outcome).isEqualTo(SyncOutcome.SignedOut)
         assertThat(store.applied).isNull()
     }
+
+    @Test
+    fun `rows with path-like ids are dropped and counted, the rest still applies`() = runTest {
+        val store = FakeStore()
+        val page = """{"serverTime":"2026-10-21T11:59:00Z","fullResync":false,"hasMore":false,
+            "changes":{"vehicles":[{"id":"v1","make":"Mazda"},{"id":"../../databases/cache-other.db","make":"Evil"}],
+                       "documents":[{"id":"d1","vehicleId":"v1"},{"id":"d2","vehicleId":"../x"},{"id":"..","vehicleId":"v1"}]},
+            "deletions":{}}"""
+
+        val outcome = SyncEngine.pull(api(HttpStatusCode.OK to page), connection, store, { now })
+
+        assertThat(outcome).isEqualTo(SyncOutcome.Success(upserted = 2, deleted = 0, fullResync = false, rejected = 3))
+        assertThat(store.applied!!.upserts.map { it.resource to it.id }).containsExactly("vehicles" to "v1", "documents" to "d1")
+    }
 }

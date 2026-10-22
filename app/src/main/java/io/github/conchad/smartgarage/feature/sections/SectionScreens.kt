@@ -634,6 +634,7 @@ private fun DocumentsScreen(onBack: () -> Unit, actions: SectionActions, viewMod
     when (val current = opening) {
         is DocumentOpen.Image -> ImageViewer(current, onDismiss = viewModel::dismiss)
         DocumentOpen.Failed -> InfoDialog(stringResource(R.string.documents_failed), viewModel::dismiss)
+        DocumentOpen.InvalidId -> InfoDialog(stringResource(R.string.documents_invalid_id), viewModel::dismiss)
         DocumentOpen.NoViewer -> InfoDialog(stringResource(R.string.documents_no_viewer), viewModel::dismiss)
         else -> Unit
     }

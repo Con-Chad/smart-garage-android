@@ -2,6 +2,8 @@ package io.github.conchad.smartgarage.core.outbox
 
 import android.content.Context
 import io.github.conchad.smartgarage.core.data.PhotoStore
+import io.github.conchad.smartgarage.core.network.InvalidServerIdException
+import io.github.conchad.smartgarage.core.network.ServerIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -20,10 +22,16 @@ interface StagedFiles {
 
     suspend fun discard(path: String?)
 
-    /** Also keeps a copy where [PhotoStore] looks for [documentId], so the upload opens offline right away. */
+    /**
+     * Also keeps a copy where [PhotoStore] looks for [documentId], so the upload opens offline right away.
+     * @throws InvalidServerIdException when [documentId] can't be a file name (D-A28).
+     */
     suspend fun publish(path: String, documentId: String)
 
-    /** Moves a published copy from a temp document id to the server's id. */
+    /**
+     * Moves a published copy from a temp document id to the server's id.
+     * @throws InvalidServerIdException when either id can't be a file name (D-A28).
+     */
     suspend fun rename(documentId: String, newId: String)
 }
 
@@ -47,12 +55,15 @@ class OutboxFiles(private val context: Context, private val profileId: String) :
     }
 
     override suspend fun publish(path: String, documentId: String) {
+        ServerIds.require(documentId)
         withContext(Dispatchers.IO) {
             runCatching { File(path).copyTo(File(documents, documentId), overwrite = true) }
         }
     }
 
     override suspend fun rename(documentId: String, newId: String) {
+        ServerIds.require(documentId)
+        ServerIds.require(newId)
         if (documentId == newId) return
         withContext(Dispatchers.IO) {
             val from = File(documents, documentId)

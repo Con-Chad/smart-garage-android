@@ -537,3 +537,69 @@ App decisions use the `D-A` prefix.
     `documentId`. `FuelEntryInput.receiptDocumentId` (optional) is sent
     when non-null (a successful scan or a 502 both carry one); the stub never
     sets it.
+- **D-A28: Security patch from the 2026-10-22 audit (A-1 … A-8): server ids
+  are validated before they become file names or path segments, and
+  plain-http profiles don't background-sync unless the user opts in.**
+  - A-1 (Medium). `core/network/ServerIds` is the one definition of what a
+    server id may look like: `^[A-Za-z0-9_-]{1,64}$` (cuids and the app's
+    `tmp-<uuid>` both pass). It is applied at the trust boundary —
+    `ServerRows.toCachedRow` drops a row whose `id` or `vehicleId` fails it,
+    the pull counts those in `SyncOutcome.Success.rejected` and otherwise
+    succeeds — and again in the file helpers: `PhotoStore.file` and
+    `OutboxFiles.publish`/`rename` throw `InvalidServerIdException` (which
+    carries the id's length, never the id) before touching the disk.
+    `PhotoLoader` maps that to "no photo" (the glyph shows);
+    `DocumentsViewModel` maps it to `DocumentOpen.InvalidId` → the
+    "server sent an invalid id" dialog (en + de). `OutboxReplay.complete`
+    checks `imageDocumentId` from a write response, which doesn't pass
+    through `toCachedRow`, before renaming the published copy. Ids in URLs
+    (`WriteRoutes.path`/`itemPath`, `ApiClient.documentContent`) are
+    percent-encoded as one path segment with Ktor's `encodeURLPathPart()`.
+    A hostile or hijacked server for profile X can no longer write outside
+    `cache/documents/<X>/`, which restores the D-A02 isolation guarantee.
+  - A-2 (Medium). `ServerProfile.backgroundSyncOnCleartext: Boolean =
+    false` (serializable default, so stored profiles parse unchanged) plus
+    the derived `isCleartext` / `syncsInBackground`. `SyncWorker.doWork`
+    skips a profile with `syncsInBackground == false` before the
+    `syncIfStale` check (D-A13 stays). **Default off** for http profiles:
+    an http address names a box on the home network, and on another network
+    whatever answers at that name or IP would receive the device token in
+    clear; the user is not present to notice a 401/404 being logged as
+    "unreachable". Foreground syncs are unchanged — the user opened the app
+    and chose that profile. The Settings → Account card shows a "Sync hourly
+    in the background" switch with a one-line explanation **only** for http
+    profiles (`profile.isCleartext`); https profiles see nothing new.
+  - A-3 (Low) **deferred, deliberately.** `setUnlockedDeviceRequired(true)`
+    on the Keystore key would make `SecretCipher.decrypt` fail while the
+    phone is locked, so the hourly worker (which runs mostly while locked)
+    could never read the token: background sync would silently stop for
+    every profile, https included. Key properties are fixed at generation,
+    so a per-profile or "only when background sync is off" variant means a
+    second key, re-encrypting every stored secret and a migration — not a
+    one-liner. The current trade-off (key usable while locked, not
+    exportable, `allowBackup=false`) stands as documented in D-A03; revisit
+    if background sync ever becomes a global opt-out.
+  - A-4 (Info). `scripts/check-no-gms.sh` already resolved the release
+    runtime classpath through Gradle; its pattern now also catches
+    `com.google.android.play`, `com.google.android.libraries`,
+    `com.google.mlkit`, `com.google.ads` and `firebase-*` artefacts. Still
+    exits 0 on this tree.
+  - A-5 (Info). `HttpClientFactory` now turns off OkHttp's own
+    `followRedirects`/`followSslRedirects` explicitly in addition to Ktor's
+    `followRedirects = false` (Ktor's engine already did, but a dependency
+    bump must not be able to change that quietly). `ApiClientTest` gained a
+    `MockEngine` test: a 302 to another host yields
+    `ServerProblem.Redirected`, exactly one request is made, and the bearer
+    token and Cloudflare headers went to the origin only.
+  - A-6 (Info) no change: profile metadata in plaintext DataStore is the
+    documented design (secrets are encrypted). A-7 (Info): `ReceiptScanner`
+    KDoc now states the interface must never grow a host/URL parameter and
+    must not log the response. A-8 (Info) confirmed as-is: `FileProvider`
+    not exported, paths scoped to `cache/documents/` and `cache/captures/`,
+    per-intent `FLAG_GRANT_READ_URI_PERMISSION` only.
+  - Tests: `ServerIdsTest` (accept cuid/uuid/temp ids; reject `../x`, `..`,
+    `/abs`, empty, 65 chars, unicode, separators, NUL), `WriteRoutesTest`
+    (encoding, boundary drops), `ServerProfileTest` (http default off, opt-in,
+    https always, legacy JSON parses), `SyncPullTest` (bad ids dropped and
+    counted, good rows still applied), `ApiClientTest` (redirect to another
+    host). 102 → 112 unit tests.

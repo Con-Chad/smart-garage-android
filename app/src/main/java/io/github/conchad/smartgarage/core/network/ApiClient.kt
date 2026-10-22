@@ -19,6 +19,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonObject
 import javax.inject.Inject
@@ -122,7 +123,7 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
 
     /** Raw bytes of a document or vehicle photo; null when it isn't available (offline, gone, no access). */
     suspend fun documentContent(connection: ServerConnection, documentId: String): ByteArray? = try {
-        val response = http.get(connection.url("/api/v1/documents/$documentId/content")) { applyHeaders(connection) }
+        val response = http.get(connection.url("/api/v1/documents/${documentId.encodeURLPathPart()}/content")) { applyHeaders(connection) }
         if (response.status.isSuccess() && !response.isJson()) response.body<ByteArray>() else null
     } catch (e: CancellationException) {
         throw e

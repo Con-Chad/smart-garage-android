@@ -28,7 +28,7 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    profiles: ProfileStore,
+    private val profiles: ProfileStore,
     private val settings: AppSettings,
     private val auth: AuthRepository,
 ) : ViewModel() {
@@ -45,6 +45,12 @@ class SettingsViewModel @Inject constructor(
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { settings.setDynamicColor(enabled) }
 
     fun setTrackFuelEconomy(enabled: Boolean) = viewModelScope.launch { settings.setTrackFuelEconomy(enabled) }
+
+    /** Only offered for plain-http profiles (D-A28). */
+    fun setBackgroundSyncOnCleartext(enabled: Boolean) {
+        val id = state.value.profile?.id ?: return
+        viewModelScope.launch { profiles.update(id) { it.copy(backgroundSyncOnCleartext = enabled) } }
+    }
 
     fun signOut() {
         val id = state.value.profile?.id ?: return

@@ -11,6 +11,7 @@ import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.NotePatch
 import io.github.conchad.smartgarage.core.data.PhotoStore
+import io.github.conchad.smartgarage.core.network.InvalidServerIdException
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.CategoryTotal
 import io.github.conchad.smartgarage.core.model.ChartMath
@@ -224,6 +225,9 @@ sealed interface DocumentOpen {
     data class Loading(val documentId: String) : DocumentOpen
     data class Image(val document: Document, val file: java.io.File) : DocumentOpen
     data object Failed : DocumentOpen
+
+    /** The server gave this document an id that can't be a file name (D-A28); nothing was downloaded. */
+    data object InvalidId : DocumentOpen
     data object NoViewer : DocumentOpen
 }
 
@@ -251,7 +255,12 @@ class DocumentsViewModel @Inject constructor(
     fun open(document: Document) {
         viewModelScope.launch {
             _open.value = DocumentOpen.Loading(document.id)
-            val file = photos.file(garage.activeProfileId.first(), document.id)
+            val file = try {
+                photos.file(garage.activeProfileId.first(), document.id)
+            } catch (_: InvalidServerIdException) {
+                _open.value = DocumentOpen.InvalidId
+                return@launch
+            }
             _open.value = when {
                 file == null -> DocumentOpen.Failed
                 document.isImage -> DocumentOpen.Image(document, file)

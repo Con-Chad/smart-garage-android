@@ -357,6 +357,7 @@
     <string name="documents_vehicle_photo">Fahrzeugfoto</string>
     <string name="documents_failed">Die Datei konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.</string>
     <string name="documents_no_viewer">Keine App auf diesem Telefon kann diesen Dateityp öffnen.</string>
+    <string name="documents_invalid_id">Der Server hat für dieses Dokument eine ungültige ID geschickt, deshalb hat die App es nicht heruntergeladen.</string>
     <string name="notes_empty_title">Keine Notizen</string>
     <string name="notes_empty_body">Im Web geschriebene Notizen erscheinen hier.</string>
     <string name="notes_pinned">Angeheftet</string>
@@ -760,6 +761,8 @@
     <string name="settings_fuel">Tanken</string>
     <string name="settings_track_fuel_economy">Verbrauch erfassen</string>
     <string name="settings_track_fuel_economy_desc">Bei jedem Tanken nach dem Kilometerstand fragen und den Verbrauch anzeigen. Ausschalten, um nur die Kosten festzuhalten.</string>
+    <string name="settings_cleartext_background_sync">Stündlich im Hintergrund synchronisieren</string>
+    <string name="settings_cleartext_background_sync_desc">Dieser Server nutzt unverschlüsseltes http. Ausgeschaltet synchronisiert die App nur, während du sie benutzt, damit dein Anmelde-Token in einem fremden Netz nie an das geht, was unter dieser Adresse antwortet.</string>
     <string name="vehicle_owner">Besitzer: %1$s</string>
     <string name="vehicle_mileage">Kilometerstand</string>
     <string name="vehicle_insurance_plan">Versicherung</string>

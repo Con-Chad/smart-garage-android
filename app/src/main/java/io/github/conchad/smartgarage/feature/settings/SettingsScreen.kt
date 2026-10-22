@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -89,6 +90,21 @@ fun SettingsScreen(
                         subtitle = pluralStringResource(R.plurals.settings_servers_count, state.profileCount, state.profileCount),
                         onClick = onManageProfiles,
                     )
+                    if (profile.isCleartext) {
+                        val enabled = profile.backgroundSyncOnCleartext
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.settings_cleartext_background_sync)) },
+                            supportingContent = { Text(stringResource(R.string.settings_cleartext_background_sync_desc)) },
+                            leadingContent = { IconBadge(Icons.Outlined.Sync) },
+                            trailingContent = { Switch(checked = enabled, onCheckedChange = null) },
+                            colors = transparentRow(),
+                            modifier = Modifier.toggleable(
+                                value = enabled,
+                                role = Role.Switch,
+                                onValueChange = viewModel::setBackgroundSyncOnCleartext,
+                            ),
+                        )
+                    }
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.settings_sign_out)) },
                         supportingContent = account?.let { { Text(stringResource(R.string.settings_device_name, it.deviceName)) } },

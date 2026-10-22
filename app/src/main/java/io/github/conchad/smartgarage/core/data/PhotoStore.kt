@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.core.data
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.conchad.smartgarage.core.network.ApiClient
+import io.github.conchad.smartgarage.core.network.InvalidServerIdException
+import io.github.conchad.smartgarage.core.network.ServerIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,8 +27,12 @@ class PhotoStore @Inject constructor(
 ) {
     private val locks = ConcurrentHashMap<String, Mutex>()
 
-    /** The local file for [documentId], downloading it if needed; null when it can't be fetched right now. */
+    /**
+     * The local file for [documentId], downloading it if needed; null when it can't be fetched right now.
+     * @throws InvalidServerIdException when [documentId] isn't a plain id and so can't be a file name (D-A28).
+     */
     suspend fun file(profileId: String, documentId: String): File? = withContext(Dispatchers.IO) {
+        ServerIds.require(documentId)
         val target = File(dir(profileId), documentId)
         if (target.exists()) return@withContext target
         locks.getOrPut("$profileId/$documentId") { Mutex() }.withLock {

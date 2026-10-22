@@ -20,7 +20,19 @@ data class ServerProfile(
     val serverVersion: String? = null,
     /** What `/me` said this server can do; refreshed with every `/me` call (D-A27). */
     val features: ServerFeatures = ServerFeatures(),
+    /**
+     * Lets the hourly worker sync a plain-http profile (D-A28). Off by default: an http address names a box on the
+     * home network, and on any other network that name or IP may answer as someone else, who would then receive the
+     * device token in clear text. Only meaningful when [isCleartext]; foreground syncs are never affected.
+     */
+    val backgroundSyncOnCleartext: Boolean = false,
 ) {
+    /** Whether requests to this server travel unencrypted (`http://`, only allowed for private hosts, D-A04). */
+    val isCleartext: Boolean get() = baseUrl.startsWith("http://", ignoreCase = true)
+
+    /** Whether the hourly background sync may touch this profile (D-A28). */
+    val syncsInBackground: Boolean get() = !isCleartext || backgroundSyncOnCleartext
+
     /** Host (and port) for compact display. */
     val hostLabel: String
         get() = runCatching { URI(baseUrl).let { if (it.port == -1) it.host else "${it.host}:${it.port}" } }

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.conchad.smartgarage.core.data.PhotoStore
+import io.github.conchad.smartgarage.core.network.InvalidServerIdException
 import io.github.conchad.smartgarage.core.model.Vehicle
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -40,7 +41,13 @@ class PhotoLoader(private val profileId: String, private val store: PhotoStore) 
 
     suspend fun file(documentId: String): File? {
         resolved[documentId]?.let { if (it.exists()) return it else resolved.remove(documentId) }
-        return store.file(profileId, documentId)?.also { resolved[documentId] = it }
+        // An id the server shouldn't have sent (D-A28) is treated like a photo that can't be fetched: the glyph shows.
+        val file = try {
+            store.file(profileId, documentId)
+        } catch (_: InvalidServerIdException) {
+            null
+        }
+        return file?.also { resolved[documentId] = it }
     }
 }
 

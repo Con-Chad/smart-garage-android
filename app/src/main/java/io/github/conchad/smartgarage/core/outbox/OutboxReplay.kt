@@ -8,6 +8,7 @@ import io.github.conchad.smartgarage.core.network.ApiClient
 import io.github.conchad.smartgarage.core.network.ApiJson
 import io.github.conchad.smartgarage.core.network.ApiResult
 import io.github.conchad.smartgarage.core.network.ServerConnection
+import io.github.conchad.smartgarage.core.network.ServerIds
 import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.ktor.http.HttpMethod
 import kotlinx.serialization.json.JsonObject
@@ -116,8 +117,10 @@ class OutboxReplay(
         if (entry.isMultipart) {
             // The copy published for offline viewing moves from the temp document id to the server's.
             val localDocId = if (entry.resource == "documents") entry.targetId else entry.localJson?.let { field(it, "imageDocumentId") }
-            val serverDocId = if (entry.resource == "documents") serverRow?.id else json?.let { field(it.toString(), "imageDocumentId") }
-            if (localDocId != null && serverDocId != null) files.rename(localDocId, serverDocId)
+            // `imageDocumentId` comes straight from the response body, not through `toCachedRow`: check it here (D-A28).
+            val serverDocId = (if (entry.resource == "documents") serverRow?.id else json?.let { field(it.toString(), "imageDocumentId") })
+                ?.takeIf(ServerIds::isValid)
+            if (localDocId != null && serverDocId != null && ServerIds.isValid(localDocId)) files.rename(localDocId, serverDocId)
             files.discard(entry.filePath)
         }
     }

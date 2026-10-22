@@ -10,7 +10,14 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 
 object HttpClientFactory {
-    /** No logging plugin on purpose: requests carry the device token and the Cloudflare secret. */
+    /**
+     * No logging plugin on purpose: requests carry the device token and the Cloudflare secret.
+     *
+     * Redirects are never followed, at both layers: Ktor's `followRedirects = false` and, for the production engine,
+     * OkHttp's own `followRedirects`/`followSslRedirects` (Ktor's OkHttp engine already turns them off, but a dependency
+     * update must not be able to change that quietly). A `Location` is reported as `ServerProblem.Redirected`, so the
+     * bearer token and the Cloudflare headers only ever go to the profile's own host (D-A28).
+     */
     fun create(userAgent: String, engine: HttpClientEngine? = null): HttpClient {
         val config: HttpClientConfig<*>.() -> Unit = {
             expectSuccess = false
@@ -23,6 +30,15 @@ object HttpClientFactory {
             install(ContentNegotiation) { json(ApiJson) }
             install(UserAgent) { agent = userAgent }
         }
-        return if (engine != null) HttpClient(engine, config) else HttpClient(OkHttp, config)
+        if (engine != null) return HttpClient(engine, config)
+        return HttpClient(OkHttp) {
+            config()
+            engine {
+                config {
+                    followRedirects(false)
+                    followSslRedirects(false)
+                }
+            }
+        }
     }
 }
