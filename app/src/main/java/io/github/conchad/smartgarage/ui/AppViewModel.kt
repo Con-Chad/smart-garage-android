@@ -10,6 +10,7 @@ import io.github.conchad.smartgarage.core.data.AppearanceSettings
 import io.github.conchad.smartgarage.core.data.AuthRepository
 import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.data.ServerProfile
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -53,9 +54,11 @@ class AppViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, RootUiState())
 
     init {
-        viewModelScope.launch { cache.deleteOrphans(profileStore.current().profiles.mapTo(mutableSetOf()) { it.id }) }
+        // Both run off Main: listing and deleting database files is disk I/O, and refresh() decrypts the token
+        // through the Keystore before its network call.
+        viewModelScope.launch(Dispatchers.IO) { cache.deleteOrphans(profileStore.current().profiles.mapTo(mutableSetOf()) { it.id }) }
         // Check the session once per active profile: picks up revoked tokens and changed display preferences.
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             state.map { (it.root as? RootState.Ready)?.profile?.id }
                 .distinctUntilChanged()
                 .filterNotNull()

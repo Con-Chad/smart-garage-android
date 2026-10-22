@@ -18,11 +18,14 @@ import io.github.conchad.smartgarage.core.outbox.OutboxStores
 import io.github.conchad.smartgarage.core.outbox.TempIds
 import io.github.conchad.smartgarage.core.outbox.Upload
 import io.github.conchad.smartgarage.core.sync.SyncEngine
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonNull
@@ -304,7 +307,8 @@ open class GarageWrites(private val open: suspend () -> WriteSession?) {
 
 /**
  * [GarageWrites] for the active profile, plus the queue's state for the UI (D-A16). Reads stay in
- * [GarageRepository]; rows with a change still queued are listed in [pendingIds].
+ * [GarageRepository]; rows with a change still queued are listed in [pendingIds]. [entries] and [pendingIds] are
+ * shared like the repository's resources (D-A22): one Room observer each, however many screens show them.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
@@ -314,10 +318,15 @@ class GarageWriter @Inject constructor(
     private val garage: GarageRepository,
     private val stores: OutboxStores,
     private val sync: SyncEngine,
+    scope: CoroutineScope,
 ) : GarageWrites({ openSession(profiles, stores, sync) }) {
+
+    private val sharing = SharingStarted.WhileSubscribed(stopTimeoutMillis = GarageRepository.STOP_TIMEOUT_MS, replayExpirationMillis = 0)
 
     /** The active profile's queue, in replay order. */
     val entries: Flow<List<OutboxEntry>> = garage.activeProfileId.flatMapLatest { cache.dao(it).observeOutbox() }
+        .distinctUntilChanged()
+        .shareIn(scope, sharing, replay = 1)
 
     /** Changes waiting to be sent (including one in flight). */
     val pendingCount: Flow<Int> = entries.map { list -> list.count { it.state != OutboxState.FAILED } }.distinctUntilChanged()
@@ -328,7 +337,9 @@ class GarageWriter @Inject constructor(
 
     /** Ids of cached rows that show a change the server hasn't taken yet ("waiting to sync"). */
     val pendingIds: Flow<Set<String>> =
-        garage.activeProfileId.flatMapLatest { cache.dao(it).observePendingIds().map { ids -> ids.toSet() } }.distinctUntilChanged()
+        garage.activeProfileId.flatMapLatest { cache.dao(it).observePendingIds().map { ids -> ids.toSet() } }
+            .distinctUntilChanged()
+            .shareIn(scope, sharing, replay = 1)
 
     /** Queues a FAILED entry again under a fresh key; false when it can't be (see [FailedWrite.retryable]). */
     suspend fun retry(key: String): Boolean {

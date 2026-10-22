@@ -261,3 +261,15 @@ App decisions use the `D-A` prefix.
   - The stream is opened at save time and handed to the writer, which
     stages a copy (D-A19); the URI itself is not persisted, so no
     persistable permission is taken.
+- **D-A22: Cache flows are decoded once and shared at the repository.**
+  - Room re-runs every query on the `rows` table whenever any row changes,
+    so a queued write or a sync page used to re-decode every observed
+    resource, once per ViewModel observing it. `GarageRepository` now drops
+    re-emissions of unchanged rows (`distinctUntilChanged` on the raw rows,
+    which compares strings, not decoded models) and shares each decoded
+    resource with `shareIn` on the application scope; `GarageWriter`'s
+    outbox and pending-id flows and `SyncControl.info` are shared the same
+    way. Decoded models stay immutable.
+  - Sharing stops five seconds after the last subscriber leaves (the same
+    timeout as the ViewModels' `stateIn`) and the replay is dropped then,
+    so a screen opened later never shows a stale list before the fresh one.

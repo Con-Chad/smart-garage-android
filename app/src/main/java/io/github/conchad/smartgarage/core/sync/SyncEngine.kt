@@ -18,6 +18,7 @@ import io.github.conchad.smartgarage.core.outbox.ReplayOutcome
 import io.github.conchad.smartgarage.core.outbox.ServerRows
 import io.github.conchad.smartgarage.core.outbox.StagedFiles
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -70,9 +72,11 @@ class SyncEngine @Inject constructor(
     private val _status = MutableStateFlow<Map<String, SyncStatus>>(emptyMap())
     val status: StateFlow<Map<String, SyncStatus>> = _status.asStateFlow()
 
-    suspend fun sync(profileId: String): SyncOutcome {
+    suspend fun sync(profileId: String): SyncOutcome = withContext(Dispatchers.Default) {
+        // Off the caller's dispatcher: ViewModels call this from Main, and a session decrypts the token (Keystore),
+        // parses every page and serialises each row back to JSON for the cache.
         // One sync per profile at a time; a second caller waits and then runs a cheap incremental sync.
-        return locks.getOrPut(profileId) { Mutex() }.withLock {
+        locks.getOrPut(profileId) { Mutex() }.withLock {
             setStatus(profileId) { it.copy(running = true) }
             var problem: ServerProblem? = null
             try {

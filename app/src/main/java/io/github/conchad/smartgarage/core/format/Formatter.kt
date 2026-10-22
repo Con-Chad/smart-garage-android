@@ -32,6 +32,11 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
     }
     private val decimalSeparator: Char = java.text.DecimalFormatSymbols.getInstance(locale).decimalSeparator
 
+    // DateTimeFormatter is immutable and thread-safe; built once here rather than on every row of every list.
+    private val mediumDate = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).withZone(zone)
+    private val shortDateSameYear = DateTimeFormatter.ofPattern(if (locale.language == "de") "d. MMM" else "MMM d", locale).withZone(zone)
+    private val shortDateOtherYear = DateTimeFormatter.ofPattern(if (locale.language == "de") "d. MMM yyyy" else "MMM d, yyyy", locale).withZone(zone)
+
     val distanceUnit: String get() = if (miles) "mi" else "km"
     val volumeUnit: String get() = if (gallons) "gal" else "L"
     /** Same labels as the web (`consumptionUnitLabel`): "MPG" for mi + gal, else e.g. "L/100 km". */
@@ -77,17 +82,12 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
         return format.format(amount)
     }
 
-    fun date(instant: Instant): String =
-        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).withZone(zone).format(instant)
+    fun date(instant: Instant): String = mediumDate.format(instant)
 
     /** "Oct 19" this year, "Dec 25, 2025" for other years. */
     fun shortDate(instant: Instant, today: LocalDate = LocalDate.now(zone)): String {
         val sameYear = instant.atZone(zone).year == today.year
-        val pattern = when {
-            locale.language == "de" -> if (sameYear) "d. MMM" else "d. MMM yyyy"
-            else -> if (sameYear) "MMM d" else "MMM d, yyyy"
-        }
-        return DateTimeFormatter.ofPattern(pattern, locale).withZone(zone).format(instant)
+        return (if (sameYear) shortDateSameYear else shortDateOtherYear).format(instant)
     }
 
     /** Whole days from today (in the server's time zone) to [instant]; negative when it's in the past. */

@@ -40,7 +40,9 @@ suspend fun ContentResolver.inspect(uri: Uri): PickedFile? = withContext(Dispatc
         ?: fileName.substringAfterLast('.', "").takeIf { it.isNotEmpty() }?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it.lowercase()) }
     val head = runCatching { openInputStream(uri)?.use { it.readHead(1024) } }.getOrNull() ?: return@withContext null
     // A provider that doesn't report the size (some cloud providers) gets it counted; the limit check needs a number.
-    if (size < 0) size = runCatching { openInputStream(uri)?.use { it.countBytes() } }.getOrNull() ?: 0
+    // Counting stops just past the largest limit: anything bigger is rejected either way, so the exact size of a
+    // multi-gigabyte file is never needed and never read.
+    if (size < 0) size = runCatching { openInputStream(uri)?.use { it.countBytes(limit = FileRules.MAX_DOCUMENT_BYTES + 1) } }.getOrNull() ?: 0
     PickedFile(uri, fileName, FileRules.effectiveType(declared, head), size)
 }
 
@@ -58,12 +60,14 @@ private fun InputStream.readHead(max: Int): ByteArray {
     return buffer.copyOf(total)
 }
 
-private fun InputStream.countBytes(): Long {
+/** Bytes in the stream, or [limit] once at least that many have been read. */
+private fun InputStream.countBytes(limit: Long): Long {
     val buffer = ByteArray(64 * 1024)
     var total = 0L
-    while (true) {
+    while (total < limit) {
         val n = read(buffer)
         if (n < 0) return total
         total += n
     }
+    return limit
 }
