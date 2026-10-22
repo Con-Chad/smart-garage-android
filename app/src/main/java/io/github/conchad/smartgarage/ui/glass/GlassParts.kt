@@ -19,6 +19,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
@@ -74,3 +77,9 @@ fun PagerDots(count: Int, current: Int, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * For plain text that sits directly on the aurora rather than on a panel (section labels, empty states): a soft
+ * halo in the page color behind the glyphs, so a bright ribbon under them can't take the contrast away (D-A30).
+ */
+fun TextStyle.onAurora(tokens: GlassTokens): TextStyle = copy(shadow = Shadow(tokens.textHalo, Offset.Zero, blurRadius = 12f))

@@ -48,13 +48,19 @@ data class GlassTokens(
     val sheen: Color,
     val sheenHighlight: Color,
 
-    /** Chrome frame around the vehicle photo (`conic-gradient` of the foil chip). */
+    /** Chrome frame around the vehicle photo (`conic-gradient` of the foil chip) and its glow. */
     val frameChrome: List<Color>,
-    /** Holographic sheen band over the photo (`--c08-sheen-1..3`). */
-    val frameSheen: List<Color>,
-    val frameSheenBlend: BlendMode,
-    val frameGrain: Color,
     val frameGlow: Color,
+
+    /**
+     * The tilt-parallax plate (D-A30): the plate glow's opacity (the glow itself is the aurora / vehicle tint), the
+     * pointer-following shine and how it blends (screen on dark, plain over on light where screen does nothing on
+     * a near-white panel), and the halo behind text that sits directly on the aurora.
+     */
+    val plateGlowAlpha: Float,
+    val shine: Color,
+    val shineBlend: BlendMode,
+    val textHalo: Color,
 
     /** Bottom bar: pill surface, soft border, blob gradient and its glow (`--c09`). */
     val navSurface: Color,
@@ -102,10 +108,11 @@ val DarkGlassTokens = GlassTokens(
     sheen = Color(0xFFF5D76E),
     sheenHighlight = Color(0xFFFFF6D6),
     frameChrome = listOf(Color(0xFFD8D097), Color(0xFFEBD5A2), Color(0xFFBCB6A9), Color(0xFFD8D097)),
-    frameSheen = listOf(Color(0x8CD8D097), Color(0x99BCB6A9), Color(0x8CEBD5A2)),
-    frameSheenBlend = BlendMode.Plus,
-    frameGrain = Color(0x0DFFFFFF),
     frameGlow = Color(0xB3EBD5A2),
+    plateGlowAlpha = 0.22f,
+    shine = Color(0x47FFFFFF),
+    shineBlend = BlendMode.Screen,
+    textHalo = Color(0xB308090D),
     navSurface = Color(0xFF1C2030),
     navBorder = Color(0x12FFFFFF),
     navBlobStart = Color(0xFFDA3E8C),
@@ -137,10 +144,11 @@ val LightGlassTokens = GlassTokens(
     sheen = Color(0xFFAC880C),
     sheenHighlight = Color(0xFFC9A247),
     frameChrome = listOf(Color(0xFFB08726), Color(0xFFD8C27A), Color(0xFF948A75), Color(0xFFB08726)),
-    frameSheen = listOf(Color(0x807A712E), Color(0x6B766D5C), Color(0x808B6A1E)),
-    frameSheenBlend = BlendMode.Multiply,
-    frameGrain = Color(0x0D141826),
     frameGlow = Color(0x738B6A1E),
+    plateGlowAlpha = 0.14f,
+    shine = Color(0x8CFFFFFF),
+    shineBlend = BlendMode.SrcOver,
+    textHalo = Color(0xB3FFFFFF),
     navSurface = Color(0xFFFFFFFF),
     navBorder = Color(0x14000000),
     navBlobStart = Color(0xFFCD277A),

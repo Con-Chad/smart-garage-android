@@ -65,6 +65,7 @@ import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
 import io.github.conchad.smartgarage.ui.components.PhotoLoader
 import io.github.conchad.smartgarage.ui.glass.AuroraBackground
 import io.github.conchad.smartgarage.ui.glass.AuroraTintHolder
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
 import io.github.conchad.smartgarage.ui.glass.MorphingBottomNav
 import io.github.conchad.smartgarage.ui.glass.NavTab
@@ -101,23 +102,20 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     val destination = backStackEntry?.destination
     val showBottomBar = destination == null || TopLevel.entries.any { destination.isOn(it) }
     val selectedTab = TopLevel.entries.indexOfFirst { destination?.isOn(it) == true }
-    // The glass screens (D-A24, D-A26: Home, Vehicles and the vehicle page) draw on the shell's aurora, which also
-    // runs behind the floating bottom bar; the other routes keep their plain surfaces, so the aurora isn't composed
-    // (and doesn't animate) there.
-    val glassRoute = destination == null || destination.isOn(TopLevel.Dashboard) || destination.isOn(TopLevel.Vehicles) ||
-        destination.hasRoute<VehicleDetailRoute>()
+    // Every route is a glass route (D-A30): the shell's one aurora runs behind all of them and the floating bottom
+    // bar, with its RESUMED / reduced-motion guards. A screen that sets its own AuroraTint (Home, Vehicles, the
+    // vehicle page: the car's color) wins; everything else takes the tab's fallback below.
     val auroraTint = remember { AuroraTintHolder() }
+    val fallbackTint = fallbackTint(destination)
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
 
     CompositionLocalProvider(LocalAuroraTint provides auroraTint) {
         Box(Modifier.fillMaxSize()) {
-            if (glassRoute) {
-                AuroraBackground(tint = auroraTint.color ?: MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxSize())
-            }
+            AuroraBackground(tint = auroraTint.color ?: fallbackTint, modifier = Modifier.fillMaxSize())
             Scaffold(
                 // Screens draw their own top bars; this Scaffold only reserves room for the bottom bar.
                 contentWindowInsets = WindowInsets(0),
-                containerColor = if (glassRoute) Color.Transparent else MaterialTheme.colorScheme.background,
+                containerColor = Color.Transparent,
                 bottomBar = {
                     AnimatedVisibility(
                         visible = showBottomBar,
@@ -257,6 +255,25 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
 }
 
 private fun NavDestination.isOn(item: TopLevel): Boolean = hierarchy.any { it.hasRoute(item.route::class) }
+
+/**
+ * The aurora's color where no screen names one (D-A30): Service drifts in the theme's tertiary, Fuel in the glass
+ * gold, More and everything reached from it (sections, Settings, servers, adding a server) in the theme's secondary
+ * steel, so the tabs read as different rooms; Home, Vehicles and the forms fall back to primary, which Home and
+ * Vehicles replace with the car's color as soon as they have one. With dynamic color on, these follow the wallpaper.
+ */
+@Composable
+private fun fallbackTint(destination: NavDestination?): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when {
+        destination == null -> scheme.primary
+        destination.isOn(TopLevel.Maintenance) -> scheme.tertiary
+        destination.isOn(TopLevel.Fuel) -> glass.sheen
+        destination.isOn(TopLevel.More) || destination.hasRoute<SectionRoute>() || destination.hasRoute<SettingsRoute>() ||
+            destination.hasRoute<ProfilesRoute>() || destination.hasRoute<AddProfileRoute>() -> scheme.secondary
+        else -> scheme.primary
+    }
+}
 
 /**
  * Where a push lands (PUSH.md §4): the vehicle when the message is about one, else the Service tab for a single

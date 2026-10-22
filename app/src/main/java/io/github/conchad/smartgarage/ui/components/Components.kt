@@ -40,10 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isFinite
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.onAurora
 
 /**
  * Standard screen frame. The shell's bottom bar consumes the navigation-bar inset, so screens shown above it and
- * full-screen pushed screens both get the right bottom padding from the default Scaffold insets.
+ * full-screen pushed screens both get the right bottom padding from the default Scaffold insets. Transparent by
+ * default since D-A30: the shell's aurora runs behind every screen, so the scaffold and the bar draw no surface of
+ * their own (the bar tints with the glass panel color once content scrolls under it).
  */
 @Composable
 fun AppScaffold(
@@ -54,7 +57,7 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
-    transparent: Boolean = false,
+    transparent: Boolean = true,
     content: @Composable (PaddingValues) -> Unit,
 ) = AppScaffold(
     title = { Text(title) },
@@ -82,7 +85,7 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
-    transparent: Boolean = false,
+    transparent: Boolean = true,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -147,10 +150,11 @@ fun EmptyState(
                 ) {
                     IconBadge(icon = icon, size = 72)
                     Spacer(Modifier.height(4.dp))
-                    Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                    // On the aurora, not on a panel: a halo keeps the text readable over a bright ribbon (D-A30).
+                    Text(title, style = MaterialTheme.typography.titleLarge.onAurora(glass), textAlign = TextAlign.Center)
                     Text(
                         body,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium.onAurora(glass),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
@@ -187,7 +191,7 @@ fun IconBadge(
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelLarge.onAurora(glass),
         color = MaterialTheme.colorScheme.primary,
         modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
     )

@@ -18,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,37 +44,25 @@ import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.forms.PendingMark
+import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.delay
 import java.time.Instant
 
-/** Title above a group, with an optional text action such as "See all". */
+/** Title above a group, with an optional text action such as "See all"; the metallic glass header since D-A30. */
 @Composable
-fun GroupHeader(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
-    Row(
-        modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
-        if (onAction != null) {
-            TextButton(onClick = onAction) { Text(action ?: stringResource(R.string.action_see_all)) }
-        }
-    }
-}
+fun GroupHeader(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) =
+    GlassGroupHeader(text, modifier, action, onAction)
 
 /**
  * The one card for a group of rows, on every screen: data rows separated by [RowDivider] under a [GroupHeader], and
- * settings-style `ListItem`s under a [SectionLabel]. One tone (`surfaceContainer`) so cards read the same on the
- * Dashboard, the lists and Settings; on the dark theme the lower tones all but vanish against the background.
+ * settings-style `ListItem`s under a `SectionLabel`. A [GlassCard] since D-A30, when the aurora went behind every
+ * screen: the frosted fill keeps the rows' `onSurface` / `onSurfaceVariant` text at ≥ 4.5:1 in both themes, which
+ * bare text over a bright ribbon would not.
  */
 @Composable
-fun GroupCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.extraLarge,
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    ) { Column(content = content) }
-}
+fun GroupCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) = GlassCard(modifier, content = content)
 
 @Composable
 fun RowDivider() {

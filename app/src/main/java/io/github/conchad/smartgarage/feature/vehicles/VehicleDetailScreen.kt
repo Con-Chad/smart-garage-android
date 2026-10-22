@@ -53,6 +53,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -120,13 +121,18 @@ import io.github.conchad.smartgarage.ui.glass.AuroraTint
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassDropdown
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
+import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicFrame
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.TiltDepths
+import io.github.conchad.smartgarage.ui.glass.TiltParallaxCard
+import io.github.conchad.smartgarage.ui.glass.TiltParallaxListCard
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.staticMetallicBrush
+import io.github.conchad.smartgarage.ui.glass.tiltLayer
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.links.renewalCalendarEvent
@@ -181,84 +187,88 @@ fun VehicleDetailScreen(
 
     // The photo card carries the vehicle's name (note 13); the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 1 } }
-    MetallicSheenHost {
-        AppScaffold(
-            transparent = true,
-            title = {
-                val vehicle = detail?.vehicle
-                if (headingGone && vehicle != null) {
-                    MetallicText(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            },
-            onBack = onBack,
-            snackbarHost = { SnackbarHost(snackbar) },
-            actions = {
-                val vehicle = detail?.vehicle
-                if (vehicle != null) {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
+    // One gyroscope pointer for the photo card and the figure tiles (D-A30).
+    val tilt = rememberTilt()
+    CompositionLocalProvider(LocalTilt provides tilt) {
+        MetallicSheenHost {
+            AppScaffold(
+                transparent = true,
+                title = {
+                    val vehicle = detail?.vehicle
+                    if (headingGone && vehicle != null) {
+                        MetallicText(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    // The same choices as the photo's long-press, for anyone who doesn't find that; renaming is local, so viewers get it too.
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (vehicle.access.canEdit) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_edit_vehicle)) },
-                                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    actions.onEditVehicle(vehicle.id)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(photoActionRes(vehicle))) },
-                                leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    cardActions.changePhoto(vehicle)
-                                },
-                            )
+                },
+                onBack = onBack,
+                snackbarHost = { SnackbarHost(snackbar) },
+                actions = {
+                    val vehicle = detail?.vehicle
+                    if (vehicle != null) {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
                         }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_rename_vehicle)) },
-                            leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null) },
-                            onClick = {
-                                menuOpen = false
-                                cardActions.rename(vehicle)
-                            },
-                        )
-                        if (vehicle.access.canEdit && !vehicle.access.isShared) {
+                        // The same choices as the photo's long-press, for anyone who doesn't find that; renaming is local, so viewers get it too.
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (vehicle.access.canEdit) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_edit_vehicle)) },
+                                    leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        actions.onEditVehicle(vehicle.id)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(photoActionRes(vehicle))) },
+                                    leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        cardActions.changePhoto(vehicle)
+                                    },
+                                )
+                            }
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.action_delete_vehicle), color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                text = { Text(stringResource(R.string.action_rename_vehicle)) },
+                                leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
-                                    confirmDelete = 1
+                                    cardActions.rename(vehicle)
                                 },
                             )
+                            if (vehicle.access.canEdit && !vehicle.access.isShared) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_delete_vehicle), color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        menuOpen = false
+                                        confirmDelete = 1
+                                    },
+                                )
+                            }
                         }
                     }
-                }
-            },
-        ) { padding ->
-            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                WriteQueueBanner(sync, viewModel)
-                RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
-                        if (detail != null) {
-                            VehicleDetailContent(
-                                detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
-                                pendingIds = pendingIds,
-                                actions = actions,
-                                cardActions = cardActions,
-                                snackbar = snackbar,
-                                viewModel = viewModel,
-                            )
-                        } else {
-                            EmptyState(
-                                icon = Icons.Outlined.DirectionsCar,
-                                title = stringResource(R.string.vehicle_gone_title),
-                                body = stringResource(R.string.vehicle_gone_body),
-                            )
+                },
+            ) { padding ->
+                Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                    WriteQueueBanner(sync, viewModel)
+                    RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                        LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                            if (detail != null) {
+                                VehicleDetailContent(
+                                    detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+                                    pendingIds = pendingIds,
+                                    actions = actions,
+                                    cardActions = cardActions,
+                                    snackbar = snackbar,
+                                    viewModel = viewModel,
+                                )
+                            } else {
+                                EmptyState(
+                                    icon = Icons.Outlined.DirectionsCar,
+                                    title = stringResource(R.string.vehicle_gone_title),
+                                    body = stringResource(R.string.vehicle_gone_body),
+                                )
+                            }
                         }
                     }
                 }
@@ -609,47 +619,62 @@ private fun VehicleDetailContent(
 }
 
 /**
- * The photo in the chrome frame with the vehicle's name inside it, bottom-left over the shared photo scrim (note 13),
- * 16:9. The name is the device-local nickname when there is one, with the server's name under it, as on the home
- * card. Tap or hold for the photo / rename menu (note 10); TalkBack gets the same as custom actions. The frame tilts
- * with the phone under the D-A24 sensor rules (only while this screen is resumed, released on dispose).
+ * The photo card (note 13, D-A30): a tilt-parallax card holding the chrome-framed photo, 16:9, with the vehicle's
+ * name bottom-left over the shared photo scrim. The photo sits behind the plate and the name floats above it, the
+ * card rotates toward the gyroscope or the finger and shines where the pointer is. The name is the device-local
+ * nickname when there is one, with the server's name under it, as on the home card. Tap or hold for the photo /
+ * rename menu (note 10); TalkBack gets the same as custom actions.
  */
 @Composable
 private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions) {
     val tokens = glass
-    val tilt = rememberTilt(enabled = true)
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val menuLabel = stringResource(R.string.vehicle_photo_options)
-    Box(Modifier.padding(horizontal = 16.dp)) {
-        MetallicFrame(
-            tilt = tilt,
-            cornerRadius = tokens.radiusLarge,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
+    TiltParallaxListCard(glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)) {
+        Box(Modifier.padding(12.dp)) {
+            MetallicFrame(
+                cornerRadius = tokens.radiusMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
             ) {
-                VehiclePhoto(vehicle, Modifier.fillMaxSize(), iconSize = 72.dp)
-                Column(
+                Box(
                     Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .background(Brush.verticalGradient(tokens.photoScrim))
-                        .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                        .fillMaxSize()
+                        .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
                 ) {
-                    Text(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, color = tokens.onPhoto, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (nickname != null) {
-                        Text(vehicle.displayName, style = MaterialTheme.typography.bodySmall, color = tokens.onPhotoSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 72.dp)
+                    Column(
+                        Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .background(Brush.verticalGradient(tokens.photoScrim))
+                            .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                    ) {
+                        Text(
+                            cardActions.titleOf(vehicle),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = tokens.onPhoto,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.tiltLayer(TiltDepths.Title),
+                        )
+                        if (nickname != null) {
+                            Text(
+                                vehicle.displayName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = tokens.onPhotoSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                            )
+                        }
                     }
                 }
+                VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
             }
-            VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
         }
     }
 }
@@ -715,33 +740,41 @@ private fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
     }
 }
 
-/** One figure on a glass pill with its label above; the value shrinks before it wraps so a long plate or sum stays readable. */
+/**
+ * One figure on a small tilt-parallax tile (D-A30) with its label above; the tile rotates with the screen's
+ * pointer and the value floats over it. The value shrinks before it wraps so a long plate or sum stays readable.
+ */
 @Composable
 private fun InfoTile(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
     val tokens = glass
-    val shape = RoundedCornerShape(tokens.radiusMedium)
-    Column(
-        modifier
-            .clip(shape)
-            .background(tokens.pill)
-            .border(1.dp, tokens.pillBorder, shape)
-            .padding(14.dp)
-            .semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    TiltParallaxCard(
+        modifier = modifier,
+        shape = RoundedCornerShape(tokens.radiusMedium),
+        elevated = false,
+        contentPadding = 14.dp,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(18.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
-                color = tokens.textSecondary,
+        Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(18.dp).tiltLayer(TiltDepths.Line))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
+                    color = tokens.textSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+            val style = MaterialTheme.typography.titleMedium.copy(brush = staticMetallicBrush(tokens))
+            BasicText(
+                value,
+                style = style,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 6.dp),
+                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize),
+                modifier = Modifier.tiltLayer(TiltDepths.Value),
             )
         }
-        val style = MaterialTheme.typography.titleMedium.copy(brush = staticMetallicBrush(tokens))
-        BasicText(value, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize))
     }
 }
 

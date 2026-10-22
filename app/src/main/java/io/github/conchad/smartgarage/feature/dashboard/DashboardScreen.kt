@@ -47,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,6 +107,7 @@ import io.github.conchad.smartgarage.ui.glass.AuroraTint
 import io.github.conchad.smartgarage.ui.glass.DisconnectedPopup
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
+import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicFrame
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
@@ -115,7 +117,11 @@ import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberDisconnectedState
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
+import io.github.conchad.smartgarage.ui.glass.TiltDepths
+import io.github.conchad.smartgarage.ui.glass.TiltParallaxListCard
+import io.github.conchad.smartgarage.ui.glass.rememberCardTilt
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
+import io.github.conchad.smartgarage.ui.glass.tiltLayer
 import io.github.conchad.smartgarage.ui.links.InsuranceApps
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
@@ -156,59 +162,63 @@ fun DashboardScreen(
     val current = vehicles.getOrNull(pagerState.currentPage)
     AuroraTint(VehicleTint.color(current?.vehicle?.color, MaterialTheme.colorScheme.primary))
     val disconnected = rememberDisconnectedState(state.sync)
+    // One gyroscope pointer for the screen (D-A30); each card mixes in its own touch.
+    val tilt = rememberTilt()
 
-    MetallicSheenHost {
-        AppScaffold(
-            transparent = true,
-            title = {
-                Column {
-                    MetallicText(greeting, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        syncLine(profile.name, state.sync),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = tokens.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            },
-            actions = {
-                RefreshIcon(disconnected, onRetry = viewModel::refresh)
-                IconButton(onClick = onOpenSettings, modifier = Modifier.semantics { contentDescription = settingsLabel }) {
-                    Avatar(account.greetingName)
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbar) },
-        ) { padding ->
-            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                // Rejected writes stay with the banner; "can't reach" is the popup's, so the banner skips the sync states.
-                WriteQueueBanner(state.sync, viewModel, syncStates = false)
-                DisconnectedPopup(disconnected, profile.name, onRetry = viewModel::refresh)
-                RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
-                        val dashboard = state.dashboard ?: return@LoadedContent
-                        if (dashboard.vehicles.isEmpty()) {
-                            EmptyState(
-                                icon = Icons.Outlined.Garage,
-                                title = stringResource(R.string.dashboard_no_vehicles_title),
-                                body = stringResource(R.string.dashboard_no_vehicles_body),
-                            )
-                        } else {
-                            DashboardContent(
-                                dashboard = dashboard,
-                                extras = state.extras,
-                                fmt = state.formatter,
-                                pendingIds = pendingIds,
-                                pagerState = pagerState,
-                                cardActions = cardActions,
-                                snackbar = snackbar,
-                                onOpenVehicle = onOpenVehicle,
-                                onOpenMaintenance = onOpenMaintenance,
-                                onOpenFuel = onOpenFuel,
-                                onLogService = onLogService,
-                                onDeleteFuel = viewModel::deleteFuelEntry,
-                                onSnoozeReminder = viewModel::snoozeOdometerReminder,
-                            )
+    CompositionLocalProvider(LocalTilt provides tilt) {
+        MetallicSheenHost {
+            AppScaffold(
+                transparent = true,
+                title = {
+                    Column {
+                        MetallicText(greeting, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            syncLine(profile.name, state.sync),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = tokens.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                },
+                actions = {
+                    RefreshIcon(disconnected, onRetry = viewModel::refresh)
+                    IconButton(onClick = onOpenSettings, modifier = Modifier.semantics { contentDescription = settingsLabel }) {
+                        Avatar(account.greetingName)
+                    }
+                },
+                snackbarHost = { SnackbarHost(snackbar) },
+            ) { padding ->
+                Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                    // Rejected writes stay with the banner; "can't reach" is the popup's, so the banner skips the sync states.
+                    WriteQueueBanner(state.sync, viewModel, syncStates = false)
+                    DisconnectedPopup(disconnected, profile.name, onRetry = viewModel::refresh)
+                    RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                        LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
+                            val dashboard = state.dashboard ?: return@LoadedContent
+                            if (dashboard.vehicles.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Outlined.Garage,
+                                    title = stringResource(R.string.dashboard_no_vehicles_title),
+                                    body = stringResource(R.string.dashboard_no_vehicles_body),
+                                )
+                            } else {
+                                DashboardContent(
+                                    dashboard = dashboard,
+                                    extras = state.extras,
+                                    fmt = state.formatter,
+                                    pendingIds = pendingIds,
+                                    pagerState = pagerState,
+                                    cardActions = cardActions,
+                                    snackbar = snackbar,
+                                    onOpenVehicle = onOpenVehicle,
+                                    onOpenMaintenance = onOpenMaintenance,
+                                    onOpenFuel = onOpenFuel,
+                                    onLogService = onLogService,
+                                    onDeleteFuel = viewModel::deleteFuelEntry,
+                                    onSnoozeReminder = viewModel::snoozeOdometerReminder,
+                                )
+                            }
                         }
                     }
                 }
@@ -368,9 +378,11 @@ private fun DashboardContent(
 }
 
 /**
- * One vehicle: the tilting chrome frame around the photo (name over a scrim inside it), plate · mileage and the
- * status chip, then a chevron that drops down insurance, mileage and inspection. Long-press on the photo opens the
- * photo / rename menu; TalkBack gets the same as custom actions.
+ * One vehicle on a tilt-parallax card (D-A30): the whole card rotates toward the gyroscope or the finger, the photo
+ * sits behind the plate inside its chrome frame, the name, the plate · mileage line and the status chip float
+ * above it at their own depths, and a shine follows the pointer. Then a chevron drops down insurance, mileage and
+ * inspection. Long-press on the photo opens the photo / rename menu; TalkBack gets the same as custom actions.
+ * [tiltEnabled] is false while the pager moves or for a page that isn't the settled one: the card then eases flat.
  */
 @Composable
 private fun VehicleCard(
@@ -385,17 +397,17 @@ private fun VehicleCard(
 ) {
     val vehicle = summary.vehicle
     val tokens = glass
-    val tilt = rememberTilt(enabled = tiltEnabled)
+    val tilt = rememberCardTilt(followGyro = tiltEnabled)
+    val glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val title = cardActions.titleOf(vehicle)
     val expandLabel = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
 
-    GlassCard(modifier = Modifier.animateContentSize()) {
+    TiltParallaxListCard(modifier = Modifier.animateContentSize(), tilt = tilt, glow = glow) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
             MetallicFrame(
-                tilt = tilt,
                 cornerRadius = tokens.radiusMedium,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -407,7 +419,7 @@ private fun VehicleCard(
                         .fillMaxSize()
                         .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
                 ) {
-                    VehiclePhoto(vehicle, Modifier.fillMaxSize(), iconSize = 64.dp)
+                    VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
                     // Name over a bottom scrim so it reads on any photo; white on ≥ 55 % black clears 4.5:1.
                     Column(
                         Modifier
@@ -422,6 +434,7 @@ private fun VehicleCard(
                             color = tokens.onPhoto,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.tiltLayer(TiltDepths.Title),
                         )
                         if (nickname != null) {
                             Text(
@@ -430,6 +443,7 @@ private fun VehicleCard(
                                 color = tokens.onPhotoSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
                             )
                         }
                     }
@@ -447,8 +461,9 @@ private fun VehicleCard(
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.tiltLayer(TiltDepths.Line),
                 )
-                VehicleStatusChip(summary)
+                VehicleStatusChip(summary, Modifier.tiltLayer(TiltDepths.Chip))
             }
             val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
             IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {

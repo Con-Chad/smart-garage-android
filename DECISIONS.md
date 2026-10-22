@@ -682,3 +682,101 @@ App decisions use the `D-A` prefix.
     bearer header, JSON body, `endpoint_rejected`, `push_subscription_gone`,
     `Retry-After`, a bad device id never becomes a path). 112 → 128 unit
     tests.
+- **D-A30: The cards tilt in 3D toward a pointer and shine where it is; the
+  aurora runs behind every screen.**
+  - **What replaced what.** The holographic sheen band, the tiled grain and the
+    frame's own 3D rotation in `MetallicFrame` are gone, with their tokens
+    (`frameSheen`, `frameSheenBlend`, `frameGrain`); the frame is now just the
+    chrome border + glow + clip around a photo. In their place the user's
+    "3D Tilt Parallax" reference, translated to Compose in `ui/glass/Tilt.kt`
+    and `ui/glass/TiltParallax.kt`: `TiltParallaxCard` (a `GlassPanel` that
+    rotates, glows and shines) with `TiltLayer(depth)` / `Modifier.tiltLayer`
+    for the layers inside it. Applied to the home vehicle card, the vehicles-
+    list card, the vehicle page's photo card (now a card around the framed
+    photo, like the home card) and the four "At a glance" tiles. `GlassCard`
+    (every content card, `GlassDropdown`, and `GroupCard`, see below) gets the
+    plate glow and the shine but **no rotation and no parallax** (content-
+    dense), and its shine reacts to touch only. `MetallicText` stays on
+    titles, headers and the plate · mileage line: it is text, it reads well
+    over the new plate, and nothing else sweeps any more, so the one glint
+    per screen is the headers'.
+  - **The pointer** is a point 0..1 × 0..1 over the card, (0.5, 0.5) level.
+    (a) The gyroscope: `rememberTilt` (one per screen, provided through
+    `LocalTilt`) keeps the D-A24 sensor rules — game rotation vector at
+    `SENSOR_DELAY_UI`, only while in the tree and RESUMED, the slowly tracking
+    resting pose, the 0.015° deadband — and maps ±12° of roll/pitch to the
+    full 0..1 range. (b) The finger: `Modifier.tiltPointer` observes the
+    card's touches in the final pass without consuming anything; while
+    pressed, touch wins. A press (consumed by a clickable or not) starts
+    tracking; a move the list or pager has consumed, or that left the card,
+    ends it, so scrolling a list doesn't tilt every card the finger crosses.
+    No idle auto-rotation (the reference's demo loop): the gyro gives the
+    life, and a phone lying flat is level. The no-sensor idle drift of D-A24
+    is gone too; such a phone's cards react to touch only.
+  - **Mapping.** `rotationX = (0.5 − py)·14°·2`, `rotationY = (px − 0.5)·14°·2`
+    (max 14° at the card's edge), `cameraDistance = 7` (the platform camera
+    unit is View's px ÷ dpi, so 8 is the classic 1280 dp; 7 ≈ the reference's
+    `perspective: 1100px`). The pointer eases with a soft ease-out over
+    280 ms, or tracks the finger with a 90 ms linear tween while pressed, and
+    eases back to the gyro value on release. Depths (`TiltDepths`, scaled
+    from the reference's 40–95 px to a phone card): photo **−24 dp** (behind
+    the plate, so it slides the other way inside its frame like a view
+    through a window, scaled up just enough that its farthest shift never
+    shows an edge), plate · mileage line 16, server name 24, title 32,
+    status chip 40, a tile's figure 28. Compose has no `translateZ`, so a
+    layer at depth d is shifted by `d·sin(angle)` on each axis — where a
+    point at that depth lands under the card's rotation — and scaled by
+    `1 + d / 1100 dp`. The shine is `radialGradient(center = pointer, shine →
+    transparent)` with a radius of 45 % of the card's diagonal, screen-
+    blended on dark (`shine` 0x47FFFFFF) and plain over on light
+    (0x8CFFFFFF; screen does nothing on a near-white panel); strength 1 while
+    pressed, 0.45 while only the gyro moves the card, 0 when static, all
+    faded over 280 ms. The plate is the glass panel fill plus
+    `radialGradient(at 30 % 20 %, glow → transparent 55 %)` in the **vehicle's
+    `VehicleTint`** (the cards) or the current aurora tint (content cards),
+    at `plateGlowAlpha` 0.22 dark / 0.14 light — not the reference's pink —
+    with the existing 1 dp `panelBorder` and lift shadow. The home card eases
+    flat while the pager moves or for a page that isn't the settled one.
+  - **Perf measures kept.** Nothing in a frame allocates: the rotation is
+    read inside `graphicsLayer`, the parallax inside each layer's
+    `graphicsLayer`, the shine and the plate brushes are built once per size
+    in `drawWithCache` and a frame only translates the canvas. The shine is
+    its own layer, so a frame of shine repaints a circle, not the photo and
+    text under it; a rotation frame changes layer properties and redraws
+    nothing. The pointer animates on `Animatable`s driven from a
+    `snapshotFlow`, so a sensor tick or a touch recomposes nothing (D-A24's
+    `animateFloatAsState` recomposed the card on every tick). Touch-only
+    cards cost nothing while idle: strength 0 skips the draw and no
+    animation runs. Reduced motion or not RESUMED → `TiltState.motion`
+    false: no rotation, no parallax, no shine, no pointer input, exactly
+    the static frame the other ambient effects show.
+  - **Aurora everywhere.** `MainShell` draws its one `AuroraBackground`
+    behind every route (same RESUMED / animator-scale guards, same ¼-scale
+    layer, same 30 Hz clock), and `AppRoot` draws one behind the first-run
+    and re-sign-in setup flows, which live outside the shell. The
+    `AuroraTintHolder` still lets Home, Vehicles and the vehicle page name
+    the car's color; where no screen does, the tab chooses: Service →
+    `colorScheme.tertiary`, Fuel → the glass gold (`sheen`), More and all it
+    opens (sections, Settings, servers, add a server) → `colorScheme.
+    secondary`, else primary. With dynamic color on these follow the
+    wallpaper. `AppScaffold` is transparent by default now, so Settings,
+    Servers, Service, Fuel, More and the seven sections' `SectionScaffold`
+    lost their opaque surfaces without touching each screen; `FormScreen`
+    (all ten editors) and the setup `StepScaffold` draw no surface and put
+    their fields on one `GlassPanel`, with the save / action bar on the
+    frosted panel fill; the Welcome step's three features sit on a panel.
+    `GroupCard` is now `GlassCard` and `GroupHeader` is `GlassGroupHeader`,
+    so every row list in the app is a frosted card under a metallic header;
+    Service, Fuel and the sections run in a `MetallicSheenHost` so those
+    headers glint like Home's. Service's `PrimaryTabRow` is transparent.
+    Sheets, dialogs and menus stay opaque.
+  - **Contrast.** Rows keep `onSurface` / `onSurfaceVariant` text, which on
+    the frosted fill over the page color clears 4.5:1 in both themes (dark:
+    E3E2E9 / C5C6D0 on ≈ #14161F; light: 1A1B21 / 44464F on ≈ #E8EAF0, about
+    7:1). Text that sits directly on the aurora rather than on a panel —
+    section labels, empty / can't-reach / loading states, the Welcome
+    title — gets `TextStyle.onAurora`: a 12 px halo in the page color
+    (`textHalo`, 70 % dark page / 70 % white) behind the glyphs, so a bright
+    ribbon under them can't take the contrast away. Metallic headers are
+    unchanged (the halo would be tinted by their `SrcIn` gradient); they
+    were already accepted over the aurora on Home. No new strings.

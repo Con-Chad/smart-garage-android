@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,13 +50,16 @@ import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
-import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicFrame
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
-import io.github.conchad.smartgarage.ui.glass.rememberStaticTilt
+import io.github.conchad.smartgarage.ui.glass.TiltDepths
+import io.github.conchad.smartgarage.ui.glass.TiltParallaxCard
+import io.github.conchad.smartgarage.ui.glass.rememberTilt
+import io.github.conchad.smartgarage.ui.glass.tiltLayer
 
 /**
  * The vehicles list on glass (D-A24, notes item 3): each card is a frosted panel with the chrome frame around the
@@ -74,32 +78,35 @@ fun VehiclesScreen(
     val snackbar = remember { SnackbarHostState() }
     val cardActions = rememberVehicleCardActions(cardActionsViewModel, snackbar)
     AuroraTint(VehicleTint.color(state.vehicles.firstOrNull()?.vehicle?.color, MaterialTheme.colorScheme.primary))
+    val tilt = rememberTilt()
 
-    MetallicSheenHost {
-        AppScaffold(
-            title = { MetallicText(stringResource(R.string.nav_vehicles), style = MaterialTheme.typography.titleLarge, animated = true) },
-            transparent = true,
-            floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_vehicle), onClick = onAddVehicle) },
-            snackbarHost = { SnackbarHost(snackbar) },
-        ) { padding ->
-            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                SyncBanner(sync, onRetry = viewModel::refresh)
-                RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
-                        if (state.vehicles.isEmpty()) {
-                            EmptyState(
-                                icon = Icons.Outlined.DirectionsCar,
-                                title = stringResource(R.string.dashboard_no_vehicles_title),
-                                body = stringResource(R.string.vehicles_empty_body),
-                            )
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FAB_CLEARANCE),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                items(state.vehicles, key = { it.vehicle.id }) { summary ->
-                                    VehicleListCard(summary, state.formatter, cardActions, onClick = { onOpenVehicle(summary.vehicle.id) })
+    CompositionLocalProvider(LocalTilt provides tilt) {
+        MetallicSheenHost {
+            AppScaffold(
+                title = { MetallicText(stringResource(R.string.nav_vehicles), style = MaterialTheme.typography.titleLarge, animated = true) },
+                transparent = true,
+                floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_vehicle), onClick = onAddVehicle) },
+                snackbarHost = { SnackbarHost(snackbar) },
+            ) { padding ->
+                Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                    SyncBanner(sync, onRetry = viewModel::refresh)
+                    RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                        LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                            if (state.vehicles.isEmpty()) {
+                                EmptyState(
+                                    icon = Icons.Outlined.DirectionsCar,
+                                    title = stringResource(R.string.dashboard_no_vehicles_title),
+                                    body = stringResource(R.string.vehicles_empty_body),
+                                )
+                            } else {
+                                LazyColumn(
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FAB_CLEARANCE),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.fillMaxSize(),
+                                ) {
+                                    items(state.vehicles, key = { it.vehicle.id }) { summary ->
+                                        VehicleListCard(summary, state.formatter, cardActions, onClick = { onOpenVehicle(summary.vehicle.id) })
+                                    }
                                 }
                             }
                         }
@@ -110,21 +117,21 @@ fun VehiclesScreen(
     }
 }
 
+/** One vehicle in the list on a tilt-parallax card (D-A30), with the home card's layers: photo behind the plate, name and server name above it. */
 @Composable
 private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions: VehicleCardActions, onClick: () -> Unit) {
     val vehicle = summary.vehicle
     val tokens = glass
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
-    GlassPanel(Modifier.fillMaxWidth(), onClick = onClick) {
+    TiltParallaxCard(Modifier.fillMaxWidth(), glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary), onClick = onClick) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
             MetallicFrame(
-                tilt = rememberStaticTilt(),
                 cornerRadius = tokens.radiusMedium,
                 modifier = Modifier.fillMaxWidth().aspectRatio(2f).vehicleCardSemantics(vehicle, cardActions, onClick),
             ) {
                 Box(Modifier.fillMaxSize().combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })) {
-                    VehiclePhoto(vehicle, Modifier.fillMaxSize(), iconSize = 64.dp)
+                    VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
                     Column(
                         Modifier
                             .align(Alignment.BottomStart)
@@ -138,9 +145,17 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
                             color = tokens.onPhoto,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.tiltLayer(TiltDepths.Title),
                         )
                         if (nickname != null) {
-                            Text(vehicle.displayName, style = MaterialTheme.typography.bodySmall, color = tokens.onPhotoSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                vehicle.displayName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = tokens.onPhotoSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                            )
                         }
                     }
                 }
@@ -153,9 +168,10 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.tiltLayer(TiltDepths.Line),
             )
             if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
-            Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary) }
+            Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary, Modifier.tiltLayer(TiltDepths.Chip)) }
         }
     }
 }

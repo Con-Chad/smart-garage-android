@@ -11,6 +11,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
+import io.github.conchad.smartgarage.ui.glass.AuroraBackground
 import io.github.conchad.smartgarage.ui.navigation.MainShell
 import io.github.conchad.smartgarage.ui.theme.SmartGarageTheme
 
@@ -23,9 +24,10 @@ fun AppRoot(viewModel: AppViewModel = hiltViewModel()) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
             when (val root = state.root) {
                 RootState.Loading -> Unit
-                RootState.Onboarding -> SetupFlow(mode = SetupMode.FirstRun)
+                // Outside the shell there is no shell aurora, so the setup flows get their own (D-A30), in theme primary.
+                RootState.Onboarding -> AuroraBackground(tint = MaterialTheme.colorScheme.primary) { SetupFlow(mode = SetupMode.FirstRun) }
                 is RootState.SignedOut -> key(root.profile.id) {
-                    SetupFlow(mode = SetupMode.Reauth(root.profile.id))
+                    AuroraBackground(tint = MaterialTheme.colorScheme.primary) { SetupFlow(mode = SetupMode.Reauth(root.profile.id)) }
                 }
                 // Keyed by profile: switching servers starts a fresh back stack, since every screen shows that
                 // server's data.

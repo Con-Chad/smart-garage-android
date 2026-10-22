@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -41,6 +42,7 @@ import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RefreshBox
@@ -77,60 +79,62 @@ fun MaintenanceScreen(
     DeniedSnackbar(viewModel, snackbar)
     val addToCalendar = rememberAddToCalendar(snackbar)
 
-    AppScaffold(
-        title = stringResource(R.string.tab_service),
-        snackbarHost = { SnackbarHost(snackbar) },
-        actions = {
-            // A schedule is a setting rather than a log entry: it hangs off the bar, the FAB keeps its verb (D-A20).
-            if (state.loaded && state.canAddSchedule) {
-                IconButton(onClick = { onAddSchedule(state.selectedVehicleId) }) {
-                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_add_schedule))
+    MetallicSheenHost {
+        AppScaffold(
+            title = stringResource(R.string.tab_service),
+            snackbarHost = { SnackbarHost(snackbar) },
+            actions = {
+                // A schedule is a setting rather than a log entry: it hangs off the bar, the FAB keeps its verb (D-A20).
+                if (state.loaded && state.canAddSchedule) {
+                    IconButton(onClick = { onAddSchedule(state.selectedVehicleId) }) {
+                        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_add_schedule))
+                    }
                 }
-            }
-        },
-        floatingActionButton = {
-            if (state.loaded && state.canAdd) {
-                AddFab(stringResource(R.string.action_log_service), onClick = { onLogService(null, state.selectedVehicleId) }, icon = Icons.Outlined.Build)
-            }
-        },
-    ) { padding ->
-        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            WriteQueueBanner(sync, viewModel)
-            PrimaryTabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.maintenance_upcoming)) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.maintenance_history)) })
-            }
-            VehicleFilterRow(
-                state.vehicles,
-                state.selectedVehicleId,
-                viewModel::selectVehicle,
-                Modifier.padding(top = 12.dp),
-            )
-            // The web's history search (name, vendor, notes, parts); filtered in the ViewModel (D-A23).
-            if (tab == 1 && state.loaded && (state.unfilteredRecords > 0 || state.query.isNotEmpty())) {
-                SearchField(state.query, viewModel::search, stringResource(R.string.search_history_hint), Modifier.padding(top = 8.dp, bottom = 4.dp))
-            }
-            val searching = state.query.isNotBlank() && state.unfilteredRecords > 0
-            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
-                    when {
-                        tab == 0 && state.due.isEmpty() -> EmptyState(
-                            icon = Icons.Outlined.Build,
-                            title = stringResource(R.string.maintenance_no_schedules_title),
-                            body = stringResource(R.string.maintenance_no_schedules_body),
-                            action = if (state.canAddSchedule) {
-                                { Button(onClick = { onAddSchedule(state.selectedVehicleId) }) { Text(stringResource(R.string.action_add_schedule)) } }
-                            } else {
-                                null
-                            },
-                        )
-                        tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
-                        state.records.isEmpty() -> EmptyState(
-                            icon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
-                            title = stringResource(if (searching) R.string.search_no_matches_title else R.string.maintenance_no_records_title),
-                            body = stringResource(if (searching) R.string.search_no_matches_body else R.string.maintenance_no_records_body),
-                        )
-                        else -> History(state, pendingIds, onOpen = { open = SheetTarget.Record(it) })
+            },
+            floatingActionButton = {
+                if (state.loaded && state.canAdd) {
+                    AddFab(stringResource(R.string.action_log_service), onClick = { onLogService(null, state.selectedVehicleId) }, icon = Icons.Outlined.Build)
+                }
+            },
+        ) { padding ->
+            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                WriteQueueBanner(sync, viewModel)
+                PrimaryTabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.maintenance_upcoming)) })
+                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.maintenance_history)) })
+                }
+                VehicleFilterRow(
+                    state.vehicles,
+                    state.selectedVehicleId,
+                    viewModel::selectVehicle,
+                    Modifier.padding(top = 12.dp),
+                )
+                // The web's history search (name, vendor, notes, parts); filtered in the ViewModel (D-A23).
+                if (tab == 1 && state.loaded && (state.unfilteredRecords > 0 || state.query.isNotEmpty())) {
+                    SearchField(state.query, viewModel::search, stringResource(R.string.search_history_hint), Modifier.padding(top = 8.dp, bottom = 4.dp))
+                }
+                val searching = state.query.isNotBlank() && state.unfilteredRecords > 0
+                RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                        when {
+                            tab == 0 && state.due.isEmpty() -> EmptyState(
+                                icon = Icons.Outlined.Build,
+                                title = stringResource(R.string.maintenance_no_schedules_title),
+                                body = stringResource(R.string.maintenance_no_schedules_body),
+                                action = if (state.canAddSchedule) {
+                                    { Button(onClick = { onAddSchedule(state.selectedVehicleId) }) { Text(stringResource(R.string.action_add_schedule)) } }
+                                } else {
+                                    null
+                                },
+                            )
+                            tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
+                            state.records.isEmpty() -> EmptyState(
+                                icon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
+                                title = stringResource(if (searching) R.string.search_no_matches_title else R.string.maintenance_no_records_title),
+                                body = stringResource(if (searching) R.string.search_no_matches_body else R.string.maintenance_no_records_body),
+                            )
+                            else -> History(state, pendingIds, onOpen = { open = SheetTarget.Record(it) })
+                        }
                     }
                 }
             }

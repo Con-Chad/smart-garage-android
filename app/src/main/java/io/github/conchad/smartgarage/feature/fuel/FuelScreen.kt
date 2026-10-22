@@ -39,6 +39,7 @@ import io.github.conchad.smartgarage.ui.components.FuelRow
 import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
@@ -67,56 +68,58 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
     var trendsOpen by rememberSaveable { mutableStateOf(true) }
     DeniedSnackbar(viewModel, snackbar)
 
-    AppScaffold(
-        title = stringResource(R.string.nav_fuel),
-        snackbarHost = { SnackbarHost(snackbar) },
-        floatingActionButton = {
-            if (state.loaded && state.canAdd) {
-                AddFab(stringResource(R.string.action_log_fill_up), onClick = { onLogFillUp(state.selectedVehicleId) }, icon = Icons.Outlined.LocalGasStation)
-            }
-        },
-    ) { padding ->
-        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            WriteQueueBanner(sync, viewModel)
-            VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
-            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
-                    if (state.months.isEmpty()) {
-                        EmptyState(
-                            icon = Icons.Outlined.LocalGasStation,
-                            title = stringResource(R.string.fuel_empty_title),
-                            body = stringResource(R.string.fuel_empty_body),
-                        )
-                    } else {
-                        LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
-                            state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt, showEconomy = state.trackFuelEconomy) } }
-                            item(key = "trends-header") {
-                                GroupHeader(
-                                    stringResource(R.string.fuel_trends),
-                                    action = stringResource(if (trendsOpen) R.string.action_hide else R.string.action_show),
-                                    onAction = { trendsOpen = !trendsOpen },
-                                )
-                            }
-                            if (trendsOpen) item(key = "trends") { Trends(state.trends, state.vehicles.size, fmt, showEconomy = state.trackFuelEconomy) }
-                            state.months.forEach { month ->
-                                item(key = month.month.toString()) {
+    MetallicSheenHost {
+        AppScaffold(
+            title = stringResource(R.string.nav_fuel),
+            snackbarHost = { SnackbarHost(snackbar) },
+            floatingActionButton = {
+                if (state.loaded && state.canAdd) {
+                    AddFab(stringResource(R.string.action_log_fill_up), onClick = { onLogFillUp(state.selectedVehicleId) }, icon = Icons.Outlined.LocalGasStation)
+                }
+            },
+        ) { padding ->
+            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                WriteQueueBanner(sync, viewModel)
+                VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
+                RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                        if (state.months.isEmpty()) {
+                            EmptyState(
+                                icon = Icons.Outlined.LocalGasStation,
+                                title = stringResource(R.string.fuel_empty_title),
+                                body = stringResource(R.string.fuel_empty_body),
+                            )
+                        } else {
+                            LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+                                state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt, showEconomy = state.trackFuelEconomy) } }
+                                item(key = "trends-header") {
                                     GroupHeader(
-                                        "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
-                                            fmt.money(month.totalCents, month.entries.first().currency),
+                                        stringResource(R.string.fuel_trends),
+                                        action = stringResource(if (trendsOpen) R.string.action_hide else R.string.action_show),
+                                        onAction = { trendsOpen = !trendsOpen },
                                     )
                                 }
-                                item(key = "${month.month}-list") {
-                                    GroupCard {
-                                        month.entries.forEachIndexed { index, entry ->
-                                            if (index > 0) RowDivider()
-                                            FuelRow(
-                                                entry,
-                                                vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
-                                                fmt = fmt,
-                                                onClick = { open = SheetTarget.Fuel(entry.id) },
-                                                economy = state.segments[entry.id]?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it.litersPer100Km) },
-                                                pending = entry.id in pendingIds,
-                                            )
+                                if (trendsOpen) item(key = "trends") { Trends(state.trends, state.vehicles.size, fmt, showEconomy = state.trackFuelEconomy) }
+                                state.months.forEach { month ->
+                                    item(key = month.month.toString()) {
+                                        GroupHeader(
+                                            "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
+                                                fmt.money(month.totalCents, month.entries.first().currency),
+                                        )
+                                    }
+                                    item(key = "${month.month}-list") {
+                                        GroupCard {
+                                            month.entries.forEachIndexed { index, entry ->
+                                                if (index > 0) RowDivider()
+                                                FuelRow(
+                                                    entry,
+                                                    vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
+                                                    fmt = fmt,
+                                                    onClick = { open = SheetTarget.Fuel(entry.id) },
+                                                    economy = state.segments[entry.id]?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it.litersPer100Km) },
+                                                    pending = entry.id in pendingIds,
+                                                )
+                                            }
                                         }
                                     }
                                 }

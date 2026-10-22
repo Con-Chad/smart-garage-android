@@ -35,6 +35,7 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.forms.PendingMark
+import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import java.time.YearMonth
@@ -72,27 +73,29 @@ fun SectionScaffold(
     content: LazyListScope.() -> Unit,
 ) {
     DeniedSnackbar(viewModel, snackbar)
-    AppScaffold(
-        title = title,
-        onBack = onBack,
-        actions = actions,
-        floatingActionButton = floatingActionButton,
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            WriteQueueBanner(sync, viewModel)
-            VehicleFilterRow(vehicles, selectedVehicleId, onSelectVehicle, Modifier.padding(bottom = 4.dp))
-            filters()
-            RefreshBox(sync, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
-                LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh) {
-                    if (isEmpty) {
-                        EmptyState(icon = emptyIcon, title = emptyTitle, body = emptyBody, action = emptyAction)
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
-                            modifier = Modifier.fillMaxSize(),
-                            content = content,
-                        )
+    MetallicSheenHost {
+        AppScaffold(
+            title = title,
+            onBack = onBack,
+            actions = actions,
+            floatingActionButton = floatingActionButton,
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                WriteQueueBanner(sync, viewModel)
+                VehicleFilterRow(vehicles, selectedVehicleId, onSelectVehicle, Modifier.padding(bottom = 4.dp))
+                filters()
+                RefreshBox(sync, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
+                    LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh) {
+                        if (isEmpty) {
+                            EmptyState(icon = emptyIcon, title = emptyTitle, body = emptyBody, action = emptyAction)
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
+                                modifier = Modifier.fillMaxSize(),
+                                content = content,
+                            )
+                        }
                     }
                 }
             }

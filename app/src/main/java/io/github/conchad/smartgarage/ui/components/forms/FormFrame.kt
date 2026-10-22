@@ -38,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -55,6 +57,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.glass
 
 /**
  * Full-screen editor (D-A20): a close button and title on top, the fields in a scrolling column, and a pinned
@@ -78,14 +82,18 @@ fun FormScreen(
     val close = { if (dirty) confirmDiscard = true else onClose() }
     BackHandler(enabled = dirty) { confirmDiscard = true }
 
+    // On the shell's aurora (D-A30): no surface of its own, the fields on one glass panel so they never float on
+    // the ribbons, and the save bar on the same frosted fill.
     Scaffold(
         modifier = modifier,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
             )
         },
         bottomBar = { SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation) },
@@ -97,9 +105,11 @@ fun FormScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content,
-        )
+        ) {
+            GlassPanel(Modifier.fillMaxWidth(), contentPadding = 16.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+            }
+        }
     }
 
     if (confirmDiscard) {
@@ -156,7 +166,7 @@ fun SaveBar(
     validation: String? = null,
     inSheet: Boolean = false,
 ) {
-    Surface(color = if (inSheet) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainer, modifier = modifier) {
+    Surface(color = if (inSheet) MaterialTheme.colorScheme.surfaceContainerLow else glass.panel, modifier = modifier) {
         Column(Modifier.fillMaxWidth().then(if (inSheet) Modifier else Modifier.navigationBarsPadding().imePadding())) {
             if (!inSheet) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             AnimatedVisibility(visible = validation != null) {

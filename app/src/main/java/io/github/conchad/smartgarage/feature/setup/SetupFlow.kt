@@ -41,6 +41,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.IconBadge
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.onAurora
 
 /**
  * Welcome → server → sign-in. Nothing is saved until sign-in succeeds; then the profile becomes active and
@@ -100,23 +103,26 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
                 content = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             Spacer(Modifier.height(24.dp))
+            // On the aurora (D-A30): haloed title and body, the three features on a glass panel.
             Text(
                 stringResource(R.string.welcome_title),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.onAurora(glass),
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 stringResource(R.string.welcome_body),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.onAurora(glass),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(32.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                Feature(Icons.Outlined.Storage, R.string.welcome_feature_server_title, R.string.welcome_feature_server_body)
-                Feature(Icons.Outlined.CloudOff, R.string.welcome_feature_offline_title, R.string.welcome_feature_offline_body)
-                Feature(Icons.Outlined.Lock, R.string.welcome_feature_private_title, R.string.welcome_feature_private_body)
+            GlassPanel(Modifier.fillMaxWidth(), contentPadding = 20.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Feature(Icons.Outlined.Storage, R.string.welcome_feature_server_title, R.string.welcome_feature_server_body)
+                    Feature(Icons.Outlined.CloudOff, R.string.welcome_feature_offline_title, R.string.welcome_feature_offline_body)
+                    Feature(Icons.Outlined.Lock, R.string.welcome_feature_private_title, R.string.welcome_feature_private_body)
+                }
             }
             Spacer(Modifier.height(24.dp))
         }

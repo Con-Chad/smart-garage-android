@@ -40,6 +40,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.onAurora
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 
 /** Centered spinner with a line of text; the one way a screen waits for the cache or the first sync. */
@@ -52,7 +54,7 @@ fun LoadingState(text: String, modifier: Modifier = Modifier) {
     ) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+        Text(text, style = MaterialTheme.typography.bodyLarge.onAurora(glass), textAlign = TextAlign.Center)
     }
 }
 

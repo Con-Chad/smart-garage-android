@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -43,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.network.NetworkFailure
 import io.github.conchad.smartgarage.core.network.ServerProblem
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.glass
 
 /** Setup screen frame: top bar, scrolling form, and an action bar that rides above the keyboard. */
 @Composable
@@ -53,8 +56,11 @@ internal fun StepScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // On the aurora (D-A30: AppRoot draws one behind the setup flows, the shell behind "add a server"); the form
+    // sits on a glass panel and the action bar on the same frosted fill.
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(title) },
@@ -66,10 +72,11 @@ internal fun StepScaffold(
                     }
                 },
                 scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
             )
         },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.surface) {
+            Surface(color = glass.panel) {
                 Row(
                     Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -86,11 +93,9 @@ internal fun StepScaffold(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                Modifier.widthIn(max = 560.dp).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                content = content,
-            )
+            GlassPanel(Modifier.widthIn(max = 560.dp).fillMaxWidth(), contentPadding = 16.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+            }
         }
     }
 }
