@@ -99,6 +99,8 @@ fun InspectionSheet(
     pending: Boolean = false,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** Opens the calendar with the due date prefilled (D-A25). */
+    onAddToCalendar: (() -> Unit)? = null,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val due = inspection.nextDueAt.toInstantOrNull()
@@ -115,8 +117,9 @@ fun InspectionSheet(
         DetailRow(stringResource(R.string.inspection_sticker), inspection.stickerNumber)
         DetailRow(stringResource(R.string.field_notes), inspection.notes)
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        if (onEdit != null || onDelete != null) {
-            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } })
+        val calendar = due?.let { d -> onAddToCalendar?.let { fmt.date(d) to it } }
+        if (onEdit != null || onDelete != null || calendar != null) {
+            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } }, calendar = calendar)
         }
     }
     if (confirmDelete && onDelete != null) {
@@ -141,6 +144,8 @@ fun InsuranceSheet(
     pending: Boolean = false,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** Opens the calendar with the renewal date (the policy's end) prefilled (D-A25). */
+    onAddToCalendar: (() -> Unit)? = null,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(Icons.Outlined.Shield, policy.provider, vehicle?.displayName, onDismiss) {
@@ -153,8 +158,9 @@ fun InsuranceSheet(
         DetailRow(stringResource(R.string.insurance_auto_renew), stringResource(if (policy.autoRenew) R.string.yes else R.string.no))
         DetailRow(stringResource(R.string.field_notes), policy.notes)
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        if (onEdit != null || onDelete != null) {
-            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } })
+        val calendar = policy.endDate.toInstantOrNull()?.let { end -> onAddToCalendar?.let { fmt.date(end) to it } }
+        if (onEdit != null || onDelete != null || calendar != null) {
+            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } }, calendar = calendar)
         }
     }
     if (confirmDelete && onDelete != null) {

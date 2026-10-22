@@ -94,9 +94,12 @@ fun SheetActions(
     secondary: Pair<String, () -> Unit>? = null,
     /** Delete's label when it isn't a plain delete ("Stop reminders"). */
     deleteLabel: String = stringResource(R.string.action_delete),
+    /** "Add to calendar" for the item's due date (D-A25); a reminder is not an edit, so viewers get it too. */
+    calendar: Pair<String, () -> Unit>? = null,
 ) {
     val canEdit = vehicle?.access?.canEdit ?: true
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        calendar?.let { (dateText, action) -> AddToCalendarButton(dateText, action) }
         if (!canEdit) {
             ViewOnlyNote(vehicle?.owner?.name, Modifier.padding(vertical = 8.dp))
             return@Column
@@ -142,6 +145,8 @@ fun ScheduleSheet(
     onEdit: (() -> Unit)? = null,
     onEditDefaults: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** Opens the calendar with the due date prefilled (D-A25); only offered when the schedule has a date. */
+    onAddToCalendar: (() -> Unit)? = null,
 ) {
     val schedule = item.schedule
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -172,7 +177,8 @@ fun ScheduleSheet(
             schedule.itemDefaults.forEach { ItemRow(it, fmt, schedule.currency) }
         }
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        if (onLogService != null || onEdit != null || onDelete != null) {
+        val calendar = item.dueAt?.let { due -> onAddToCalendar?.let { fmt.date(due) to it } }
+        if (onLogService != null || onEdit != null || onDelete != null || calendar != null) {
             SheetActions(
                 item.vehicle,
                 primary = onLogService?.let { stringResource(R.string.action_log_service) to it },
@@ -180,6 +186,7 @@ fun ScheduleSheet(
                 onEdit = onEdit,
                 onDelete = onDelete?.let { { confirmDelete = true } },
                 deleteLabel = stringResource(R.string.schedule_deactivate),
+                calendar = calendar,
             )
         }
     }
@@ -258,6 +265,8 @@ fun FuelSheet(
     onDismiss: () -> Unit,
     pending: Boolean = false,
     onDelete: (() -> Unit)? = null,
+    /** False hides the odometer, distance and consumption rows (Settings → Fuel → Track fuel economy, D-A25). */
+    showEconomy: Boolean = true,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(
@@ -269,9 +278,11 @@ fun FuelSheet(
         DetailRow(stringResource(R.string.fuel_station), entry.stationName)
         DetailRow(stringResource(R.string.fuel_volume), entry.liters?.let(fmt::volume))
         DetailRow(stringResource(R.string.fuel_unit_price), entry.liters?.let { fmt.unitPrice(entry.totalCostCents, it, entry.currency) })
-        DetailRow(stringResource(R.string.field_odometer), entry.odometerKm?.let(fmt::distance))
-        DetailRow(stringResource(R.string.fuel_distance), segment?.let { fmt.distance(it.distanceKm) })
-        DetailRow(stringResource(R.string.fuel_economy), segment?.let { fmt.economy(it.litersPer100Km) })
+        if (showEconomy) {
+            DetailRow(stringResource(R.string.field_odometer), entry.odometerKm?.let(fmt::distance))
+            DetailRow(stringResource(R.string.fuel_distance), segment?.let { fmt.distance(it.distanceKm) })
+            DetailRow(stringResource(R.string.fuel_economy), segment?.let { fmt.economy(it.litersPer100Km) })
+        }
         DetailRow(stringResource(R.string.field_notes), entry.note)
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         if (onDelete != null) {

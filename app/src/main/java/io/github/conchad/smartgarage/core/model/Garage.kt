@@ -29,6 +29,8 @@ data class VehicleDetail(
     val policies: List<InsurancePolicy>,
     /** Fuel, service records and other expenses since the start of the year, in cents. */
     val spentThisYearCents: Long,
+    /** The policy in force today (ending soonest when several overlap); null between policies or without any. */
+    val currentPolicy: InsurancePolicy? = null,
 )
 
 data class Dated<T>(val item: T, val vehicle: Vehicle)
@@ -115,6 +117,7 @@ object GarageMath {
         inspections: List<Inspection>,
         policies: List<InsurancePolicy>,
         yearStart: Instant,
+        now: Instant = Instant.now(),
     ): VehicleDetail {
         val mine = due.filter { it.vehicle.id == vehicle.id }
         val myFuel = fuel.filter { it.vehicleId == vehicle.id }
@@ -136,8 +139,29 @@ object GarageMath {
             inspections = inspections.filter { it.vehicleId == vehicle.id }.sortedBy { it.nextDueAt },
             policies = policies.filter { it.vehicleId == vehicle.id }.sortedByDescending { it.endDate },
             spentThisYearCents = spent,
+            currentPolicy = currentPolicy(policies.filter { it.vehicleId == vehicle.id }, now),
         )
     }
+
+    /** True while [now] lies within the policy's start and end dates. */
+    fun isActive(policy: InsurancePolicy, now: Instant): Boolean {
+        val start = policy.startDate.toInstantOrNull() ?: Instant.MIN
+        val end = policy.endDate.toInstantOrNull() ?: Instant.MIN
+        return !now.isBefore(start) && !now.isAfter(end)
+    }
+
+    /** The active policy ending soonest, the same pick as the dashboard's insurance card. */
+    fun currentPolicy(policies: List<InsurancePolicy>, now: Instant): InsurancePolicy? =
+        policies.filter { isActive(it, now) }.minByOrNull { it.endDate.toInstantOrNull() ?: Instant.MAX }
+
+    /**
+     * Whether a custom field's label or a modification's name is about the tyres on the car, so the detail page can
+     * show a "Tires" row (D-A25) without a tyre model the server does not have. English and German words, whole
+     * words only, so "retired" or "Reifenstahl" (a name) don't match.
+     */
+    fun isAboutTires(text: String?): Boolean = text != null && TIRE_WORDS.containsMatchIn(text)
+
+    private val TIRE_WORDS = Regex("""(?iu)(?<![\p{L}])(tires?|tyres?|reifen|bereifung|sommerreifen|winterreifen|ganzjahresreifen|allwetterreifen)(?![\p{L}])""")
 
     fun dashboard(
         vehicles: List<Vehicle>,

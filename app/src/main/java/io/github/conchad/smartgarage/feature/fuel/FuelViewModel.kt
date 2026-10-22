@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.feature.fuel
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.ui.sync.SyncControl
@@ -50,6 +51,8 @@ data class FuelUiState(
     val segments: Map<String, FuelSegment> = emptyMap(),
     val summary: FuelSummary? = null,
     val trends: FuelTrends? = null,
+    /** Settings → Fuel → Track fuel economy (D-A25): off hides consumption everywhere on this screen. */
+    val trackFuelEconomy: Boolean = true,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
 ) {
@@ -62,10 +65,15 @@ data class FuelUiState(
 }
 
 @HiltViewModel
-class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) : WritingViewModel(control, writer) {
+class FuelViewModel @Inject constructor(
+    garage: GarageRepository,
+    settings: AppSettings,
+    control: SyncControl,
+    writer: GarageWriter,
+) : WritingViewModel(control, writer) {
     private val selected = MutableStateFlow<String?>(null)
 
-    val state: StateFlow<FuelUiState> = combine(garage.vehicles, garage.fuelEntries, garage.formatter, selected) { allVehicles, all, fmt, vehicleId ->
+    val state: StateFlow<FuelUiState> = combine(garage.vehicles, garage.fuelEntries, garage.formatter, selected, settings.fuel) { allVehicles, all, fmt, vehicleId, fuelSettings ->
         val vehicles = allVehicles.sortedWith(GarageMath.vehicleOrder)
         val filter = vehicleId?.takeIf { id -> vehicles.any { it.id == id } }
         val ids = vehicles.mapTo(HashSet()) { it.id }
@@ -91,6 +99,7 @@ class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncC
                 fillUps = thisYear.size,
             ),
             trends = if (filter != null || vehicles.size == 1) FuelTrends(ChartMath.consumptionSeries(entries), ChartMath.priceSeries(entries)) else null,
+            trackFuelEconomy = fuelSettings.trackFuelEconomy,
             formatter = fmt,
             loaded = true,
         )

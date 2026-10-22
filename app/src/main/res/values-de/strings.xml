@@ -742,4 +742,20 @@
     </plurals>
     <string name="action_update">Aktualisieren</string>
     <string name="action_later">Später</string>
+    <!-- Fahrzeugseite, Kalender und Verbrauchsschalter (D-A25). -->
+    <string name="calendar_add_dated">In Kalender eintragen (%1$s)</string>
+    <string name="calendar_no_app">Auf diesem Telefon ist keine Kalender-App verfügbar.</string>
+    <string name="calendar_title_due">%1$s fällig – %2$s</string>
+    <string name="calendar_title_renewal">%1$s: Verlängerung – %2$s</string>
+    <string name="settings_fuel">Tanken</string>
+    <string name="settings_track_fuel_economy">Verbrauch erfassen</string>
+    <string name="settings_track_fuel_economy_desc">Bei jedem Tanken nach dem Kilometerstand fragen und den Verbrauch anzeigen. Ausschalten, um nur die Kosten festzuhalten.</string>
+    <string name="vehicle_owner">Besitzer: %1$s</string>
+    <string name="vehicle_mileage">Kilometerstand</string>
+    <string name="vehicle_insurance_plan">Versicherung</string>
+    <string name="vehicle_details_all">Fahrzeugdetails</string>
+    <string name="vehicle_registration">Zulassung</string>
+    <string name="vehicle_specs">Technische Daten</string>
+    <string name="vehicle_tires">Reifen</string>
+    <string name="vehicle_no_details">Noch nichts hinterlegt. Bearbeite das Fahrzeug, um Zulassung, FIN und technische Daten zu ergänzen.</string>
 </resources>

@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.AppearanceSettings
 import io.github.conchad.smartgarage.core.data.AuthRepository
+import io.github.conchad.smartgarage.core.data.FuelSettings
 import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.core.data.ThemeMode
@@ -21,6 +22,7 @@ data class SettingsUiState(
     val profile: ServerProfile? = null,
     val profileCount: Int = 0,
     val appearance: AppearanceSettings = AppearanceSettings(),
+    val fuel: FuelSettings = FuelSettings(),
     val signingOut: Boolean = false,
 )
 
@@ -34,13 +36,15 @@ class SettingsViewModel @Inject constructor(
     private val signingOut = MutableStateFlow(false)
 
     val state: StateFlow<SettingsUiState> =
-        combine(profiles.state, settings.appearance, signingOut) { p, appearance, busy ->
-            SettingsUiState(p.active, p.profiles.size, appearance, busy)
+        combine(profiles.state, settings.appearance, settings.fuel, signingOut) { p, appearance, fuel, busy ->
+            SettingsUiState(p.active, p.profiles.size, appearance, fuel, busy)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { settings.setThemeMode(mode) }
 
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { settings.setDynamicColor(enabled) }
+
+    fun setTrackFuelEconomy(enabled: Boolean) = viewModelScope.launch { settings.setTrackFuelEconomy(enabled) }
 
     fun signOut() {
         val id = state.value.profile?.id ?: return

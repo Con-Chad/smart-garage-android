@@ -31,6 +31,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.enumLabel
@@ -47,7 +48,10 @@ import io.github.conchad.smartgarage.ui.components.forms.FormSection
 import io.github.conchad.smartgarage.ui.components.forms.FormSwitchRow
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
+import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.unitLabel
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 
 /** Log or edit a service (D-A20): vehicle and schedule, date, odometer, cost, shop, notes, then the parts. */
 @Composable
@@ -56,6 +60,7 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
     var confirmRegression by rememberSaveable { mutableStateOf(false) }
+    val addToCalendar = rememberAddToCalendar(snackbar)
 
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
@@ -132,6 +137,14 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
         }
         FormTextField(value = state.vendor, onValueChange = viewModel::setVendor, label = stringResource(R.string.field_vendor), capitalizeWords = true)
         FormNotesField(value = state.notes, onValueChange = viewModel::setNotes)
+        // The next due date this service implies (date + the schedule's month interval), as a calendar reminder (D-A25).
+        val vehicle = state.vehicle
+        val option = state.schedule
+        val nextDue = state.nextDue
+        if (vehicle != null && option != null && nextDue != null) {
+            val event = dueCalendarEvent(option.name, vehicle, nextDue, intervalText(option.schedule.intervalKm, option.schedule.intervalMonths, fmt))
+            AddToCalendarButton(fmt.date(nextDue), onClick = { addToCalendar(event) })
+        }
 
         FormSection(
             stringResource(R.string.schedule_parts),

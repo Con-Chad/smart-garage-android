@@ -89,22 +89,25 @@ fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltView
             label = stringResource(R.string.field_date),
             fmt = fmt,
         )
-        FormDistanceField(
-            value = state.odometer,
-            onValueChange = viewModel::setOdometer,
-            label = stringResource(R.string.field_odometer),
-            fmt = fmt,
-            large = true,
-            error = when {
-                state.odometerInvalid -> stringResource(R.string.form_invalid_number)
-                else -> null
-            },
-            supporting = when {
-                state.odometerBelowCurrent -> stringResource(R.string.form_odometer_below_current, fmt.distance(state.currentOdometerKm ?: 0))
-                state.currentOdometerKm != null -> stringResource(R.string.form_odometer_current, fmt.distance(state.currentOdometerKm ?: 0))
-                else -> null
-            },
-        )
+        // Hidden when fuel economy isn't tracked (D-A25): no reading is asked for or sent.
+        if (state.trackOdometer) {
+            FormDistanceField(
+                value = state.odometer,
+                onValueChange = viewModel::setOdometer,
+                label = stringResource(R.string.field_odometer),
+                fmt = fmt,
+                large = true,
+                error = when {
+                    state.odometerInvalid -> stringResource(R.string.form_invalid_number)
+                    else -> null
+                },
+                supporting = when {
+                    state.odometerBelowCurrent -> stringResource(R.string.form_odometer_below_current, fmt.distance(state.currentOdometerKm ?: 0))
+                    state.currentOdometerKm != null -> stringResource(R.string.form_odometer_current, fmt.distance(state.currentOdometerKm ?: 0))
+                    else -> null
+                },
+            )
+        }
         FormVolumeField(
             value = state.volume,
             onValueChange = viewModel::setVolume,
@@ -135,7 +138,7 @@ fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltView
         state.lastEntry?.let { last ->
             val parts = listOfNotNull(
                 last.filledAt.toInstantOrNull()?.let(fmt::shortDate),
-                last.odometerKm?.let(fmt::distance),
+                last.odometerKm?.takeIf { state.trackOdometer }?.let(fmt::distance),
                 last.liters?.let { fmt.unitPrice(last.totalCostCents, it, last.currency) },
             )
             Text(

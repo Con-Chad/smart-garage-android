@@ -62,4 +62,44 @@ class GarageMathTest {
 
         assertThat(GarageMath.consumptionByEntry(entries)).containsExactly("b", 6.0)
     }
+
+    @Test
+    fun `vehicle detail names the policy in force and sums only this year's money once`() {
+        val now = Instant.parse("2026-10-21T00:00:00Z")
+        val yearStart = Instant.parse("2026-01-01T00:00:00Z")
+        fun policy(id: String, vehicle: String, start: String, end: String) =
+            InsurancePolicy(id = id, vehicleId = vehicle, provider = id, startDate = start, endDate = end)
+        val policies = listOf(
+            policy("expired", "v1", "2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"),
+            policy("current", "v1", "2026-01-01T00:00:00Z", "2027-01-01T00:00:00Z"),
+            policy("otherCar", "v2", "2026-01-01T00:00:00Z", "2026-12-01T00:00:00Z"),
+        )
+        val records = listOf(MaintenanceRecord(id = "r", vehicleId = "v1", performedAt = "2026-03-01T00:00:00Z", costCents = 10_000))
+        val expenses = listOf(
+            Expense(id = "e1", vehicleId = "v1", occurredAt = "2026-03-01T00:00:00Z", amountCents = 10_000, maintenanceRecordId = "r"),
+            Expense(id = "e2", vehicleId = "v1", occurredAt = "2026-04-01T00:00:00Z", amountCents = 2_500),
+            Expense(id = "old", vehicleId = "v1", occurredAt = "2025-12-31T00:00:00Z", amountCents = 99_999),
+        )
+        val fuel = listOf(FuelEntry(id = "f", vehicleId = "v1", filledAt = "2026-10-01T00:00:00Z", totalCostCents = 6_000))
+
+        val detail = GarageMath.vehicleDetail(mx5, emptyList(), records, fuel, expenses, emptyList(), policies, yearStart, now)
+
+        assertThat(detail.currentPolicy?.id).isEqualTo("current")
+        assertThat(detail.spentThisYearCents).isEqualTo(18_500)
+        assertThat(GarageMath.currentPolicy(emptyList(), now)).isNull()
+        assertThat(GarageMath.currentPolicy(policies.take(1), now)).isNull()
+    }
+
+    @Test
+    fun `tyre words are matched whole, in English and German, case-insensitively`() {
+        assertThat(GarageMath.isAboutTires("Tires")).isTrue()
+        assertThat(GarageMath.isAboutTires("Winter tyres (205/55 R16)")).isTrue()
+        assertThat(GarageMath.isAboutTires("Reifen vorne")).isTrue()
+        assertThat(GarageMath.isAboutTires("Sommerreifen")).isTrue()
+        assertThat(GarageMath.isAboutTires("Bereifung")).isTrue()
+        assertThat(GarageMath.isAboutTires("Retired plates")).isFalse()
+        assertThat(GarageMath.isAboutTires("Reifenstahl")).isFalse()
+        assertThat(GarageMath.isAboutTires("Wheels")).isFalse()
+        assertThat(GarageMath.isAboutTires(null)).isFalse()
+    }
 }

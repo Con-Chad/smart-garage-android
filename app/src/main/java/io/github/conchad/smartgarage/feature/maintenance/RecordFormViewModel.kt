@@ -16,6 +16,7 @@ import io.github.conchad.smartgarage.core.model.MaintenanceTemplate
 import io.github.conchad.smartgarage.core.model.Schedule
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.links.CalendarLinks
 import io.github.conchad.smartgarage.ui.navigation.RecordFormRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
@@ -107,6 +108,9 @@ data class RecordFormState(
     val itemsTotalCents: Long? get() = items.mapNotNull { it.costCents(formatter) }.takeIf { it.isNotEmpty() }?.sum()
 
     val canSave: Boolean get() = canEdit && scheduleId != null && !odometerInvalid && !costInvalid && !itemsInvalid && !saving
+
+    /** When this service falls due again (the date plus the schedule's month interval), for "Add to calendar" (D-A25). */
+    val nextDue: LocalDate? get() = schedule?.schedule?.let { CalendarLinks.nextDueAfter(date, it.intervalMonths) }
 
     private fun itemsToSend(): List<MaintenanceItem> = items.filterNot { it.isBlank(formatter) }.map { it.toItem(formatter) }
 

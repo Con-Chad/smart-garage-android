@@ -755,4 +755,20 @@
     </plurals>
     <string name="action_update">Update</string>
     <string name="action_later">Later</string>
+    <!-- Vehicle page, calendar and fuel-economy switch (D-A25). -->
+    <string name="calendar_add_dated">Add to calendar (%1$s)</string>
+    <string name="calendar_no_app">No calendar app is available on this phone.</string>
+    <string name="calendar_title_due">%1$s due — %2$s</string>
+    <string name="calendar_title_renewal">%1$s renewal — %2$s</string>
+    <string name="settings_fuel">Fuel</string>
+    <string name="settings_track_fuel_economy">Track fuel economy</string>
+    <string name="settings_track_fuel_economy_desc">Ask for the odometer at each fill-up and show consumption. Turn off to log only what you paid.</string>
+    <string name="vehicle_owner">Owner: %1$s</string>
+    <string name="vehicle_mileage">Mileage</string>
+    <string name="vehicle_insurance_plan">Insurance plan</string>
+    <string name="vehicle_details_all">Vehicle details</string>
+    <string name="vehicle_registration">Registration</string>
+    <string name="vehicle_specs">Specifications</string>
+    <string name="vehicle_tires">Tires</string>
+    <string name="vehicle_no_details">Nothing recorded yet. Edit the vehicle to add its registration, VIN and specs.</string>
 </resources>

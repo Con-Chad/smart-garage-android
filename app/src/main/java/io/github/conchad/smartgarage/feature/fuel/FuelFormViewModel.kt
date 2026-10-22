@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.FuelEntryInput
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
@@ -48,6 +49,8 @@ data class FuelFormState(
     val currentOdometerKm: Int? = null,
     /** The selected vehicle's most recent fill-up, shown under the price as context. */
     val lastEntry: FuelEntry? = null,
+    /** Settings → Fuel → Track fuel economy (D-A25): off hides the odometer field and sends no reading. */
+    val trackOdometer: Boolean = true,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
     val saving: Boolean = false,
@@ -62,14 +65,14 @@ data class FuelFormState(
     val liters: Double? get() = formatter.parseNumber(volume)?.let(formatter::litersFromDisplay)
     val totalCents: Long? get() = formatter.parseNumber(total)?.let(formatter::centsFromDisplay)
 
-    val odometerInvalid: Boolean get() = odometer.isNotBlank() && (odometerKm == null || odometerKm!! < 0)
+    val odometerInvalid: Boolean get() = trackOdometer && odometer.isNotBlank() && (odometerKm == null || odometerKm!! < 0)
     val volumeInvalid: Boolean get() = volume.isNotBlank() && (liters == null || liters!! < 0 || liters!! > 500)
     val priceInvalid: Boolean get() = price.isNotBlank() && (formatter.parseNumber(price) ?: -1.0) < 0
     val totalInvalid: Boolean get() = total.isNotBlank() && (totalCents == null || totalCents!! < 0)
 
     /** Below the vehicle's current reading: allowed (a late entry), but only after a confirmation. */
     val odometerBelowCurrent: Boolean
-        get() = odometerKm?.let { km -> currentOdometerKm?.let { km < it } } == true
+        get() = trackOdometer && odometerKm?.let { km -> currentOdometerKm?.let { km < it } } == true
 
     val canSave: Boolean
         get() = canEdit && totalCents != null && !odometerInvalid && !volumeInvalid && !priceInvalid && !totalInvalid && !saving
@@ -77,7 +80,7 @@ data class FuelFormState(
     fun input(now: Instant = Instant.now()): FuelEntryInput = FuelEntryInput(
         filledAt = formatter.instantFor(date, now).toString(),
         totalCostCents = totalCents ?: 0,
-        odometerKm = odometerKm,
+        odometerKm = odometerKm.takeIf { trackOdometer },
         liters = liters,
         currency = formatter.currencyCode,
         stationName = station.trim().ifEmpty { null },
@@ -89,6 +92,7 @@ data class FuelFormState(
 class FuelFormViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val garage: GarageRepository,
+    settings: AppSettings,
     control: SyncControl,
     writer: GarageWriter,
 ) : WritingViewModel(control, writer) {
@@ -103,11 +107,12 @@ class FuelFormViewModel @Inject constructor(
             val fmt = garage.formatter.first()
             val vehicles = garage.vehicles.first().filter { it.access.canEdit }.sortedWith(GarageMath.vehicleOrder)
             entries = garage.fuelEntries.first()
+            val track = settings.fuel.first().trackFuelEconomy
             // The vehicle from context, else the one filled up most recently, else the first.
             val preselected = route.vehicleId?.takeIf { id -> vehicles.any { it.id == id } }
                 ?: entries.maxByOrNull { it.filledAt.toInstantOrNull() ?: Instant.MIN }?.vehicleId?.takeIf { id -> vehicles.any { it.id == id } }
                 ?: vehicles.firstOrNull()?.id
-            form.update { it.copy(vehicles = vehicles, date = fmt.today(), formatter = fmt, loaded = true) }
+            form.update { it.copy(vehicles = vehicles, date = fmt.today(), trackOdometer = track, formatter = fmt, loaded = true) }
             preselected?.let { selectVehicle(it, initial = true) }
         }
     }

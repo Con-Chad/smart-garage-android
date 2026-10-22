@@ -44,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -78,6 +79,9 @@ import io.github.conchad.smartgarage.ui.components.NoteSheet
 import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
+import io.github.conchad.smartgarage.ui.components.intervalText
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.components.SearchField
 import io.github.conchad.smartgarage.ui.components.WishlistSheet
 import io.github.conchad.smartgarage.ui.components.charts.BarChart
@@ -141,10 +145,13 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
     val fmt = state.formatter
     var openSchedule by rememberSaveable { mutableStateOf<String?>(null) }
     val addSchedule = { actions.onAddSchedule(state.selectedVehicleId) }
+    val snackbar = remember { SnackbarHostState() }
+    val addToCalendar = rememberAddToCalendar(snackbar)
     SectionScaffold(
         title = stringResource(R.string.nav_reminders),
         onBack = onBack,
         viewModel = viewModel,
+        snackbar = snackbar,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -219,6 +226,9 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
     openSchedule?.let { id ->
         state.data.filterIsInstance<Reminder.Service>().firstOrNull { it.item.schedule.id == id }?.let { reminder ->
             val item = reminder.item
+            val event = item.dueAt?.let { due ->
+                dueCalendarEvent(item.name, item.vehicle, fmt.localDate(due), intervalText(item.schedule.intervalKm, item.schedule.intervalMonths, fmt), item.schedule.notes)
+            }
             ScheduleSheet(
                 item,
                 fmt,
@@ -240,6 +250,7 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
                     openSchedule = null
                     viewModel.deleteSchedule(item.schedule.id)
                 },
+                onAddToCalendar = event?.let { e -> { addToCalendar(e) } },
             )
         }
     }

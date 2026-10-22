@@ -89,7 +89,7 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                         )
                     } else {
                         LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
-                            state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt) } }
+                            state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt, showEconomy = state.trackFuelEconomy) } }
                             item(key = "trends-header") {
                                 GroupHeader(
                                     stringResource(R.string.fuel_trends),
@@ -97,7 +97,7 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                                     onAction = { trendsOpen = !trendsOpen },
                                 )
                             }
-                            if (trendsOpen) item(key = "trends") { Trends(state.trends, state.vehicles.size, fmt) }
+                            if (trendsOpen) item(key = "trends") { Trends(state.trends, state.vehicles.size, fmt, showEconomy = state.trackFuelEconomy) }
                             state.months.forEach { month ->
                                 item(key = month.month.toString()) {
                                     GroupHeader(
@@ -114,7 +114,7 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                                                 vehicle = state.vehicleById[entry.vehicleId].takeIf { showVehicle },
                                                 fmt = fmt,
                                                 onClick = { open = SheetTarget.Fuel(entry.id) },
-                                                economy = state.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+                                                economy = state.segments[entry.id]?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it.litersPer100Km) },
                                                 pending = entry.id in pendingIds,
                                             )
                                         }
@@ -141,6 +141,7 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                     open = null
                     viewModel.deleteFuelEntry(entry.id)
                 },
+                showEconomy = state.trackFuelEconomy,
             )
         }
     }
@@ -151,19 +152,21 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
  * Under "All vehicles" the card says to pick one; a line needs at least two points.
  */
 @Composable
-private fun Trends(trends: FuelTrends?, vehicleCount: Int, fmt: Formatter) {
+private fun Trends(trends: FuelTrends?, vehicleCount: Int, fmt: Formatter, showEconomy: Boolean) {
     GroupCard {
         if (trends == null) {
             ChartPlaceholder(stringResource(if (vehicleCount > 1) R.string.chart_pick_vehicle else R.string.chart_needs_fill_ups))
             return@GroupCard
         }
-        val economyTitle = stringResource(R.string.fuel_chart_consumption, fmt.economyUnit)
-        ChartTitle(economyTitle)
-        val economy = trends.consumption.mapNotNull { point -> fmt.economyValue(point.value)?.let { point.copy(value = it) } }
-        if (economy.size < 2) {
-            ChartPlaceholder(stringResource(R.string.chart_needs_segments))
-        } else {
-            ValueChart(economy, fmt, economyTitle, format = { String.format(Locale.getDefault(), "%.1f", it) })
+        if (showEconomy) {
+            val economyTitle = stringResource(R.string.fuel_chart_consumption, fmt.economyUnit)
+            ChartTitle(economyTitle)
+            val economy = trends.consumption.mapNotNull { point -> fmt.economyValue(point.value)?.let { point.copy(value = it) } }
+            if (economy.size < 2) {
+                ChartPlaceholder(stringResource(R.string.chart_needs_segments))
+            } else {
+                ValueChart(economy, fmt, economyTitle, format = { String.format(Locale.getDefault(), "%.1f", it) })
+            }
         }
         val priceTitle = stringResource(R.string.fuel_chart_price, fmt.volumeUnit)
         ChartTitle(priceTitle)
@@ -195,9 +198,9 @@ fun ValueChart(points: List<ChartPoint>, fmt: Formatter, title: String, format: 
 val FAB_CLEARANCE = 96.dp
 
 @Composable
-private fun Summary(summary: FuelSummary, fmt: Formatter) {
+private fun Summary(summary: FuelSummary, fmt: Formatter, showEconomy: Boolean) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
+        if (showEconomy) Surface(
             color = MaterialTheme.colorScheme.primaryContainer,
             shape = MaterialTheme.shapes.extraLarge,
             modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
