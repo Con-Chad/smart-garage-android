@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -6,6 +8,20 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.room)
 }
+
+// Release signing (CP13 supplies the real values as GitHub secrets with exactly these names):
+//   ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+// Resolution order: environment variable, then the git-ignored keystore.properties next to the root
+// project, then (local test builds only) the SDK debug keystore so `assembleRelease` is installable.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun signingValue(name: String): String? =
+    System.getenv(name)?.takeIf { it.isNotBlank() } ?: keystoreProps.getProperty(name)?.takeIf { it.isNotBlank() }
+val releaseKeystorePath = signingValue("ANDROID_KEYSTORE_PATH")
+val debugKeystore = File(System.getProperty("user.home"), ".android/debug.keystore")
+val releaseSignedWithDebugKey = releaseKeystorePath == null
 
 android {
     namespace = "io.github.conchad.smartgarage"
@@ -20,6 +36,23 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseSignedWithDebugKey) {
+                logger.lifecycle("release signed with DEBUG keystore (local test only)")
+                storeFile = debugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            } else {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = signingValue("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("ANDROID_KEY_ALIAS")
+                keyPassword = signingValue("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Installs next to the signed release build instead of clashing with its signature.
@@ -30,7 +63,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signing comes from CI secrets in CP13; the keystore is never committed.
+            // CI (CP13) signs with the real keystore from secrets; locally this falls back to the debug key.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
