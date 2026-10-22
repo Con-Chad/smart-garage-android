@@ -834,4 +834,9 @@
     <string name="card_view_all">View all</string>
     <string name="fab_quick_log">Log quick expense</string>
     <string name="fab_log_expense">Log expense</string>
+    <!-- UX round 3 (D-A32): the fan FAB's short visible petal captions; the TalkBack names stay the full verbs above. -->
+    <string name="fab_petal_service">Service</string>
+    <string name="fab_petal_expense">Expense</string>
+    <string name="fab_petal_fuel">Fuel</string>
+    <string name="fab_petal_scan">Scan Receipt</string>
 </resources>

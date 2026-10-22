@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -210,8 +210,10 @@ internal fun ItemEditor(
     onCost: (String) -> Unit,
     onRemove: () -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Straight on the form's panel (D-A32, no inner box); a divider above marks where one part ends and the next begins.
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Column(Modifier.padding(top = 4.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val category = item.base.category.takeIf { it != "OTHER" }?.let { enumLabel(it) }
                 Text(
@@ -227,10 +229,9 @@ internal fun ItemEditor(
                 value = item.name,
                 onValueChange = onName,
                 label = stringResource(R.string.record_form_part_name),
-                modifier = Modifier.padding(end = 8.dp),
                 supporting = listOfNotNull(item.base.brand, item.base.partNumber, item.base.specification).joinToString(" · ").ifEmpty { null },
             )
-            Row(Modifier.fillMaxWidth().padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FormNumberField(
                     value = item.quantity,
                     onValueChange = onQuantity,

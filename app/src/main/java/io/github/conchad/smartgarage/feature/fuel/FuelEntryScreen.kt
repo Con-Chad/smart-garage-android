@@ -21,7 +21,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,11 +60,13 @@ import io.github.conchad.smartgarage.ui.files.PickedFile
  * side, station and notes. Prefilled so the usual fill-up is three taps: check the odometer, type the volume, save.
  */
 @Composable
-fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltViewModel()) {
+fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel: FuelFormViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
     var confirmRegression by rememberSaveable { mutableStateOf(false) }
+    // The fan's "Scan Receipt" petal (D-A32): once, when the form has loaded; saved so a rotation doesn't start it again.
+    var scanPending by rememberSaveable { mutableStateOf(scanOnOpen) }
 
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
@@ -85,6 +86,17 @@ fun FuelEntryScreen(onClose: () -> Unit, viewModel: FuelFormViewModel = hiltView
         if (scanMessage != null) {
             snackbar.showSnackbar(scanMessage)
             viewModel.clearScanMessage()
+        }
+    }
+    val scanUnavailable = stringResource(R.string.fuel_scan_unavailable)
+    val viewOnly = stringResource(R.string.view_only)
+    LaunchedEffect(state.loaded) {
+        if (!scanPending || !state.loaded) return@LaunchedEffect
+        scanPending = false
+        when {
+            state.canScan -> launchScan()
+            !state.scannerAvailable -> snackbar.showSnackbar(scanUnavailable)
+            else -> snackbar.showSnackbar(viewOnly)
         }
     }
 
@@ -251,24 +263,22 @@ private fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -
     }
 }
 
-/** The receipt photo kept on the form after a scan, in the document form's chosen-file style, with a remove control. */
+/** The receipt photo kept on the form after a scan: a plain row on the form's panel (no inner box, D-A32) with a remove control. */
 @Composable
 private fun ReceiptPhotoRow(photo: PickedFile, onRemove: () -> Unit) {
     val context = LocalContext.current
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
-                Text(stringResource(R.string.fuel_scan_photo_kept), style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    FileSize.formatShortFileSize(context, photo.sizeBytes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.fuel_scan_remove_photo))
-            }
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
+            Text(stringResource(R.string.fuel_scan_photo_kept), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                FileSize.formatShortFileSize(context, photo.sizeBytes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.fuel_scan_remove_photo))
         }
     }
 }

@@ -18,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,7 +28,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
-import io.github.conchad.smartgarage.ui.components.IconBadge
 
 /**
  * The file slot of an upload form (D-A21): a "Choose file" button (and "Take photo" when [onCapture] is given,
@@ -69,32 +67,27 @@ fun FilePickerField(
                 }
             }
         } else {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val icon = when {
-                        file.mimeType == "application/pdf" -> Icons.Outlined.PictureAsPdf
-                        file.mimeType?.startsWith("image/") == true -> Icons.Outlined.Image
-                        else -> Icons.Outlined.Description
-                    }
-                    IconBadge(icon)
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
-                        Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            listOfNotNull(file.mimeType ?: stringResource(R.string.file_unknown_type), FileSize.formatShortFileSize(context, file.sizeBytes))
-                                .joinToString(" · "),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    OutlinedButton(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.action_change)) }
-                    if (onCapture != null) {
-                        IconButton(onClick = onCapture, modifier = Modifier.size(48.dp)) {
-                            Icon(Icons.Outlined.PhotoCamera, contentDescription = stringResource(R.string.file_take_photo))
-                        }
+            // The chosen file as a plain row on the form's panel (D-A32: no inner box), like the fill-up form's receipt row.
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                val icon = when {
+                    file.mimeType == "application/pdf" -> Icons.Outlined.PictureAsPdf
+                    file.mimeType?.startsWith("image/") == true -> Icons.Outlined.Image
+                    else -> Icons.Outlined.Description
+                }
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
+                    Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        listOfNotNull(file.mimeType ?: stringResource(R.string.file_unknown_type), FileSize.formatShortFileSize(context, file.sizeBytes))
+                            .joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedButton(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.action_change)) }
+                if (onCapture != null) {
+                    IconButton(onClick = onCapture, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.PhotoCamera, contentDescription = stringResource(R.string.file_take_photo))
                     }
                 }
             }

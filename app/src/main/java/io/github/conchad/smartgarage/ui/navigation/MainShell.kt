@@ -1,6 +1,9 @@
 package io.github.conchad.smartgarage.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -23,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -50,6 +55,7 @@ import io.github.conchad.smartgarage.feature.maintenance.ScheduleFormScreen
 import io.github.conchad.smartgarage.feature.notes.NoteFormScreen
 import io.github.conchad.smartgarage.feature.vehicles.InspectionFormScreen
 import io.github.conchad.smartgarage.feature.vehicles.InsuranceFormScreen
+import io.github.conchad.smartgarage.feature.vehicles.QuickInfoActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailScreen
 import io.github.conchad.smartgarage.feature.vehicles.VehicleFormScreen
@@ -104,15 +110,21 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     val showBottomBar = destination == null || TopLevel.entries.any { destination.isOn(it) }
     val selectedTab = TopLevel.entries.indexOfFirst { destination?.isOn(it) == true }
     // Every route is a glass route (D-A30): the shell's one aurora runs behind all of them and the floating bottom
-    // bar, with its RESUMED / reduced-motion guards. A screen that sets its own AuroraTint (Home, Vehicles, the
-    // vehicle page: the car's color) wins; everything else takes the tab's fallback below.
+    // bar, with its RESUMED / reduced-motion guards. Only on Home, Vehicles and the vehicle page does a screen's own
+    // AuroraTint (the car's color) count; every other destination takes the tab's fallback unconditionally, decided
+    // here from the destination so it changes on every navigation (D-A32). The holder's owner-token clear used to be
+    // the only thing taking the car's color away, and it fires only when NavHost drops the outgoing entry, which it
+    // may keep (an interrupted cross-fade, predictive back, an entry restored by a tab) — so a tab could stay in the
+    // Home car's color. What is drawn is recorded in the holder, so the plates and the fan agree with the aurora.
     val auroraTint = remember { AuroraTintHolder() }
     val fallbackTint = fallbackTint(destination)
+    val tint = if (destination.honoursScreenTint()) auroraTint.color ?: fallbackTint else fallbackTint
+    SideEffect { auroraTint.shown = tint }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
 
     CompositionLocalProvider(LocalAuroraTint provides auroraTint) {
         Box(Modifier.fillMaxSize()) {
-            AuroraBackground(tint = auroraTint.color ?: fallbackTint, modifier = Modifier.fillMaxSize())
+            AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize())
             Scaffold(
                 // Screens draw their own top bars; this Scaffold only reserves room for the bottom bar.
                 contentWindowInsets = WindowInsets(0),
@@ -135,6 +147,20 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                     navController = navController,
                     startDestination = DashboardRoute,
                     modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                    // The vehicle page and the Vehicles tab bubble their cards in (D-A32), so nothing cross-fades
+                    // around them: the page is simply there and the screen it replaces is simply gone. Leaving one
+                    // of them, the page fades out in NAV_POP_OUT_MS over the screen beneath, which is there at once.
+                    // Every other navigation keeps NavHost's 700 ms cross-fade.
+                    enterTransition = { if (targetState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                    exitTransition = { if (targetState.popsIn()) ExitTransition.None else fadeOut(tween(NAV_FADE_MS)) },
+                    popEnterTransition = { if (targetState.popsIn() || initialState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                    popExitTransition = {
+                        when {
+                            initialState.popsIn() -> fadeOut(tween(NAV_POP_OUT_MS))
+                            targetState.popsIn() -> ExitTransition.None
+                            else -> fadeOut(tween(NAV_FADE_MS))
+                        }
+                    },
                 ) {
                     composable<DashboardRoute> {
                         DashboardScreen(
@@ -150,6 +176,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
                                     onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
                                     onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                                    onScanReceipt = { navController.navigate(FuelEntryRoute(vehicleId = it, scan = true)) },
                                     onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
                                     onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
                                     onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
@@ -162,6 +189,14 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                         VehiclesScreen(
                             onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
                             onAddVehicle = { navController.navigate(VehicleFormRoute()) },
+                            quickInfoActions = remember(navController) {
+                                QuickInfoActions(
+                                    onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                                    onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                                    onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                                    onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                                )
+                            },
                         )
                     }
                     composable<VehicleDetailRoute> {
@@ -202,7 +237,9 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                     composable<FuelRoute> {
                         FuelScreen(onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) })
                     }
-                    composable<FuelEntryRoute> { FuelEntryScreen(onClose = navController::popBackStack) }
+                    composable<FuelEntryRoute> { entry ->
+                        FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = entry.toRoute<FuelEntryRoute>().scan)
+                    }
                     composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
                     composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
                     composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
@@ -267,6 +304,19 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
 }
 
 private fun NavDestination.isOn(item: TopLevel): Boolean = hierarchy.any { it.hasRoute(item.route::class) }
+
+/** The glass routes whose screen names the aurora's color (D-A24, D-A26): Home, Vehicles and the vehicle page. Null is the first frame, Home. */
+private fun NavDestination?.honoursScreenTint(): Boolean =
+    this == null || isOn(TopLevel.Dashboard) || isOn(TopLevel.Vehicles) || hasRoute<VehicleDetailRoute>()
+
+/** The routes whose cards bubble in (D-A32) and therefore take no nav cross-fade. */
+private fun NavBackStackEntry.popsIn(): Boolean = destination.hasRoute<VehicleDetailRoute>() || destination.hasRoute<VehiclesRoute>()
+
+/** NavHost's own default cross-fade. */
+private const val NAV_FADE_MS = 700
+
+/** How long a bubbling page takes to fade out over the screen beneath when it is left. */
+private const val NAV_POP_OUT_MS = 120
 
 /**
  * The aurora's color where no screen names one (D-A30): Service drifts in the theme's tertiary, Fuel in the glass

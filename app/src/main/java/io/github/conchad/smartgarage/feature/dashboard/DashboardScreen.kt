@@ -2,18 +2,12 @@ package io.github.conchad.smartgarage.feature.dashboard
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,13 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.EventAvailable
-import androidx.compose.material.icons.outlined.ExpandCircleDown
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.LocalGasStation
-import androidx.compose.material.icons.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -66,18 +57,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -89,8 +74,10 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Dashboard
 import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.core.model.VehicleSummary
-import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.feature.vehicles.OdometerSheet
+import io.github.conchad.smartgarage.feature.vehicles.QuickInfoActions
+import io.github.conchad.smartgarage.feature.vehicles.QuickInfoDetails
+import io.github.conchad.smartgarage.feature.vehicles.QuickInfoToggle
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActionsViewModel
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardMenu
@@ -110,8 +97,6 @@ import io.github.conchad.smartgarage.ui.components.SheetTarget
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
-import io.github.conchad.smartgarage.ui.components.dueDays
-import io.github.conchad.smartgarage.ui.components.inspectionLabel
 import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
@@ -137,11 +122,8 @@ import io.github.conchad.smartgarage.ui.glass.rememberDisconnectedState
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
-import io.github.conchad.smartgarage.ui.links.ICON_SIZE
-import io.github.conchad.smartgarage.ui.links.InsuranceApps
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
-import io.github.conchad.smartgarage.ui.links.rememberInsurerIcon
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.launch
@@ -155,18 +137,23 @@ class DashboardActions(
     val onLogFillUp: (vehicleId: String) -> Unit,
     val onLogService: (vehicleId: String) -> Unit,
     val onAddExpense: (vehicleId: String) -> Unit,
+    /** The fan's fourth petal (D-A32): the fill-up form with the receipt scan started on arrival. */
+    val onScanReceipt: (vehicleId: String) -> Unit,
     val onAddInsurance: (vehicleId: String) -> Unit,
     val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
     val onAddInspection: (vehicleId: String) -> Unit,
     val onEditInspection: (vehicleId: String, inspectionId: String) -> Unit,
-)
+) {
+    /** The same four, in the shape the shared "Quick info" drop-down takes. */
+    val quickInfo = QuickInfoActions(onAddInsurance, onEditInsurance, onAddInspection, onEditInspection)
+}
 
 /**
  * The home page (D-A24): the shell's aurora takes the current vehicle's tint; one full-width glass card per
  * vehicle in a pager with a tilting photo, a "View all" pill and a "Quick info" drop-down for insurance, mileage
  * and inspection (D-A31); "Needs attention" and "Recent fill-ups" follow the pager; the monthly odometer reminder
  * sits at the top of attention; the "can't reach" popup collapses into a refresh icon in the top bar; and a radial
- * fan FAB bottom-left logs a service, an expense or a fill-up for the vehicle in view.
+ * fan FAB bottom-right logs a service, an expense or a fill-up, or scans a receipt, for the vehicle in view.
  */
 @Composable
 fun DashboardScreen(
@@ -262,10 +249,12 @@ fun DashboardScreen(
                     val fanVehicle = current?.vehicle?.takeIf { it.access.canEdit }
                     FanScrim(visible = fanOpen && fanVehicle != null, onDismiss = { fanOpen = false })
                     if (fanVehicle != null) {
+                        // Four petals (D-A32), each with a short visible caption; the TalkBack name stays the full verb.
                         val fanActions = listOf(
-                            FanAction(Icons.Outlined.Build, stringResource(R.string.action_log_service)) { actions.onLogService(fanVehicle.id) },
-                            FanAction(Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.fab_log_expense)) { actions.onAddExpense(fanVehicle.id) },
-                            FanAction(Icons.Outlined.LocalGasStation, stringResource(R.string.action_log_fill_up)) { actions.onLogFillUp(fanVehicle.id) },
+                            FanAction(Icons.Outlined.Build, stringResource(R.string.action_log_service), stringResource(R.string.fab_petal_service)) { actions.onLogService(fanVehicle.id) },
+                            FanAction(Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.fab_log_expense), stringResource(R.string.fab_petal_expense)) { actions.onAddExpense(fanVehicle.id) },
+                            FanAction(Icons.Outlined.LocalGasStation, stringResource(R.string.action_log_fill_up), stringResource(R.string.fab_petal_fuel)) { actions.onLogFillUp(fanVehicle.id) },
+                            FanAction(Icons.Outlined.DocumentScanner, stringResource(R.string.fuel_scan_receipt), stringResource(R.string.fab_petal_scan)) { actions.onScanReceipt(fanVehicle.id) },
                         )
                         FanFab(
                             actions = fanActions,
@@ -536,160 +525,15 @@ private fun VehicleCard(
         QuickInfoToggle(expanded = expanded, onToggle = { expanded = !expanded })
         if (expanded) {
             RowDivider()
-            CardDetails(summary, extras, dashboard, fmt, actions, onOpenOdometer)
-        }
-    }
-}
-
-/**
- * The "Quick info" row (D-A31): the whole row is the 48 dp target, the label and a 28 dp ring chevron in the sheen
- * on the right; the chevron turns 180° on a spring (snaps under reduced motion). TalkBack reads it as a button with
- * its state and the show / hide action.
- */
-@Composable
-private fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit) {
-    val tokens = glass
-    val reduced = rememberReducedMotion()
-    val rotation by animateFloatAsState(
-        if (expanded) 180f else 0f,
-        animationSpec = if (reduced) snap() else spring(stiffness = Spring.StiffnessMediumLow),
-        label = "chevron",
-    )
-    val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
-    val actionText = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
-            .semantics(mergeDescendants = true) { stateDescription = stateText }
-            .heightIn(min = 48.dp)
-            .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen)
-        Icon(
-            Icons.Outlined.ExpandCircleDown,
-            contentDescription = null,
-            tint = tokens.sheen,
-            modifier = Modifier.padding(start = 6.dp).size(28.dp).graphicsLayer { rotationZ = rotation },
-        )
-    }
-}
-
-/**
- * The dropdown: insurance plan (the insurer's launcher icon beside the name and a tap opens the app when
- * installed), mileage (opens the odometer sheet), inspection due. Each row ends in "Add" or "Update" for people
- * who can edit (D-A31): insurance and inspection go to their forms, mileage to the odometer sheet.
- */
-@Composable
-private fun CardDetails(
-    summary: VehicleSummary,
-    extras: VehicleExtras,
-    dashboard: Dashboard,
-    fmt: Formatter,
-    actions: DashboardActions,
-    onOpenOdometer: () -> Unit,
-) {
-    val vehicle = summary.vehicle
-    val canEdit = vehicle.access.canEdit
-    val context = LocalContext.current
-    val policy = dashboard.policyByVehicle[vehicle.id]
-    val inspection = dashboard.inspectionByVehicle[vehicle.id]
-    val insurerIntent = remember(policy?.provider) { InsuranceApps.launchIntent(context, policy?.provider) }
-    val insurerIcon = if (insurerIntent != null) rememberInsurerIcon(policy?.provider) else null
-    val add = stringResource(R.string.action_add)
-    val update = stringResource(R.string.action_update)
-
-    Column(Modifier.padding(bottom = 8.dp)) {
-        DetailLine(
-            icon = Icons.Outlined.Shield,
-            label = stringResource(R.string.dashboard_insurance),
-            value = policy?.provider ?: stringResource(R.string.card_no_insurance),
-            detail = policy?.endDate?.toInstantOrNull()?.let { stringResource(R.string.dashboard_insurance_until, fmt.date(it)) },
-            badge = insurerIcon,
-            trailing = if (insurerIntent != null) Icons.Outlined.OpenInNew else null,
-            actionLabel = policy?.let { stringResource(R.string.card_insurance_open_app, it.provider) }.takeIf { insurerIntent != null },
-            onClick = if (insurerIntent != null) ({ InsuranceApps.open(context, policy?.provider) }) else null,
-            button = when {
-                !canEdit -> null
-                policy != null -> update to { actions.onEditInsurance(vehicle.id, policy.id) }
-                else -> add to { actions.onAddInsurance(vehicle.id) }
-            },
-        )
-        RowDivider()
-        val hasReading = extras.lastOdometerAt != null || vehicle.currentOdometerKm > 0
-        DetailLine(
-            icon = Icons.Outlined.Speed,
-            label = stringResource(R.string.card_mileage),
-            value = fmt.distance(vehicle.currentOdometerKm),
-            detail = extras.lastOdometerAt?.let { stringResource(R.string.odometer_updated, relativeTime(it)) },
-            trailing = null,
-            actionLabel = stringResource(R.string.action_update_odometer).takeIf { canEdit },
-            onClick = onOpenOdometer.takeIf { canEdit },
-            button = if (canEdit) (if (hasReading) update else add) to onOpenOdometer else null,
-        )
-        RowDivider()
-        val due = inspection?.nextDueAt?.toInstantOrNull()
-        DetailLine(
-            icon = Icons.Outlined.EventAvailable,
-            label = inspection?.let { inspectionLabel(it.type) } ?: stringResource(R.string.inspection_hu),
-            value = due?.let { fmt.date(it) } ?: stringResource(R.string.card_no_inspection),
-            detail = due?.let { dueDays(fmt.daysFromToday(it).toInt()) },
-            trailing = null,
-            actionLabel = null,
-            onClick = null,
-            button = when {
-                !canEdit -> null
-                inspection != null -> update to { actions.onEditInspection(vehicle.id, inspection.id) }
-                else -> add to { actions.onAddInspection(vehicle.id) }
-            },
-        )
-    }
-}
-
-/**
- * Icon, label, value (with an optional app-icon [badge] beside it) and a detail line as one TalkBack item, with
- * the tap action named when there is one; the optional compact [button] at the end is its own target.
- */
-@Composable
-private fun DetailLine(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    detail: String?,
-    trailing: ImageVector?,
-    actionLabel: String?,
-    onClick: (() -> Unit)?,
-    badge: ImageBitmap? = null,
-    button: Pair<String, () -> Unit>? = null,
-) {
-    val tokens = glass
-    Row(Modifier.fillMaxWidth().padding(end = if (button != null) 8.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier
-                .weight(1f)
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-                .semantics(mergeDescendants = true) { if (actionLabel != null) contentDescription = "$label, $value. $actionLabel" },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = tokens.textSecondary)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (badge != null) {
-                        Image(badge, contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(ICON_SIZE))
-                    }
-                    MetallicText(value, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            if (trailing != null) Icon(trailing, contentDescription = null, tint = tokens.textSecondary, modifier = Modifier.size(18.dp))
-        }
-        if (button != null) {
-            GlassPillButton(label = button.first, onClick = button.second, compact = true)
+            QuickInfoDetails(
+                vehicle = vehicle,
+                policy = dashboard.policyByVehicle[vehicle.id],
+                inspection = dashboard.inspectionByVehicle[vehicle.id],
+                lastOdometerAt = extras.lastOdometerAt,
+                fmt = fmt,
+                actions = actions.quickInfo,
+                onOpenOdometer = onOpenOdometer,
+            )
         }
     }
 }

@@ -137,7 +137,7 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     contentPadding: Dp = 0.dp,
-    glow: Color = LocalAuroraTint.current.color ?: MaterialTheme.colorScheme.primary,
+    glow: Color = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary,
     elevated: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) = GlassPanel(

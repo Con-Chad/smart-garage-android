@@ -821,4 +821,9 @@
     <string name="card_view_all">Alles anzeigen</string>
     <string name="fab_quick_log">Schnell erfassen</string>
     <string name="fab_log_expense">Ausgabe erfassen</string>
+    <!-- UX-Runde 3 (D-A32): kurze sichtbare Beschriftungen der Fächer-Knöpfe. -->
+    <string name="fab_petal_service">Service</string>
+    <string name="fab_petal_expense">Ausgabe</string>
+    <string name="fab_petal_fuel">Tanken</string>
+    <string name="fab_petal_scan">Beleg scannen</string>
 </resources>

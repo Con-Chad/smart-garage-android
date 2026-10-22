@@ -8,14 +8,11 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
@@ -51,7 +47,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -93,7 +88,6 @@ import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.FuelRow
 import io.github.conchad.smartgarage.ui.components.FuelSheet
-import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.InspectionSheet
 import io.github.conchad.smartgarage.ui.components.InsuranceSheet
 import io.github.conchad.smartgarage.ui.components.LoadedContent
@@ -125,9 +119,10 @@ import io.github.conchad.smartgarage.ui.glass.GlassDropdown
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
-import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.popIn
+import io.github.conchad.smartgarage.ui.glass.rememberPopIn
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
@@ -331,21 +326,23 @@ private fun VehicleDetailContent(
     var quickOpen by rememberSaveable { mutableStateOf(true) }
     val addToCalendar = rememberAddToCalendar(snackbar)
     val sections = detailSections(vehicle, detail, state, fmt)
+    // Every card bubbles in at once when the page opens (D-A32); the nav transition into this route is `None`.
+    val popIn = rememberPopIn()
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
-        item { PhotoCard(vehicle, cardActions) }
-        item { OwnerLine(state.ownerName, vehicle.access.isShared, detail) }
+        item { PhotoCard(vehicle, cardActions, Modifier.popIn(popIn)) }
+        item { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.popIn(popIn)) }
         item {
-            GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp)) {
+            GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).popIn(popIn)) {
                 ImmediateInfo(detail, fmt)
             }
         }
         item {
             // The things done at the car first (a fill-up, a reading), then the paperwork. Viewers see why there is nothing to tap.
             if (canEdit) {
-                GlassDropdown(stringResource(R.string.vehicle_quick_actions), expanded = quickOpen, onToggle = { quickOpen = !quickOpen }, modifier = Modifier.padding(top = 12.dp)) {
+                GlassDropdown(stringResource(R.string.vehicle_quick_actions), expanded = quickOpen, onToggle = { quickOpen = !quickOpen }, modifier = Modifier.padding(top = 12.dp).popIn(popIn)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
@@ -369,7 +366,7 @@ private fun VehicleDetailContent(
         // drop-down (note 12) so the cards below slide as one opens. Groups with nothing in them aren't shown at all.
         item { GlassGroupHeader(stringResource(R.string.vehicle_details_all)) }
         if (sections.isEmpty()) {
-            item { EmptyGroup(stringResource(R.string.vehicle_no_details)) }
+            item { EmptyGroup(stringResource(R.string.vehicle_no_details), Modifier.popIn(popIn)) }
         } else {
             items(sections, key = { it.key }) { section ->
                 var expanded by rememberSaveable { mutableStateOf(false) }
@@ -377,7 +374,7 @@ private fun VehicleDetailContent(
                     section.title,
                     expanded = expanded,
                     onToggle = { expanded = !expanded },
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier.padding(bottom = 12.dp).popIn(popIn),
                 ) { section.content() }
             }
         }
@@ -391,9 +388,9 @@ private fun VehicleDetailContent(
         }
         item {
             if (detail.due.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_schedules))
+                EmptyGroup(stringResource(R.string.vehicle_no_schedules), Modifier.popIn(popIn))
             } else {
-                GlassCard {
+                GlassCard(Modifier.popIn(popIn)) {
                     detail.due.forEachIndexed { index, item ->
                         if (index > 0) RowDivider()
                         DueRow(item, fmt, onClick = { open = SheetTarget.Schedule(item.schedule.id) }, showVehicle = false)
@@ -405,7 +402,7 @@ private fun VehicleDetailContent(
         if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty() || canEdit) {
             item { GlassGroupHeader(stringResource(R.string.vehicle_papers)) }
             item {
-                GlassCard {
+                GlassCard(Modifier.popIn(popIn)) {
                     detail.inspections.forEachIndexed { index, inspection ->
                         if (index > 0) RowDivider()
                         val due = inspection.nextDueAt.toInstantOrNull()
@@ -450,9 +447,9 @@ private fun VehicleDetailContent(
         }
         item {
             if (detail.fuel.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_fuel))
+                EmptyGroup(stringResource(R.string.vehicle_no_fuel), Modifier.popIn(popIn))
             } else {
-                GlassCard {
+                GlassCard(Modifier.popIn(popIn)) {
                     // Consumption figures only while fuel economy is tracked (D-A25); costs and volumes always.
                     val average = detail.averageConsumption?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it) }
                     if (average != null) {
@@ -483,9 +480,9 @@ private fun VehicleDetailContent(
         }
         item {
             if (detail.records.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_records))
+                EmptyGroup(stringResource(R.string.vehicle_no_records), Modifier.popIn(popIn))
             } else {
-                GlassCard {
+                GlassCard(Modifier.popIn(popIn)) {
                     detail.records.take(if (allRecords) Int.MAX_VALUE else PREVIEW).forEachIndexed { index, record ->
                         if (index > 0) RowDivider()
                         RecordRow(record, state.recordName(record), vehicle = null, fmt, pending = record.id in pendingIds) { open = SheetTarget.Record(record.id) }
@@ -630,12 +627,12 @@ private fun VehicleDetailContent(
  * the same as custom actions.
  */
 @Composable
-private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions) {
+private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions, modifier: Modifier = Modifier) {
     val tokens = glass
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val menuLabel = stringResource(R.string.vehicle_photo_options)
-    GlassCard(glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)) {
+    GlassCard(modifier = modifier, glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)) {
         Box(Modifier.padding(12.dp)) {
             TiltPhotoFrame(
                 cornerRadius = tokens.radiusMedium,
@@ -689,9 +686,9 @@ private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions) {
  * aurora's bright spot often lands right under the photo and bare text vanished there in dark theme.
  */
 @Composable
-private fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail) {
+private fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail, modifier: Modifier = Modifier) {
     val tokens = glass
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
                 .weight(1f, fill = false)
@@ -738,54 +735,50 @@ private fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
         // labelled with that currency, not the vehicle's purchaseCurrency, which the server may default differently.
         GlanceTile(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents)),
     )
-    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        tiles.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                pair.forEach { tile -> InfoTile(tile, Modifier.weight(1f).fillMaxHeight()) }
+    Column(Modifier.padding(vertical = 4.dp)) {
+        tiles.chunked(2).forEachIndexed { index, pair ->
+            if (index > 0) RowDivider()
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { tile -> InfoTile(tile, Modifier.weight(1f)) }
             }
         }
     }
 }
 
 /**
- * One figure on a small flat glass tile (D-A30 plate glow, no rotation since D-A31) with its label above. The value
- * shrinks before it wraps so a long plate or sum stays readable.
+ * One figure straight on the card's frosted surface (D-A32: the small glass tile around it is gone), icon and label
+ * above the value. The value shrinks before it wraps so a long plate or sum stays readable.
  */
 @Composable
 private fun InfoTile(tile: GlanceTile, modifier: Modifier = Modifier) {
     val tokens = glass
-    GlassPanel(
-        modifier = modifier,
-        shape = RoundedCornerShape(tokens.radiusMedium),
-        glow = LocalAuroraTint.current.color ?: MaterialTheme.colorScheme.primary,
-        elevated = false,
-        contentPadding = 14.dp,
+    Column(
+        modifier.padding(horizontal = 12.dp, vertical = 12.dp).semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(tile.icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(18.dp))
-                Text(
-                    tile.label,
-                    style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
-                    color = tokens.textSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(tile.icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(18.dp))
+            Text(
+                tile.label,
+                style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
+                color = tokens.textSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
+        val style = MaterialTheme.typography.titleMedium.copy(brush = staticMetallicBrush(tokens))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (tile.badge != null) {
+                Image(tile.badge, contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(ICON_SIZE))
             }
-            val style = MaterialTheme.typography.titleMedium.copy(brush = staticMetallicBrush(tokens))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (tile.badge != null) {
-                    Image(tile.badge, contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(ICON_SIZE))
-                }
-                BasicText(
-                    tile.value,
-                    style = style,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize),
-                )
-            }
+            BasicText(
+                tile.value,
+                style = style,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize),
+            )
         }
     }
 }
@@ -892,20 +885,20 @@ private fun ColourBlock(colour: String) {
  */
 @Composable
 fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, title: String? = null) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.extraLarge, modifier = modifier.fillMaxWidth()) {
-      Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        title?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
+    val tokens = glass
+    // A frosted card like the rest of the page (D-A32), not an opaque Material box; the figures sit straight on it.
+    GlassPanel(modifier = modifier.fillMaxWidth(), contentPadding = 16.dp) {
+        title?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = tokens.sheen, modifier = Modifier.padding(bottom = 8.dp)) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
+            val style = MaterialTheme.typography.titleMedium.copy(color = tokens.textPrimary)
             val labelStyle = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto)
             stats.forEach { (label, value) ->
                 Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     BasicText(value, style = style, maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = style.fontSize))
-                    Text(label, style = labelStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(label, style = labelStyle, color = tokens.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-      }
     }
 }
 
@@ -914,7 +907,7 @@ fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, 
 private fun PaperRow(icon: ImageVector, title: String, subtitle: String, pending: Boolean, onClick: () -> Unit) {
     val tokens = glass
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconBadge(icon, container = tokens.pill, content = tokens.sheen)
+        Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
         Column(Modifier.padding(start = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary)
@@ -955,8 +948,8 @@ fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: 
 }
 
 @Composable
-private fun EmptyGroup(text: String) {
-    GlassCard {
+private fun EmptyGroup(text: String, modifier: Modifier = Modifier) {
+    GlassCard(modifier) {
         Text(
             text,
             style = MaterialTheme.typography.bodyMedium,
@@ -973,7 +966,7 @@ private fun ModificationRow(mod: Modification, fmt: Formatter) {
         Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(Icons.Outlined.Build, container = tokens.pill, content = tokens.sheen)
+        Icon(Icons.Outlined.Build, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(mod.name.ifBlank { modificationCategoryLabel(mod.category) }, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(

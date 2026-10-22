@@ -920,3 +920,101 @@ App decisions use the `D-A` prefix.
     gradient and `navGlow`, `onAccent` glyph), the `FanScrim`, Back, the
     hide-while-scrolling and edit-only rules, actions, labels and strings are
     unchanged.
+- **D-A32: UX round 3 — cards bubble in, the Vehicles tab gets "Quick info",
+  the aurora's colour is decided by the destination, no boxes inside glass,
+  and the fan FAB gets captions, a fourth petal and depth.**
+  - **Bubble pop-in** (`ui/glass/PopIn.kt`): `rememberPopIn()` once per page
+    (called inside the loaded branch, so the window starts with the cards)
+    and `Modifier.popIn(state)` on every card. A card composed within the
+    first **600 ms** grows from **60 %** of its size at its own centre on
+    `spring(dampingRatio 0.6, StiffnessMediumLow)` with alpha reaching 1 at
+    40 % of the way; all at once, no stagger, no slide. Scale and alpha are
+    read in `graphicsLayer {}` only (nothing recomposes per frame); a card
+    composed later (a lazy item scrolled in) and every card under reduced
+    motion (read synchronously through the new `isReducedMotion(context)`,
+    since `rememberReducedMotion()`'s first frame is always `false`) appears
+    at once and takes no layer. Applied to the vehicle page (photo card,
+    owner line, every `GlassDropdown`, the service / papers / fuel / history
+    cards and the empty-group cards; headers are text and don't pop) and to
+    the Vehicles tab's list cards. The **nav transitions** in `MainShell`
+    make room for it: entering `VehicleDetailRoute` or `VehiclesRoute` is
+    `EnterTransition.None` and the screen being replaced exits with
+    `ExitTransition.None` (the page is simply there, the cards pop); leaving
+    one of them by back or tab, it fades out in **120 ms** over the screen
+    beneath, which is there at once. Every other navigation keeps NavHost's
+    700 ms cross-fade. The aurora's own 800 ms colour cross-fade is untouched
+    (it is the background, not a card).
+  - **"Quick info" on the Vehicles tab.** `QuickInfoToggle`, `QuickInfoDetails`
+    and `DetailLine` moved from `DashboardScreen` into `feature/vehicles/
+    QuickInfo.kt`, with `QuickInfoActions` (add / edit insurance and
+    inspection) that `DashboardActions.quickInfo` adapts to and the shell
+    wires for the Vehicles tab. Each list card has the toggle under the
+    plate · mileage line and status chip, the same rows (insurer icon,
+    inspection, mileage, Add / Update pills) and the odometer sheet. The
+    per-vehicle policy, inspection and last reading come from a
+    `DashboardViewModel` scoped to the tab's entry (`hiltViewModel()` in
+    `VehiclesScreen`), so the two cards share one source without touching
+    `VehiclesViewModel`; a `VehiclesUiState` field would be the tidier home
+    if the second `GarageMath.dashboard` ever shows up in a profile. The
+    drop-down keeps `animateContentSize` on both screens — it drops down,
+    it does not pop.
+  - **Aurora colour per destination.** Bug: Service / Fuel / More sometimes
+    stayed in the Home car's colour. `AuroraTintHolder`'s owner-token clear
+    (D-A26) is the only thing that took a screen's tint away, and it runs in
+    the outgoing screen's `DisposableEffect`, i.e. only once NavHost's
+    `AnimatedContent` drops that entry — deferred to the end of the 700 ms
+    cross-fade and skipped altogether when the entry is kept composed (an
+    interrupted transition, predictive back, a tab's `restoreState`
+    bringing the same entry back mid-fade). The tint then outlived Home.
+    Now `MainShell` decides from the destination: `auroraTint.color` counts
+    only on Home, Vehicles and `VehicleDetailRoute` (`honoursScreenTint()`);
+    every other destination draws `fallbackTint(destination)` — Service
+    tertiary, Fuel the glass gold, More and what it opens secondary — the
+    moment `currentBackStackEntryAsState` changes, through the same 800 ms
+    cross-fade. What is drawn is written to the new `AuroraTintHolder.shown`
+    (`SideEffect`), and `effective` (`shown ?: color`) is what `GlassCard`'s
+    default plate glow and the fan read, so plates, fan and aurora agree on
+    every tab. Outside the shell (setup flows) `shown` is null and nothing
+    changes.
+  - **No boxes inside glass cards.** Gone: the four "At a glance"
+    `GlassPanel` tiles (now icon + label over the value straight on the
+    card, two per row with a divider between the rows); the `pill` icon
+    badges on the vehicle page's paper and modification rows (plain 22 dp
+    sheen icons, as the quick-info rows have); the `surfaceContainer`
+    surfaces around the fill-up form's kept receipt photo, the document
+    form's chosen file (plain rows, 20 dp icon) and the service form's part
+    editor (a divider above each part instead); and `StatStrip` (Fuel's
+    "This year") is a frosted `GlassPanel` with the figures straight on it
+    rather than an opaque Material box. Kept: `GlassPillButton`s (View all,
+    Add / Update — they are buttons), the owner-line pill (it sits on the
+    aurora, not in a card, D-A26), the colour swatch, the status chips and
+    dots, and the Material `IconBadge`s in Settings / More / section rows
+    (icon avatars, not boxes around values).
+  - **Fan FAB.** Still bottom-right. Four petals at **180° / 157° / 133° /
+    106°** on a **124 dp** radius (was three at 180/140/100 on 76): the
+    arc stays inside the upper-left quadrant, neighbouring 48 dp targets
+    are 49 / 52 / 58 dp apart, and the petal centres are 48.5 / 42 / 28.5 dp
+    apart vertically so the captions never share a line at font scale 1.3
+    (a `labelMedium` line is ≈ 21 dp; equal 30° steps would put the top two
+    13 dp apart). The touch square is 184 dp; captions may draw beyond it.
+    Each petal has a **1 dp connector** running **12 dp** left from its edge
+    and a caption 6 dp further left — "Service", "Expense", "Fuel", "Scan
+    Receipt" (de "Service", "Ausgabe", "Tanken", "Beleg scannen") in
+    `labelMedium`, glass text colour with the on-aurora halo, the line that
+    colour at 60 % — which scales and fades with the petal from its right
+    edge on the same stagger; TalkBack keeps the petal as the one node with
+    the full verb. The **fourth petal** (`DocumentScanner`) navigates to
+    `FuelEntryRoute(vehicleId, scan = true)`; `FuelEntryScreen(scanOnOpen)`
+    reads the flag from the entry and, once the form has loaded, starts the
+    D-A27 scan when `canScan`, else shows the existing "not available" (or
+    view-only) snackbar — once, saved across rotation. **Depth:** core and
+    petals draw a linear gradient **10 % lighter** top-left → fill → **10 %
+    darker** bottom-right plus a white radial highlight peaking at **16 %**
+    just up-left of centre (`Modifier.bead`, brushes in `drawWithCache`,
+    rebuilt only while the 800 ms tint fade runs); the open core's accent
+    gradient sits between the two. `fanPalette`'s 4.5:1 search now tests
+    the ink against the disc's lightest point (light end + highlight) and
+    its darkest, not the flat fill.
+  - New strings (en + de): `fab_petal_service`, `fab_petal_expense`,
+    `fab_petal_fuel`, `fab_petal_scan`. No new dependencies; `core/`, `di/`,
+    `scripts/` and the build files are untouched.

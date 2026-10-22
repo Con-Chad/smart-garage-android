@@ -40,12 +40,24 @@ private val easeInOut = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
  *
  * The holder remembers which [AuroraTint] last set it: during a navigation transition the incoming screen sets its
  * tint while the outgoing one is still composed, and the outgoing one's dispose must not wipe it (that left the
- * vehicle page on the theme-primary fallback, a grey aurora over a green car).
+ * vehicle page on the theme-primary fallback, a grey aurora over a green car). The reverse leak — a screen's tint
+ * outliving the screen because NavHost kept its entry composed — is closed in the shell, which only honours
+ * [color] on the glass routes and records what it drew in [shown] (D-A32).
  */
 class AuroraTintHolder {
     var color: Color? by mutableStateOf(null)
         private set
     private var owner: Any? = null
+
+    /**
+     * What the shell actually draws the aurora in (D-A32): the screen's [color] on the glass routes (Home, Vehicles,
+     * the vehicle page), the tab's fallback everywhere else, whatever [color] still says. Written by the shell each
+     * time the destination changes; null outside the shell (the setup flows), where [effective] falls back to [color].
+     */
+    var shown: Color? by mutableStateOf(null)
+
+    /** The tint the plates and the fan should agree with: [shown] when the shell has decided, else [color]. */
+    val effective: Color? get() = shown ?: color
 
     fun set(owner: Any, tint: Color?) {
         this.owner = owner

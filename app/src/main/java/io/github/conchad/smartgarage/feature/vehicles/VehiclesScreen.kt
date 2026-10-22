@@ -1,5 +1,6 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,46 +39,62 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.Inspection
+import io.github.conchad.smartgarage.core.model.InsurancePolicy
 import io.github.conchad.smartgarage.core.model.VehicleSummary
+import io.github.conchad.smartgarage.feature.dashboard.DashboardViewModel
 import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
+import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
-import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
-import io.github.conchad.smartgarage.ui.glass.VehicleTint
-import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.PopInState
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
 import io.github.conchad.smartgarage.ui.glass.TiltPhotoFrame
+import io.github.conchad.smartgarage.ui.glass.VehicleTint
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.popIn
+import io.github.conchad.smartgarage.ui.glass.rememberPopIn
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
+import java.time.Instant
 
 /**
  * The vehicles list on glass (D-A24, notes item 3): each card is a frosted panel with the chrome frame around the
- * photo (static sheen, no tilt in a list), the same long-press menu and nickname as the home card. Add FAB, sync
- * banner and the shared-by line stay as they were.
+ * photo, the same long-press menu and nickname as the home card, and since D-A32 the home card's "Quick info"
+ * drop-down (insurance, mileage, inspection with Add / Update). The cards bubble in when the tab appears. Add FAB,
+ * sync banner and the shared-by line stay as they were.
+ *
+ * The drop-down's per-vehicle policy, inspection and last odometer reading come from the same [DashboardViewModel]
+ * the home page uses (scoped to this tab's back-stack entry), so the two cards can never disagree.
  */
 @Composable
 fun VehiclesScreen(
     onOpenVehicle: (String) -> Unit,
     onAddVehicle: () -> Unit,
+    quickInfoActions: QuickInfoActions,
     viewModel: VehiclesViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
+    dashboardViewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val dashboard by dashboardViewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val cardActions = rememberVehicleCardActions(cardActionsViewModel, snackbar)
     AuroraTint(VehicleTint.color(state.vehicles.firstOrNull()?.vehicle?.color, MaterialTheme.colorScheme.primary))
     val tilt = rememberTilt()
+    var odometerFor by rememberSaveable { mutableStateOf<String?>(null) }
 
     CompositionLocalProvider(LocalTilt provides tilt) {
         MetallicSheenHost {
@@ -99,13 +115,27 @@ fun VehiclesScreen(
                                     body = stringResource(R.string.vehicles_empty_body),
                                 )
                             } else {
+                                // The pop-in window starts with the list, so the cards bubble in together (D-A32).
+                                val popIn = rememberPopIn()
                                 LazyColumn(
                                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FAB_CLEARANCE),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
                                     modifier = Modifier.fillMaxSize(),
                                 ) {
                                     items(state.vehicles, key = { it.vehicle.id }) { summary ->
-                                        VehicleListCard(summary, state.formatter, cardActions, onClick = { onOpenVehicle(summary.vehicle.id) })
+                                        val id = summary.vehicle.id
+                                        VehicleListCard(
+                                            summary = summary,
+                                            policy = dashboard.dashboard?.policyByVehicle?.get(id),
+                                            inspection = dashboard.dashboard?.inspectionByVehicle?.get(id),
+                                            lastOdometerAt = dashboard.extras[id]?.lastOdometerAt,
+                                            fmt = state.formatter,
+                                            cardActions = cardActions,
+                                            quickInfoActions = quickInfoActions,
+                                            popIn = popIn,
+                                            onClick = { onOpenVehicle(id) },
+                                            onOpenOdometer = { odometerFor = id },
+                                        )
                                     }
                                 }
                             }
@@ -115,16 +145,40 @@ fun VehiclesScreen(
             }
         }
     }
+
+    odometerFor?.let { vehicleId ->
+        OdometerSheet(vehicleId = vehicleId, onDismiss = { odometerFor = null }, snackbar = snackbar)
+    }
 }
 
-/** One vehicle in the list on a glass card (D-A30, D-A31): only the framed photo tilts, with the photo behind the frame and the name above it; the card stays flat. */
+/**
+ * One vehicle in the list on a glass card (D-A30, D-A31, D-A32): only the framed photo tilts, with the photo behind
+ * the frame and the name above it; the card stays flat. Under the photo the plate · mileage line and the status
+ * chip, then the "Quick info" toggle that drops the shared details down (`animateContentSize`, not the pop-in).
+ */
 @Composable
-private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions: VehicleCardActions, onClick: () -> Unit) {
+private fun VehicleListCard(
+    summary: VehicleSummary,
+    policy: InsurancePolicy?,
+    inspection: Inspection?,
+    lastOdometerAt: Instant?,
+    fmt: Formatter,
+    cardActions: VehicleCardActions,
+    quickInfoActions: QuickInfoActions,
+    popIn: PopInState,
+    onClick: () -> Unit,
+    onOpenOdometer: () -> Unit,
+) {
     val vehicle = summary.vehicle
     val tokens = glass
     var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
-    GlassPanel(Modifier.fillMaxWidth(), glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary), onClick = onClick) {
+    GlassPanel(
+        Modifier.fillMaxWidth().popIn(popIn).animateContentSize(),
+        glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary),
+        onClick = onClick,
+    ) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
             TiltPhotoFrame(
                 cornerRadius = tokens.radiusMedium,
@@ -162,7 +216,7 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onClick)
             }
         }
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             MetallicText(
                 listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
@@ -171,6 +225,19 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
             )
             if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
             Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary) }
+        }
+        QuickInfoToggle(expanded = expanded, onToggle = { expanded = !expanded })
+        if (expanded) {
+            RowDivider()
+            QuickInfoDetails(
+                vehicle = vehicle,
+                policy = policy,
+                inspection = inspection,
+                lastOdometerAt = lastOdometerAt,
+                fmt = fmt,
+                actions = quickInfoActions,
+                onOpenOdometer = onOpenOdometer,
+            )
         }
     }
 }

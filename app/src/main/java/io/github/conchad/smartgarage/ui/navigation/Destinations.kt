@@ -34,8 +34,12 @@ import kotlinx.serialization.Serializable
 @Serializable object AddProfileRoute
 @Serializable data class VehicleDetailRoute(val vehicleId: String)
 
-/** The quick fill-up form; [vehicleId] preselects the vehicle it was opened from. */
-@Serializable data class FuelEntryRoute(val vehicleId: String? = null)
+/**
+ * The quick fill-up form; [vehicleId] preselects the vehicle it was opened from. [scan] (the fan FAB's "Scan
+ * Receipt" petal, D-A32) starts the receipt scan on arrival — the camera when the server offers the scanner, the
+ * "not available" snackbar when it doesn't.
+ */
+@Serializable data class FuelEntryRoute(val vehicleId: String? = null, val scan: Boolean = false)
 
 /** Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. */
 @Serializable data class RecordFormRoute(val recordId: String? = null, val scheduleId: String? = null, val vehicleId: String? = null)

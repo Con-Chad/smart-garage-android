@@ -1,5 +1,6 @@
 package io.github.conchad.smartgarage.ui.glass
 
+import android.content.Context
 import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,12 +27,18 @@ fun rememberReducedMotion(): Boolean {
     val context = LocalContext.current
     val resumed = rememberIsResumed()
     val reduced by produceState(initialValue = false, resumed) {
-        value = runCatching {
-            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-        }.getOrDefault(false)
+        value = isReducedMotion(context)
     }
     return reduced
 }
+
+/**
+ * The same setting read synchronously, for a decision that is taken once at first composition and never revisited
+ * (the bubble pop-in, D-A32): [rememberReducedMotion]'s first frame is always `false` while its producer runs.
+ */
+fun isReducedMotion(context: Context): Boolean = runCatching {
+    Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+}.getOrDefault(false)
 
 /** Whether the hosting lifecycle is RESUMED; ambient animations stop composing when it isn't (the `visibilitychange` pause). */
 @Composable
