@@ -1,5 +1,8 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
@@ -16,20 +19,32 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.AddAPhoto
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.UploadFile
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -61,6 +76,8 @@ import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
 import io.github.conchad.smartgarage.ui.components.IconBadge
+import io.github.conchad.smartgarage.ui.components.InspectionSheet
+import io.github.conchad.smartgarage.ui.components.InsuranceSheet
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RefreshBox
@@ -69,6 +86,7 @@ import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.forms.ActionButton
+import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
 import io.github.conchad.smartgarage.ui.components.forms.PendingMark
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
@@ -80,36 +98,104 @@ import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.enumLabel
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.files.UploadKind
+import io.github.conchad.smartgarage.ui.files.fileProblemText
 
-/** What the detail screen can start: the fill-up form, the odometer sheet, logging or editing a service. */
+/** What the detail screen can start: the quick logs, and every editor that belongs to one vehicle (CP11 B). */
 class VehicleActions(
     val onLogFillUp: (vehicleId: String) -> Unit,
     val onLogService: (scheduleId: String) -> Unit,
     val onEditRecord: (recordId: String) -> Unit,
+    val onAddSchedule: (vehicleId: String) -> Unit,
+    val onEditSchedule: (scheduleId: String) -> Unit,
+    val onEditScheduleDefaults: (scheduleId: String) -> Unit,
+    val onAddExpense: (vehicleId: String) -> Unit,
+    val onAddDocument: (vehicleId: String) -> Unit,
+    val onEditVehicle: (vehicleId: String) -> Unit,
+    val onAddInspection: (vehicleId: String) -> Unit,
+    val onEditInspection: (vehicleId: String, inspectionId: String) -> Unit,
+    val onAddInsurance: (vehicleId: String) -> Unit,
+    val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
 )
 
 @Composable
 fun VehicleDetailScreen(
     onBack: () -> Unit,
-    onLogFillUp: (vehicleId: String) -> Unit,
-    onLogService: (scheduleId: String) -> Unit,
-    onEditRecord: (recordId: String) -> Unit,
+    actions: VehicleActions,
     viewModel: VehicleDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
+    val closed by viewModel.closed.collectAsStateWithLifecycle()
+    val photoPick by viewModel.photoPick.collectAsStateWithLifecycle()
     val detail = state.detail
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     DeniedSnackbar(viewModel, snackbar)
-    val actions = remember(onLogFillUp, onLogService, onEditRecord) { VehicleActions(onLogFillUp, onLogService, onEditRecord) }
+    LaunchedEffect(closed) { if (closed) onBack() }
+
+    // A photo the server would refuse is said so here, before anything is queued (D-A21).
+    val photoMessage = when (val pick = photoPick) {
+        null -> null
+        PhotoPick.Unreadable -> stringResource(R.string.file_unreadable)
+        is PhotoPick.Rejected -> fileProblemText(pick.problem, UploadKind.VehiclePhoto)
+    }
+    LaunchedEffect(photoMessage) {
+        if (photoMessage != null) {
+            snackbar.showSnackbar(photoMessage)
+            viewModel.clearPhotoPick()
+        }
+    }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::setPhoto)
+    }
+
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableIntStateOf(0) }
+
     // The heading below the photo names the vehicle; the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 2 } }
     AppScaffold(
         title = if (headingGone) detail?.vehicle?.displayName.orEmpty() else "",
         onBack = onBack,
         snackbarHost = { SnackbarHost(snackbar) },
+        actions = {
+            val vehicle = detail?.vehicle
+            if (vehicle != null && vehicle.access.canEdit) {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_edit_vehicle)) },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            actions.onEditVehicle(vehicle.id)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_change_photo)) },
+                        leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                    )
+                    if (!vehicle.access.isShared) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.action_delete_vehicle), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                menuOpen = false
+                                confirmDelete = 1
+                            },
+                        )
+                    }
+                }
+            }
+        },
     ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
             WriteQueueBanner(sync, viewModel)
@@ -121,8 +207,7 @@ fun VehicleDetailScreen(
                             pendingIds = pendingIds,
                             actions = actions,
                             snackbar = snackbar,
-                            onDeleteFuel = viewModel::deleteFuelEntry,
-                            onDeleteRecord = viewModel::deleteRecord,
+                            viewModel = viewModel,
                         )
                     } else {
                         EmptyState(
@@ -135,6 +220,30 @@ fun VehicleDetailScreen(
             }
         }
     }
+
+    // Deleting a vehicle takes everything with it, so it asks twice; the second time with the consequences spelled out.
+    val name = detail?.vehicle?.displayName.orEmpty()
+    when (confirmDelete) {
+        1 -> ConfirmDialog(
+            title = stringResource(R.string.vehicle_delete_title, name),
+            body = stringResource(R.string.vehicle_delete_body),
+            confirmLabel = stringResource(R.string.action_continue),
+            onConfirm = { confirmDelete = 2 },
+            onDismiss = { confirmDelete = 0 },
+            destructive = true,
+        )
+        2 -> ConfirmDialog(
+            title = stringResource(R.string.vehicle_delete_again_title),
+            body = stringResource(R.string.vehicle_delete_again_body, name),
+            confirmLabel = stringResource(R.string.action_delete_vehicle),
+            onConfirm = {
+                confirmDelete = 0
+                viewModel.deleteVehicle()
+            },
+            onDismiss = { confirmDelete = 0 },
+            destructive = true,
+        )
+    }
 }
 
 @Composable
@@ -146,11 +255,11 @@ private fun VehicleDetailContent(
     pendingIds: Set<String>,
     actions: VehicleActions,
     snackbar: SnackbarHostState,
-    onDeleteFuel: (String) -> Unit,
-    onDeleteRecord: (String) -> Unit,
+    viewModel: VehicleDetailViewModel,
 ) {
     val fmt = state.formatter
     val vehicle = detail.vehicle
+    val canEdit = vehicle.access.canEdit
     var open by rememberSheetTarget()
     var allFuel by rememberSaveable { mutableStateOf(false) }
     var allRecords by rememberSaveable { mutableStateOf(false) }
@@ -168,14 +277,17 @@ private fun VehicleDetailContent(
         item { Heading(vehicle, detail, fmt) }
         item { Stats(detail, fmt) }
         item {
-            // The two things done at the car: a fill-up and a reading. Viewers see why there is nothing to tap.
-            if (vehicle.access.canEdit) {
-                Row(
-                    Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
-                    ActionButton(stringResource(R.string.action_update_odometer), Icons.Outlined.Speed, onClick = { odometerOpen = true }, modifier = Modifier.weight(1f))
+            // The things done at the car first (a fill-up, a reading), then the paperwork. Viewers see why there is nothing to tap.
+            if (canEdit) {
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
+                        ActionButton(stringResource(R.string.action_update_odometer), Icons.Outlined.Speed, onClick = { odometerOpen = true }, modifier = Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionButton(stringResource(R.string.action_add_expense), Icons.AutoMirrored.Outlined.ReceiptLong, onClick = { actions.onAddExpense(vehicle.id) }, modifier = Modifier.weight(1f))
+                        ActionButton(stringResource(R.string.action_add_document), Icons.Outlined.UploadFile, onClick = { actions.onAddDocument(vehicle.id) }, modifier = Modifier.weight(1f))
+                    }
                 }
             } else {
                 ViewOnlyNote(vehicle.owner?.name, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
@@ -185,7 +297,13 @@ private fun VehicleDetailContent(
             item { PendingMark(Modifier.padding(start = 16.dp, top = 8.dp)) }
         }
 
-        item { GroupHeader(stringResource(R.string.vehicle_service)) }
+        item {
+            GroupHeader(
+                stringResource(R.string.vehicle_service),
+                action = stringResource(R.string.action_add),
+                onAction = { actions.onAddSchedule(vehicle.id) }.takeIf { canEdit },
+            )
+        }
         item {
             if (detail.due.isEmpty()) {
                 EmptyGroup(stringResource(R.string.vehicle_no_schedules))
@@ -199,7 +317,7 @@ private fun VehicleDetailContent(
             }
         }
 
-        if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty()) {
+        if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty() || canEdit) {
             item { GroupHeader(stringResource(R.string.vehicle_papers)) }
             item {
                 GroupCard {
@@ -210,6 +328,8 @@ private fun VehicleDetailContent(
                             Icons.Outlined.EventAvailable,
                             inspectionLabel(inspection.type),
                             listOfNotNull(due?.let(fmt::date), due?.let { dueDays(fmt.daysFromToday(it).toInt()) }).joinToString(" · "),
+                            pending = inspection.id in pendingIds,
+                            onClick = { open = SheetTarget.Inspection(inspection.id) },
                         )
                     }
                     detail.policies.forEachIndexed { index, policy ->
@@ -221,7 +341,16 @@ private fun VehicleDetailContent(
                                 policy.endDate.toInstantOrNull()?.let { stringResource(R.string.dashboard_insurance_until, fmt.date(it)) },
                                 fmt.money(policy.premiumCents, policy.currency).let { stringResource(R.string.insurance_premium, it) },
                             ).joinToString(" · "),
+                            pending = policy.id in pendingIds,
+                            onClick = { open = SheetTarget.Insurance(policy.id) },
                         )
+                    }
+                    if (canEdit) {
+                        if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty()) RowDivider()
+                        Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(stringResource(R.string.action_add_inspection), Icons.Outlined.EventAvailable, onClick = { actions.onAddInspection(vehicle.id) }, modifier = Modifier.weight(1f))
+                            ActionButton(stringResource(R.string.action_add_insurance), Icons.Outlined.Shield, onClick = { actions.onAddInsurance(vehicle.id) }, modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -287,6 +416,19 @@ private fun VehicleDetailContent(
                     open = null
                     actions.onLogService(item.schedule.id)
                 },
+                pending = item.schedule.id in pendingIds,
+                onEdit = {
+                    open = null
+                    actions.onEditSchedule(item.schedule.id)
+                },
+                onEditDefaults = {
+                    open = null
+                    actions.onEditScheduleDefaults(item.schedule.id)
+                },
+                onDelete = {
+                    open = null
+                    viewModel.deleteSchedule(item.schedule.id)
+                },
             )
         }
         is SheetTarget.Record -> detail.records.firstOrNull { it.id == target.id }?.let { record ->
@@ -303,7 +445,7 @@ private fun VehicleDetailContent(
                 },
                 onDelete = {
                     open = null
-                    onDeleteRecord(record.id)
+                    viewModel.deleteRecord(record.id)
                 },
             )
         }
@@ -317,7 +459,41 @@ private fun VehicleDetailContent(
                 pending = entry.id in pendingIds,
                 onDelete = {
                     open = null
-                    onDeleteFuel(entry.id)
+                    viewModel.deleteFuelEntry(entry.id)
+                },
+            )
+        }
+        is SheetTarget.Inspection -> detail.inspections.firstOrNull { it.id == target.id }?.let { inspection ->
+            InspectionSheet(
+                inspection,
+                vehicle,
+                fmt,
+                onDismiss = { open = null },
+                pending = inspection.id in pendingIds,
+                onEdit = {
+                    open = null
+                    actions.onEditInspection(vehicle.id, inspection.id)
+                },
+                onDelete = {
+                    open = null
+                    viewModel.deleteInspection(inspection.id)
+                },
+            )
+        }
+        is SheetTarget.Insurance -> detail.policies.firstOrNull { it.id == target.id }?.let { policy ->
+            InsuranceSheet(
+                policy,
+                vehicle,
+                fmt,
+                onDismiss = { open = null },
+                pending = policy.id in pendingIds,
+                onEdit = {
+                    open = null
+                    actions.onEditInsurance(vehicle.id, policy.id)
+                },
+                onDelete = {
+                    open = null
+                    viewModel.deleteInsurance(policy.id)
                 },
             )
         }
@@ -382,13 +558,15 @@ fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, 
     }
 }
 
+/** An inspection or policy row: one tap target that opens its sheet, where Edit and Delete live (D-A20). */
 @Composable
-private fun PaperRow(icon: ImageVector, title: String, subtitle: String) {
-    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun PaperRow(icon: ImageVector, title: String, subtitle: String, pending: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(icon)
         Column(Modifier.padding(start = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (pending) PendingMark(Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -455,6 +633,7 @@ private fun LazyListScope.specs(vehicle: Vehicle, fmt: Formatter) {
             DetailRow(stringResource(R.string.spec_body), specs?.bodyType?.let { bodyTypeLabel(it) })
             DetailRow(stringResource(R.string.field_vin), vehicle.vin)
             DetailRow(stringResource(R.string.field_plate), vehicle.licensePlate)
+            DetailRow(stringResource(R.string.vehicle_form_hsn_tsn), listOfNotNull(vehicle.hsn, vehicle.tsn).joinToString(" / ").ifEmpty { null })
             DetailRow(stringResource(R.string.field_color), vehicle.color)
             DetailRow(stringResource(R.string.field_purchased), vehicle.purchaseDate.toInstantOrNull()?.let(fmt::date))
             DetailRow(stringResource(R.string.field_purchase_price), vehicle.purchasePriceCents?.let { fmt.money(it, vehicle.purchaseCurrency) })

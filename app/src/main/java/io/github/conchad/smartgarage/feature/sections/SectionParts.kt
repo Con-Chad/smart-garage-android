@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -22,26 +24,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.core.model.Vehicle
+import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
-import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
+import io.github.conchad.smartgarage.ui.components.forms.PendingMark
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
+import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Frame shared by the sections under More: back arrow, stale-data banner, vehicle filter, then (inside
- * pull-to-refresh) loading, can't-reach, an empty state or the list.
+ * Frame shared by the sections under More: back arrow, write-queue banner, vehicle filter, then (inside
+ * pull-to-refresh) loading, can't-reach, an empty state or the list. [viewModel] feeds the banner, the denied
+ * snackbar and the pending marks; [floatingActionButton] is the section's one "Add" verb (D-A20), and the list
+ * leaves room under its last row for it. [emptyAction] repeats that verb inside the empty state.
  */
 @Composable
 fun SectionScaffold(
     title: String,
     onBack: () -> Unit,
+    viewModel: WritingViewModel,
     vehicles: List<Vehicle>,
     selectedVehicleId: String?,
     onSelectVehicle: (String?) -> Unit,
@@ -52,19 +61,30 @@ fun SectionScaffold(
     emptyIcon: ImageVector,
     emptyTitle: String,
     emptyBody: String,
+    snackbar: SnackbarHostState = remember { SnackbarHostState() },
+    actions: @Composable () -> Unit = {},
+    floatingActionButton: @Composable () -> Unit = {},
+    emptyAction: (@Composable () -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
-    AppScaffold(title = title, onBack = onBack) { padding ->
+    DeniedSnackbar(viewModel, snackbar)
+    AppScaffold(
+        title = title,
+        onBack = onBack,
+        actions = actions,
+        floatingActionButton = floatingActionButton,
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            SyncBanner(sync, onRetry = onRefresh)
+            WriteQueueBanner(sync, viewModel)
             VehicleFilterRow(vehicles, selectedVehicleId, onSelectVehicle, Modifier.padding(bottom = 4.dp))
             RefreshBox(sync, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh) {
                     if (isEmpty) {
-                        EmptyState(icon = emptyIcon, title = emptyTitle, body = emptyBody)
+                        EmptyState(icon = emptyIcon, title = emptyTitle, body = emptyBody, action = emptyAction)
                     } else {
                         LazyColumn(
-                            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+                            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
                             modifier = Modifier.fillMaxSize(),
                             content = content,
                         )
@@ -89,6 +109,7 @@ fun SectionRow(
     trailing: String? = null,
     trailingDetail: String? = null,
     trailingColor: Color = Color.Unspecified,
+    pending: Boolean = false,
 ) {
     Row(
         Modifier
@@ -109,6 +130,7 @@ fun SectionRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (pending) PendingMark(Modifier.padding(top = 2.dp))
         }
         if (trailing != null || trailingDetail != null) {
             Column(horizontalAlignment = Alignment.End) {

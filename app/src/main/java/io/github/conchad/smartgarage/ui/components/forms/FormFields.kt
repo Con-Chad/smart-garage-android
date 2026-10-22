@@ -11,6 +11,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -18,6 +19,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -259,6 +261,75 @@ fun FormDateField(
         // The picker's millis are UTC midnight of the picked day; the day is what matters, not the instant.
         val state = rememberDatePickerState(
             initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            selectableDates = if (allowFuture) DatePickerDefaults.AllDates else object : SelectableDates {
+                private val limit = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= limit
+                override fun isSelectableYear(year: Int): Boolean = year <= today.year
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { open = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        state.selectedDateMillis?.let { onDateChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) }
+                        open = false
+                    },
+                    enabled = state.selectedDateMillis != null,
+                ) { Text(stringResource(R.string.action_ok)) }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } },
+        ) { DatePicker(state) }
+    }
+}
+
+/**
+ * [FormDateField] for a date that may be left empty (last inspection, purchase date): "Not set" until picked, then
+ * the date with a clear button that is its own 48 dp target.
+ */
+@Composable
+fun FormOptionalDateField(
+    date: LocalDate?,
+    onDateChange: (LocalDate?) -> Unit,
+    label: String,
+    fmt: Formatter,
+    modifier: Modifier = Modifier,
+    supporting: String? = null,
+    error: String? = null,
+    enabled: Boolean = true,
+    allowFuture: Boolean = false,
+) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
+    LaunchedEffect(interaction) {
+        interaction.interactions.collect { if (it is PressInteraction.Release) open = true }
+    }
+    val text = date?.let { fmt.date(it.atStartOfDay(fmt.zone).toInstant()) }.orEmpty()
+    OutlinedTextField(
+        value = text,
+        onValueChange = {},
+        readOnly = true,
+        enabled = enabled,
+        label = { Text(label) },
+        placeholder = { Text(stringResource(R.string.form_date_not_set)) },
+        trailingIcon = {
+            if (date != null && enabled) {
+                IconButton(onClick = { onDateChange(null) }) {
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.form_date_clear, label))
+                }
+            } else {
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
+            }
+        },
+        isError = error != null,
+        supportingText = supportingText(error, supporting),
+        interactionSource = interaction,
+        modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
+    )
+    if (open) {
+        val today = fmt.today()
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = (date ?: today).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
             selectableDates = if (allowFuture) DatePickerDefaults.AllDates else object : SelectableDates {
                 private val limit = today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= limit

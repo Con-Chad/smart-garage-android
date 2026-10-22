@@ -36,14 +36,25 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
+import io.github.conchad.smartgarage.feature.documents.DocumentFormScreen
+import io.github.conchad.smartgarage.feature.expenses.ExpenseFormScreen
 import io.github.conchad.smartgarage.feature.fuel.FuelEntryScreen
 import io.github.conchad.smartgarage.feature.fuel.FuelScreen
 import io.github.conchad.smartgarage.feature.maintenance.MaintenanceScreen
 import io.github.conchad.smartgarage.feature.maintenance.RecordFormScreen
+import io.github.conchad.smartgarage.feature.maintenance.ScheduleDefaultsScreen
+import io.github.conchad.smartgarage.feature.maintenance.ScheduleFormScreen
+import io.github.conchad.smartgarage.feature.notes.NoteFormScreen
+import io.github.conchad.smartgarage.feature.vehicles.InspectionFormScreen
+import io.github.conchad.smartgarage.feature.vehicles.InsuranceFormScreen
+import io.github.conchad.smartgarage.feature.vehicles.VehicleActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailScreen
+import io.github.conchad.smartgarage.feature.vehicles.VehicleFormScreen
 import io.github.conchad.smartgarage.feature.vehicles.VehiclesScreen
 import io.github.conchad.smartgarage.feature.more.MoreScreen
+import io.github.conchad.smartgarage.feature.sections.SectionActions
 import io.github.conchad.smartgarage.feature.sections.SectionScreen
+import io.github.conchad.smartgarage.feature.wishlist.WishlistFormScreen
 import io.github.conchad.smartgarage.feature.profiles.ProfilesScreen
 import io.github.conchad.smartgarage.feature.settings.SettingsScreen
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
@@ -112,20 +123,38 @@ private fun Shell(profile: ServerProfile, account: Account) {
                 )
             }
             composable<VehiclesRoute> {
-                VehiclesScreen(onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) })
+                VehiclesScreen(
+                    onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                    onAddVehicle = { navController.navigate(VehicleFormRoute()) },
+                )
             }
             composable<VehicleDetailRoute> {
-                VehicleDetailScreen(
-                    onBack = navController::popBackStack,
-                    onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
-                    onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
-                    onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
-                )
+                val vehicleActions = remember(navController) {
+                    VehicleActions(
+                        onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
+                        onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                        onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                        onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                        onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                        onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                        onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                        onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                        onEditVehicle = { navController.navigate(VehicleFormRoute(vehicleId = it)) },
+                        onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                        onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                        onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                        onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                    )
+                }
+                VehicleDetailScreen(onBack = navController::popBackStack, actions = vehicleActions)
             }
             composable<MaintenanceRoute> {
                 MaintenanceScreen(
                     onLogService = { scheduleId, vehicleId -> navController.navigate(RecordFormRoute(scheduleId = scheduleId, vehicleId = vehicleId)) },
                     onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                    onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                    onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                    onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
                 )
             }
             composable<FuelRoute> {
@@ -133,6 +162,15 @@ private fun Shell(profile: ServerProfile, account: Account) {
             }
             composable<FuelEntryRoute> { FuelEntryScreen(onClose = navController::popBackStack) }
             composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
+            composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
+            composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
+            composable<ExpenseFormRoute> { ExpenseFormScreen(onClose = navController::popBackStack) }
+            composable<NoteFormRoute> { NoteFormScreen(onClose = navController::popBackStack) }
+            composable<WishlistFormRoute> { WishlistFormScreen(onClose = navController::popBackStack) }
+            composable<VehicleFormRoute> { VehicleFormScreen(onClose = navController::popBackStack) }
+            composable<InspectionFormRoute> { InspectionFormScreen(onClose = navController::popBackStack) }
+            composable<InsuranceFormRoute> { InsuranceFormScreen(onClose = navController::popBackStack) }
+            composable<DocumentFormRoute> { DocumentFormScreen(onClose = navController::popBackStack) }
             composable<MoreRoute> {
                 MoreScreen(
                     onOpenSection = { navController.navigate(SectionRoute(it)) },
@@ -140,10 +178,25 @@ private fun Shell(profile: ServerProfile, account: Account) {
                 )
             }
             composable<SectionRoute> { entry ->
+                val sectionActions = remember(navController) {
+                    SectionActions(
+                        onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                        onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                        onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                        onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                        onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                        onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                        onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                        onNewNote = { navController.navigate(NoteFormRoute(vehicleId = it)) },
+                        onEditNote = { navController.navigate(NoteFormRoute(noteId = it)) },
+                        onAddWishlistItem = { navController.navigate(WishlistFormRoute(vehicleId = it)) },
+                        onEditWishlistItem = { navController.navigate(WishlistFormRoute(itemId = it)) },
+                    )
+                }
                 SectionScreen(
                     section = entry.toRoute<SectionRoute>().section,
                     onBack = navController::popBackStack,
-                    onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                    actions = sectionActions,
                 )
             }
             composable<SettingsRoute> {

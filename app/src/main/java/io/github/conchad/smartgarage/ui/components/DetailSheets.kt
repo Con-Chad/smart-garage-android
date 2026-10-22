@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
@@ -89,6 +90,10 @@ fun SheetActions(
     primary: Pair<String, () -> Unit>? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** A second, less common verb ("Default parts"), outlined and full width between the primary and Edit/Delete. */
+    secondary: Pair<String, () -> Unit>? = null,
+    /** Delete's label when it isn't a plain delete ("Stop reminders"). */
+    deleteLabel: String = stringResource(R.string.action_delete),
 ) {
     val canEdit = vehicle?.access?.canEdit ?: true
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -99,6 +104,9 @@ fun SheetActions(
         primary?.let { (label, action) ->
             Button(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
         }
+        secondary?.let { (label, action) ->
+            OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             onEdit?.let {
                 OutlinedButton(onClick = it, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.action_edit)) }
@@ -108,7 +116,7 @@ fun SheetActions(
                     onClick = it,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text(stringResource(R.string.action_delete)) }
+                ) { Text(deleteLabel, textAlign = TextAlign.Center) }
             }
         }
     }
@@ -120,9 +128,23 @@ fun DeleteConfirm(title: String, body: String, onConfirm: () -> Unit, onDismiss:
     ConfirmDialog(title, body, stringResource(R.string.action_delete), onConfirm, onDismiss, destructive = true)
 }
 
+/**
+ * A schedule: status, due, interval, cost, notes and default parts. With [onLogService] the sheet has its actions;
+ * [onDelete] is the web's "deactivate": the schedule stops reminding, its records stay, so the confirmation says so.
+ */
 @Composable
-fun ScheduleSheet(item: DueItem, fmt: Formatter, onDismiss: () -> Unit, onLogService: (() -> Unit)? = null) {
+fun ScheduleSheet(
+    item: DueItem,
+    fmt: Formatter,
+    onDismiss: () -> Unit,
+    onLogService: (() -> Unit)? = null,
+    pending: Boolean = false,
+    onEdit: (() -> Unit)? = null,
+    onEditDefaults: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
     val schedule = item.schedule
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(Icons.Outlined.Build, item.name, item.vehicle.displayName, onDismiss) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             StatusChip(
@@ -149,9 +171,30 @@ fun ScheduleSheet(item: DueItem, fmt: Formatter, onDismiss: () -> Unit, onLogSer
             GroupHeader(stringResource(R.string.schedule_parts))
             schedule.itemDefaults.forEach { ItemRow(it, fmt, schedule.currency) }
         }
-        if (onLogService != null) {
-            SheetActions(item.vehicle, primary = stringResource(R.string.action_log_service) to onLogService)
+        if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        if (onLogService != null || onEdit != null || onDelete != null) {
+            SheetActions(
+                item.vehicle,
+                primary = onLogService?.let { stringResource(R.string.action_log_service) to it },
+                secondary = onEditDefaults?.let { stringResource(R.string.schedule_defaults_action) to it },
+                onEdit = onEdit,
+                onDelete = onDelete?.let { { confirmDelete = true } },
+                deleteLabel = stringResource(R.string.schedule_deactivate),
+            )
         }
+    }
+    if (confirmDelete && onDelete != null) {
+        ConfirmDialog(
+            title = stringResource(R.string.schedule_deactivate_title, item.name),
+            body = stringResource(R.string.schedule_deactivate_body),
+            confirmLabel = stringResource(R.string.schedule_deactivate),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false },
+            destructive = true,
+        )
     }
 }
 

@@ -184,9 +184,12 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
     }
 }
 
-/** One part: name on top, quantity (with the item's unit) and cost side by side, a remove button at the end. */
+/**
+ * One part: name on top, quantity (with the item's unit) and cost side by side, a remove button at the end. Shared
+ * with the schedule's default-parts editor, so both lists look and read the same.
+ */
 @Composable
-private fun ItemEditor(
+internal fun ItemEditor(
     item: ItemDraft,
     fmt: Formatter,
     onName: (String) -> Unit,

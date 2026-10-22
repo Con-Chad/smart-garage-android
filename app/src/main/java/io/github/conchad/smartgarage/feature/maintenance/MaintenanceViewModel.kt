@@ -38,6 +38,9 @@ data class MaintenanceUiState(
 
     /** A schedule on an editable vehicle exists: the FAB hides otherwise, since a record needs a schedule. */
     val canAdd: Boolean get() = due.any { it.vehicle.access.canEdit }
+
+    /** A new schedule only needs an editable vehicle. */
+    val canAddSchedule: Boolean get() = vehicles.any { it.access.canEdit }
 }
 
 @HiltViewModel
@@ -75,6 +78,9 @@ class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control
     }
 
     fun deleteRecord(id: String) = perform { deleteRecord(id) }
+
+    /** The web's "remove": the schedule stops reminding; its records stay. */
+    fun deleteSchedule(id: String) = perform { deleteSchedule(id) }
 
     private data class Base(
         val vehicles: List<Vehicle>,

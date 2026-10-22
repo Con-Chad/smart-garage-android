@@ -40,6 +40,33 @@ import kotlinx.serialization.Serializable
 /** Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. */
 @Serializable data class RecordFormRoute(val recordId: String? = null, val scheduleId: String? = null, val vehicleId: String? = null)
 
+/** Add an expense; [vehicleId] preselects the vehicle. */
+@Serializable data class ExpenseFormRoute(val vehicleId: String? = null)
+
+/** New note, or edit [noteId]; [vehicleId] preselects the vehicle for a new one. */
+@Serializable data class NoteFormRoute(val noteId: String? = null, val vehicleId: String? = null)
+
+/** New wishlist item, or edit [itemId]. */
+@Serializable data class WishlistFormRoute(val itemId: String? = null, val vehicleId: String? = null)
+
+/** New service schedule for a vehicle, or edit [scheduleId]. */
+@Serializable data class ScheduleFormRoute(val scheduleId: String? = null, val vehicleId: String? = null)
+
+/** The schedule's default parts and fluids. */
+@Serializable data class ScheduleDefaultsRoute(val scheduleId: String)
+
+/** New vehicle (manual entry), or edit [vehicleId]. */
+@Serializable data class VehicleFormRoute(val vehicleId: String? = null)
+
+/** An inspection (HU/AU) for [vehicleId]; [inspectionId] edits the existing one. */
+@Serializable data class InspectionFormRoute(val vehicleId: String, val inspectionId: String? = null)
+
+/** An insurance policy for [vehicleId]; [policyId] edits the existing one. */
+@Serializable data class InsuranceFormRoute(val vehicleId: String, val policyId: String? = null)
+
+/** Upload a document; [vehicleId] preselects the vehicle. */
+@Serializable data class DocumentFormRoute(val vehicleId: String? = null)
+
 /** A section reached from More that has no screen yet; replaced one by one in CP10. */
 @Serializable data class SectionRoute(val section: Section)
 

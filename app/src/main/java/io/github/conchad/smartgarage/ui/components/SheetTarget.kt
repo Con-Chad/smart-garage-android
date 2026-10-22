@@ -13,6 +13,8 @@ sealed interface SheetTarget {
     data class Schedule(override val id: String) : SheetTarget
     data class Record(override val id: String) : SheetTarget
     data class Fuel(override val id: String) : SheetTarget
+    data class Inspection(override val id: String) : SheetTarget
+    data class Insurance(override val id: String) : SheetTarget
 }
 
 @Composable
@@ -24,6 +26,8 @@ private val SheetTargetSaver = Saver<MutableState<SheetTarget?>, String>(
             is SheetTarget.Schedule -> "s:${target.id}"
             is SheetTarget.Record -> "r:${target.id}"
             is SheetTarget.Fuel -> "f:${target.id}"
+            is SheetTarget.Inspection -> "i:${target.id}"
+            is SheetTarget.Insurance -> "p:${target.id}"
             null -> ""
         }
     },
@@ -34,6 +38,8 @@ private val SheetTargetSaver = Saver<MutableState<SheetTarget?>, String>(
                 "s" -> SheetTarget.Schedule(id)
                 "r" -> SheetTarget.Record(id)
                 "f" -> SheetTarget.Fuel(id)
+                "i" -> SheetTarget.Inspection(id)
+                "p" -> SheetTarget.Insurance(id)
                 else -> null
             },
         )

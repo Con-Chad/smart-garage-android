@@ -2,18 +2,13 @@ package io.github.conchad.smartgarage.feature.sections
 
 import android.text.format.Formatter as FileSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
@@ -27,13 +22,11 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -56,55 +48,76 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import io.github.conchad.smartgarage.R
-import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Reminder
 import io.github.conchad.smartgarage.core.model.TimelineEvent
 import io.github.conchad.smartgarage.core.model.Urgency
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
-import io.github.conchad.smartgarage.ui.components.DetailRow
-import io.github.conchad.smartgarage.ui.components.DetailSheet
+import io.github.conchad.smartgarage.ui.components.DocumentSheet
+import io.github.conchad.smartgarage.ui.components.ExpenseSheet
 import io.github.conchad.smartgarage.ui.components.FuelSheet
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.GroupHeader
+import io.github.conchad.smartgarage.ui.components.NoteSheet
 import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RowDivider
-import io.github.conchad.smartgarage.ui.components.shortName
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
+import io.github.conchad.smartgarage.ui.components.WishlistSheet
+import io.github.conchad.smartgarage.ui.components.documentCategoryLabel
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.dueText
-import io.github.conchad.smartgarage.ui.components.documentCategoryLabel
 import io.github.conchad.smartgarage.ui.components.expenseCategoryLabel
+import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.components.shortName
 import io.github.conchad.smartgarage.ui.components.wishlistCategoryLabel
+import io.github.conchad.smartgarage.ui.components.wishlistEstimate
 import io.github.conchad.smartgarage.ui.components.wishlistStatusLabel
 import io.github.conchad.smartgarage.ui.navigation.Section
 import java.time.YearMonth
 import java.time.ZoneId
 
+/** Where the sections send the user: the vehicle screen and the editors (CP11 phase B). */
+class SectionActions(
+    val onOpenVehicle: (vehicleId: String) -> Unit,
+    val onAddSchedule: (vehicleId: String?) -> Unit,
+    val onEditSchedule: (scheduleId: String) -> Unit,
+    val onEditScheduleDefaults: (scheduleId: String) -> Unit,
+    val onLogService: (scheduleId: String) -> Unit,
+    val onAddExpense: (vehicleId: String?) -> Unit,
+    val onAddDocument: (vehicleId: String?) -> Unit,
+    val onNewNote: (vehicleId: String?) -> Unit,
+    val onEditNote: (noteId: String) -> Unit,
+    val onAddWishlistItem: (vehicleId: String?) -> Unit,
+    val onEditWishlistItem: (itemId: String) -> Unit,
+)
+
 @Composable
-fun SectionScreen(section: Section, onBack: () -> Unit, onOpenVehicle: (String) -> Unit) {
+fun SectionScreen(section: Section, onBack: () -> Unit, actions: SectionActions) {
     when (section) {
-        Section.Reminders -> RemindersScreen(onBack, onOpenVehicle)
+        Section.Reminders -> RemindersScreen(onBack, actions)
         Section.History -> HistoryScreen(onBack)
         Section.Odometer -> OdometerScreen(onBack)
-        Section.Expenses -> ExpensesScreen(onBack)
-        Section.Documents -> DocumentsScreen(onBack)
-        Section.Notes -> NotesScreen(onBack)
-        Section.Wishlist -> WishlistScreen(onBack)
+        Section.Expenses -> ExpensesScreen(onBack, actions)
+        Section.Documents -> DocumentsScreen(onBack, actions)
+        Section.Notes -> NotesScreen(onBack, actions)
+        Section.Wishlist -> WishlistScreen(onBack, actions)
     }
 }
 
 // Reminders ------------------------------------------------------------------------------------------------------
 
 @Composable
-private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit, viewModel: RemindersViewModel = hiltViewModel()) {
+private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewModel: RemindersViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var openSchedule by rememberSaveable { mutableStateOf<String?>(null) }
+    val addSchedule = { actions.onAddSchedule(state.selectedVehicleId) }
     SectionScaffold(
         title = stringResource(R.string.nav_reminders),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -115,6 +128,19 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
         emptyIcon = Icons.Outlined.NotificationsActive,
         emptyTitle = stringResource(R.string.reminders_empty_title),
         emptyBody = stringResource(R.string.reminders_empty_body),
+        actions = {
+            // A schedule is a setting, not a log entry, so it hangs off the bar rather than a FAB (D-A20).
+            if (state.loaded && state.canEditAny) {
+                IconButton(onClick = addSchedule) {
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_add_schedule))
+                }
+            }
+        },
+        emptyAction = if (state.loaded && state.canEditAny) {
+            { Button(onClick = addSchedule) { Text(stringResource(R.string.action_add_schedule)) } }
+        } else {
+            null
+        },
     ) {
         state.data.groupBy { it.urgency }.forEach { (urgency, reminders) ->
             item(key = urgency.name) {
@@ -136,13 +162,15 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
                                 title = reminder.item.name,
                                 detail = listOfNotNull(dueText(reminder.item, fmt), reminder.vehicle.shortName).joinToString(" · "),
                                 onClick = { openSchedule = reminder.item.schedule.id },
+                                pending = reminder.item.schedule.id in pendingIds,
                             )
                             is Reminder.InspectionDue -> SectionRow(
                                 icon = Icons.Outlined.EventAvailable,
                                 title = inspectionLabel(reminder.inspection.type),
                                 detail = listOfNotNull(reminder.date?.let { dueDays(fmt.daysFromToday(it).toInt()) }, reminder.vehicle.shortName)
                                     .joinToString(" · "),
-                                onClick = { onOpenVehicle(reminder.vehicle.id) },
+                                onClick = { actions.onOpenVehicle(reminder.vehicle.id) },
+                                pending = reminder.inspection.id in pendingIds,
                             )
                             is Reminder.InsuranceEnds -> SectionRow(
                                 icon = Icons.Outlined.Shield,
@@ -152,7 +180,8 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
                                 ),
                                 detail = listOfNotNull(reminder.date?.let { dueDays(fmt.daysFromToday(it).toInt()) }, reminder.vehicle.shortName)
                                     .joinToString(" · "),
-                                onClick = { onOpenVehicle(reminder.vehicle.id) },
+                                onClick = { actions.onOpenVehicle(reminder.vehicle.id) },
+                                pending = reminder.policy.id in pendingIds,
                             )
                         }
                     }
@@ -161,8 +190,30 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
         }
     }
     openSchedule?.let { id ->
-        state.data.filterIsInstance<Reminder.Service>().firstOrNull { it.item.schedule.id == id }?.let {
-            ScheduleSheet(it.item, fmt, onDismiss = { openSchedule = null })
+        state.data.filterIsInstance<Reminder.Service>().firstOrNull { it.item.schedule.id == id }?.let { reminder ->
+            val item = reminder.item
+            ScheduleSheet(
+                item,
+                fmt,
+                onDismiss = { openSchedule = null },
+                onLogService = {
+                    openSchedule = null
+                    actions.onLogService(item.schedule.id)
+                },
+                pending = item.schedule.id in pendingIds,
+                onEdit = {
+                    openSchedule = null
+                    actions.onEditSchedule(item.schedule.id)
+                },
+                onEditDefaults = {
+                    openSchedule = null
+                    actions.onEditScheduleDefaults(item.schedule.id)
+                },
+                onDelete = {
+                    openSchedule = null
+                    viewModel.deleteSchedule(item.schedule.id)
+                },
+            )
         }
     }
 }
@@ -173,12 +224,14 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
 private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
     SectionScaffold(
         title = stringResource(R.string.nav_history),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -205,6 +258,7 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
                                 detail = listOfNotNull(date, vehicle, event.record.vendorName).joinToString(" · "),
                                 onClick = { open = event.id },
                                 trailing = fmt.money(event.record.costCents, event.record.currency),
+                                pending = event.record.id in pendingIds,
                             )
                             is TimelineEvent.Fuel -> SectionRow(
                                 icon = Icons.Outlined.LocalGasStation,
@@ -213,6 +267,7 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
                                 onClick = { open = event.id },
                                 trailing = fmt.money(event.entry.totalCostCents, event.entry.currency),
                                 trailingDetail = event.entry.liters?.let(fmt::volume),
+                                pending = event.entry.id in pendingIds,
                             )
                             is TimelineEvent.Cost -> SectionRow(
                                 icon = Icons.AutoMirrored.Outlined.ReceiptLong,
@@ -220,12 +275,14 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
                                 detail = listOfNotNull(date, vehicle, expenseCategoryLabel(event.expense.category)).joinToString(" · "),
                                 onClick = null,
                                 trailing = fmt.money(event.expense.amountCents, event.expense.currency),
+                                pending = event.expense.id in pendingIds,
                             )
                             is TimelineEvent.Odometer -> SectionRow(
                                 icon = Icons.Outlined.Speed,
                                 title = stringResource(R.string.history_odometer, fmt.distance(event.log.odometerKm)),
                                 detail = listOfNotNull(date, vehicle, event.log.note).joinToString(" · "),
                                 onClick = null,
+                                pending = event.log.id in pendingIds,
                             )
                         }
                     }
@@ -241,8 +298,16 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
                 state.vehicleById[event.vehicleId],
                 fmt,
                 onDismiss = { open = null },
+                pending = event.record.id in pendingIds,
             )
-            is TimelineEvent.Fuel -> FuelSheet(event.entry, state.vehicleById[event.vehicleId], state.data.segments[event.entry.id], fmt, onDismiss = { open = null })
+            is TimelineEvent.Fuel -> FuelSheet(
+                event.entry,
+                state.vehicleById[event.vehicleId],
+                state.data.segments[event.entry.id],
+                fmt,
+                onDismiss = { open = null },
+                pending = event.entry.id in pendingIds,
+            )
             else -> Unit
         }
     }
@@ -254,11 +319,13 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
 private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
     SectionScaffold(
         title = stringResource(R.string.nav_odometer),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -288,6 +355,7 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
                             trailing = state.data.deltas[log.id]?.let { delta ->
                                 if (delta >= 0) "+${fmt.distance(delta)}" else "−${fmt.distance(-delta)}"
                             },
+                            pending = log.id in pendingIds,
                         )
                     }
                 }
@@ -299,14 +367,18 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
 // Expenses -------------------------------------------------------------------------------------------------------
 
 @Composable
-private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hiltViewModel()) {
+private fun ExpensesScreen(onBack: () -> Unit, actions: SectionActions, viewModel: ExpensesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
+    val add = { actions.onAddExpense(state.selectedVehicleId) }
     SectionScaffold(
         title = stringResource(R.string.nav_expenses),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -317,6 +389,9 @@ private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hi
         emptyIcon = Icons.AutoMirrored.Outlined.ReceiptLong,
         emptyTitle = stringResource(R.string.expenses_empty_title),
         emptyBody = stringResource(R.string.expenses_empty_body),
+        floatingActionButton = {
+            if (state.loaded && state.canEditAny) AddFab(stringResource(R.string.action_add_expense), onClick = add)
+        },
     ) {
         byMonth(state.data, fmt.zone) { it.occurredAt.toInstantOrNull() }.forEach { (month, expenses) ->
             item(key = month.toString()) {
@@ -335,29 +410,47 @@ private fun ExpensesScreen(onBack: () -> Unit, viewModel: ExpensesViewModel = hi
                                 category.takeIf { !expense.description.isNullOrBlank() },
                                 state.vehicleById[expense.vehicleId]?.shortName?.takeIf { showVehicle },
                             ).joinToString(" · "),
-                            onClick = null,
+                            onClick = { open = expense.id },
                             trailing = fmt.money(expense.amountCents, expense.currency),
+                            pending = expense.id in pendingIds,
                         )
                     }
                 }
             }
         }
     }
+    state.data.firstOrNull { it.id == open }?.let { expense ->
+        ExpenseSheet(
+            expense,
+            state.vehicleById[expense.vehicleId],
+            fmt,
+            onDismiss = { open = null },
+            pending = expense.id in pendingIds,
+            onDelete = {
+                open = null
+                viewModel.deleteExpense(expense.id)
+            },
+        )
+    }
 }
 
 // Documents ------------------------------------------------------------------------------------------------------
 
 @Composable
-private fun DocumentsScreen(onBack: () -> Unit, viewModel: DocumentsViewModel = hiltViewModel()) {
+private fun DocumentsScreen(onBack: () -> Unit, actions: SectionActions, viewModel: DocumentsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
-    val open by viewModel.open.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
+    val opening by viewModel.open.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val context = LocalContext.current
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
+    val add = { actions.onAddDocument(state.selectedVehicleId) }
     SectionScaffold(
         title = stringResource(R.string.nav_documents),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -368,13 +461,18 @@ private fun DocumentsScreen(onBack: () -> Unit, viewModel: DocumentsViewModel = 
         emptyIcon = Icons.Outlined.Description,
         emptyTitle = stringResource(R.string.documents_empty_title),
         emptyBody = stringResource(R.string.documents_empty_body),
+        floatingActionButton = {
+            if (state.loaded && state.canEditAny) {
+                AddFab(stringResource(R.string.action_add_document), onClick = add, icon = Icons.Outlined.UploadFile)
+            }
+        },
     ) {
         item { GroupHeader(pluralStringResource(R.plurals.documents_count, state.data.size, state.data.size)) }
         item {
             GroupCard {
                 state.data.forEachIndexed { index, document ->
                     if (index > 0) RowDivider()
-                    val loading = (open as? DocumentOpen.Loading)?.documentId == document.id
+                    val loading = (opening as? DocumentOpen.Loading)?.documentId == document.id
                     SectionRow(
                         icon = when {
                             document.isImage -> Icons.Outlined.Image
@@ -389,14 +487,32 @@ private fun DocumentsScreen(onBack: () -> Unit, viewModel: DocumentsViewModel = 
                             document.createdAt.toInstantOrNull()?.let(fmt::shortDate),
                             FileSize.formatShortFileSize(context, document.sizeBytes),
                         ).joinToString(" · "),
-                        onClick = { viewModel.open(document) },
+                        onClick = { open = document.id },
                         trailing = if (loading) "…" else null,
+                        pending = document.id in pendingIds,
                     )
                 }
             }
         }
     }
-    when (val current = open) {
+    state.data.firstOrNull { it.id == open }?.let { document ->
+        DocumentSheet(
+            document,
+            state.vehicleById[document.vehicleId],
+            fmt,
+            onDismiss = { open = null },
+            onOpen = {
+                open = null
+                viewModel.open(document)
+            },
+            pending = document.id in pendingIds,
+            onDelete = {
+                open = null
+                viewModel.deleteDocument(document.id)
+            },
+        )
+    }
+    when (val current = opening) {
         is DocumentOpen.Image -> ImageViewer(current, onDismiss = viewModel::dismiss)
         DocumentOpen.Failed -> InfoDialog(stringResource(R.string.documents_failed), viewModel::dismiss)
         DocumentOpen.NoViewer -> InfoDialog(stringResource(R.string.documents_no_viewer), viewModel::dismiss)
@@ -433,14 +549,17 @@ private fun InfoDialog(text: String, onDismiss: () -> Unit) {
 // Notes ----------------------------------------------------------------------------------------------------------
 
 @Composable
-private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltViewModel()) {
+private fun NotesScreen(onBack: () -> Unit, actions: SectionActions, viewModel: NotesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
+    val add = { actions.onNewNote(state.selectedVehicleId) }
     SectionScaffold(
         title = stringResource(R.string.nav_notes),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -451,6 +570,7 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
         emptyIcon = Icons.AutoMirrored.Outlined.StickyNote2,
         emptyTitle = stringResource(R.string.notes_empty_title),
         emptyBody = stringResource(R.string.notes_empty_body),
+        floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_new_note), onClick = add) },
     ) {
         state.data.groupBy { it.isPinned }.toSortedMap(compareByDescending { it }).forEach { (pinned, notes) ->
             item(key = "p$pinned") { GroupHeader(stringResource(if (pinned) R.string.notes_pinned else R.string.notes_all)) }
@@ -464,6 +584,7 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
                             detail = note.content.lineSequence().firstOrNull { it.isNotBlank() }?.trim(),
                             onClick = { open = note.id },
                             trailingDetail = note.updatedAt.toInstantOrNull()?.let(fmt::shortDate),
+                            pending = note.id in pendingIds,
                         )
                     }
                 }
@@ -471,23 +592,21 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
         }
     }
     state.data.firstOrNull { it.id == open }?.let { note ->
-        DetailSheet(
-            Icons.AutoMirrored.Outlined.StickyNote2,
-            note.title,
-            listOfNotNull(state.vehicleById[note.vehicleId]?.displayName, note.updatedAt.toInstantOrNull()?.let(fmt::date)).joinToString(" · "),
+        NoteSheet(
+            note,
+            state.vehicleById[note.vehicleId],
+            fmt,
             onDismiss = { open = null },
-        ) {
-            if (note.tags.isNotEmpty()) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    note.tags.forEach { tag ->
-                        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
-                            Text("#$tag", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-                        }
-                    }
-                }
-            }
-            Text(note.content, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(16.dp))
-        }
+            pending = note.id in pendingIds,
+            onEdit = {
+                open = null
+                actions.onEditNote(note.id)
+            },
+            onDelete = {
+                open = null
+                viewModel.deleteNote(note.id)
+            },
+        )
     }
 }
 
@@ -496,15 +615,18 @@ private fun NotesScreen(onBack: () -> Unit, viewModel: NotesViewModel = hiltView
 private val wishlistOrder = listOf("PLANNED", "ORDERED", "IDEA", "DONE")
 
 @Composable
-private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hiltViewModel()) {
+private fun WishlistScreen(onBack: () -> Unit, actions: SectionActions, viewModel: WishlistViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val fmt = state.formatter
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
+    val add = { actions.onAddWishlistItem(state.selectedVehicleId) }
     SectionScaffold(
         title = stringResource(R.string.nav_wishlist),
         onBack = onBack,
+        viewModel = viewModel,
         vehicles = state.vehicles,
         selectedVehicleId = state.selectedVehicleId,
         onSelectVehicle = viewModel::selectVehicle,
@@ -515,6 +637,7 @@ private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hi
         emptyIcon = Icons.Outlined.ShoppingBag,
         emptyTitle = stringResource(R.string.wishlist_empty_title),
         emptyBody = stringResource(R.string.wishlist_empty_body),
+        floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_wishlist_item), onClick = add) },
     ) {
         state.data.groupBy { it.status }
             .toSortedMap(compareBy { wishlistOrder.indexOf(it).let { i -> if (i < 0) wishlistOrder.size else i } })
@@ -533,7 +656,8 @@ private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hi
                                     item.targetDate.toInstantOrNull()?.let(fmt::shortDate),
                                 ).joinToString(" · "),
                                 onClick = { open = item.id },
-                                trailing = item.estimatedCostCents?.let { estimate(fmt, it, item.currency) },
+                                trailing = item.estimatedCostCents?.let { wishlistEstimate(fmt, it, item.currency) },
+                                pending = item.id in pendingIds,
                             )
                         }
                     }
@@ -541,33 +665,23 @@ private fun WishlistScreen(onBack: () -> Unit, viewModel: WishlistViewModel = hi
             }
     }
     state.data.firstOrNull { it.id == open }?.let { item ->
-        val uriHandler = LocalUriHandler.current
-        DetailSheet(
-            Icons.Outlined.ShoppingBag,
-            item.title,
-            listOfNotNull(wishlistStatusLabel(item.status), state.vehicleById[item.vehicleId]?.displayName).joinToString(" · "),
+        WishlistSheet(
+            item,
+            state.vehicleById[item.vehicleId],
+            fmt,
             onDismiss = { open = null },
-        ) {
-            DetailRow(stringResource(R.string.wishlist_category), wishlistCategoryLabel(item.category))
-            DetailRow(stringResource(R.string.wishlist_estimate), item.estimatedCostCents?.let { estimate(fmt, it, item.currency) })
-            DetailRow(stringResource(R.string.wishlist_target), item.targetDate.toInstantOrNull()?.let(fmt::date))
-            DetailRow(stringResource(R.string.field_notes), item.description)
-            item.url?.takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let { url ->
-                FilledTonalButton(
-                    onClick = { runCatching { uriHandler.openUri(url) } },
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                ) {
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.wishlist_open_link), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
-        }
+            pending = item.id in pendingIds,
+            onEdit = {
+                open = null
+                actions.onEditWishlistItem(item.id)
+            },
+            onDelete = {
+                open = null
+                viewModel.deleteWishlistItem(item.id)
+            },
+        )
     }
 }
-
-/** Estimates are usually round numbers; "$2,500" reads better than "$2,500.00". */
-private fun estimate(fmt: Formatter, cents: Long, currency: String): String =
-    fmt.money(cents / 100.0, currency, fractionDigits = if (cents % 100 == 0L) 0 else null)
 
 /** Groups newest-first items by calendar month in the server's time zone, keeping their order. */
 private fun <T> byMonth(items: List<T>, zone: ZoneId, at: (T) -> java.time.Instant?): Map<YearMonth, List<T>> =

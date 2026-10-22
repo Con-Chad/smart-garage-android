@@ -6,8 +6,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -52,6 +56,9 @@ import java.time.ZoneId
 fun MaintenanceScreen(
     onLogService: (scheduleId: String?, vehicleId: String?) -> Unit,
     onEditRecord: (recordId: String) -> Unit,
+    onAddSchedule: (vehicleId: String?) -> Unit,
+    onEditSchedule: (scheduleId: String) -> Unit,
+    onEditScheduleDefaults: (scheduleId: String) -> Unit,
     viewModel: MaintenanceViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,6 +73,14 @@ fun MaintenanceScreen(
     AppScaffold(
         title = stringResource(R.string.tab_service),
         snackbarHost = { SnackbarHost(snackbar) },
+        actions = {
+            // A schedule is a setting rather than a log entry: it hangs off the bar, the FAB keeps its verb (D-A20).
+            if (state.loaded && state.canAddSchedule) {
+                IconButton(onClick = { onAddSchedule(state.selectedVehicleId) }) {
+                    Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.action_add_schedule))
+                }
+            }
+        },
         floatingActionButton = {
             if (state.loaded && state.canAdd) {
                 AddFab(stringResource(R.string.action_log_service), onClick = { onLogService(null, state.selectedVehicleId) }, icon = Icons.Outlined.Build)
@@ -91,6 +106,11 @@ fun MaintenanceScreen(
                             icon = Icons.Outlined.Build,
                             title = stringResource(R.string.maintenance_no_schedules_title),
                             body = stringResource(R.string.maintenance_no_schedules_body),
+                            action = if (state.canAddSchedule) {
+                                { Button(onClick = { onAddSchedule(state.selectedVehicleId) }) { Text(stringResource(R.string.action_add_schedule)) } }
+                            } else {
+                                null
+                            },
                         )
                         tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
                         state.records.isEmpty() -> EmptyState(
@@ -114,6 +134,19 @@ fun MaintenanceScreen(
                 onLogService = {
                     open = null
                     onLogService(item.schedule.id, item.vehicle.id)
+                },
+                pending = item.schedule.id in pendingIds,
+                onEdit = {
+                    open = null
+                    onEditSchedule(item.schedule.id)
+                },
+                onEditDefaults = {
+                    open = null
+                    onEditScheduleDefaults(item.schedule.id)
+                },
+                onDelete = {
+                    open = null
+                    viewModel.deleteSchedule(item.schedule.id)
                 },
             )
         }

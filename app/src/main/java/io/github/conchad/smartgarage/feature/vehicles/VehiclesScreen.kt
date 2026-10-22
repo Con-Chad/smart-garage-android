@@ -37,12 +37,17 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
+import io.github.conchad.smartgarage.ui.components.forms.AddFab
+import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 
 @Composable
-fun VehiclesScreen(onOpenVehicle: (String) -> Unit, viewModel: VehiclesViewModel = hiltViewModel()) {
+fun VehiclesScreen(onOpenVehicle: (String) -> Unit, onAddVehicle: () -> Unit, viewModel: VehiclesViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
-    AppScaffold(title = stringResource(R.string.nav_vehicles)) { padding ->
+    AppScaffold(
+        title = stringResource(R.string.nav_vehicles),
+        floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_vehicle), onClick = onAddVehicle) },
+    ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
             SyncBanner(sync, onRetry = viewModel::refresh)
             RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
@@ -51,11 +56,11 @@ fun VehiclesScreen(onOpenVehicle: (String) -> Unit, viewModel: VehiclesViewModel
                         EmptyState(
                             icon = Icons.Outlined.DirectionsCar,
                             title = stringResource(R.string.dashboard_no_vehicles_title),
-                            body = stringResource(R.string.dashboard_no_vehicles_body),
+                            body = stringResource(R.string.vehicles_empty_body),
                         )
                     } else {
                         LazyColumn(
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FAB_CLEARANCE),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize(),
                         ) {

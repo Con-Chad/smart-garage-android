@@ -19,6 +19,8 @@ data class Vehicle(
     val productionYear: Int? = null,
     val vin: String? = null,
     val licensePlate: String? = null,
+    val hsn: String? = null,
+    val tsn: String? = null,
     val color: String? = null,
     val currentOdometerKm: Int = 0,
     val purchaseDate: String? = null,
@@ -177,6 +179,7 @@ data class Inspection(
     val nextDueAt: String,
     val lastPerformedAt: String? = null,
     val reminderWeeksBefore: Int = 4,
+    val stickerNumber: String? = null,
     val notes: String? = null,
 )
 
@@ -192,6 +195,8 @@ data class InsurancePolicy(
     val startDate: String,
     val endDate: String,
     val autoRenew: Boolean = true,
+    val sfClass: String? = null,
+    val notes: String? = null,
 )
 
 /** An uploaded file; its bytes come from `/api/v1/documents/{id}/content` when opened. */

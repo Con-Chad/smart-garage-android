@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.PhotoStore
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Document
@@ -23,7 +24,7 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.WishlistItem
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.sync.SyncControl
-import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
+import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,17 +48,22 @@ data class SectionUiState<T>(
     val loaded: Boolean = false,
 ) {
     val vehicleById: Map<String, Vehicle> = vehicles.associateBy { it.id }
+
+    /** An expense or document needs a vehicle the user may edit; notes and wishlist items are the user's own. */
+    val canEditAny: Boolean get() = vehicles.any { it.access.canEdit }
 }
 
 /**
  * A screen under More: the garage's vehicles with an optional filter, plus the section's own [content]. [content]
- * emits a function from (vehicle ids in view, filter) to the data, so filtering never re-reads the cache.
+ * emits a function from (vehicle ids in view, filter) to the data, so filtering never re-reads the cache. Writes
+ * (the deletes from a row's sheet) go through [WritingViewModel], so every section shows pending marks and denials.
  */
 abstract class SectionViewModel<T>(
     private val garage: GarageRepository,
     private val initial: T,
     control: SyncControl,
-) : SyncedViewModel(control) {
+    writer: GarageWriter,
+) : WritingViewModel(control, writer) {
     private val selected = MutableStateFlow<String?>(null)
 
     protected abstract fun content(): Flow<(Set<String>, String?) -> T>
@@ -82,8 +88,8 @@ abstract class SectionViewModel<T>(
 private val german get() = Locale.getDefault().language == "de"
 
 @HiltViewModel
-class RemindersViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<List<Reminder>>(garage, emptyList(), control) {
+class RemindersViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<List<Reminder>>(garage, emptyList(), control, writer) {
     private val source = combine(garage.vehicles, garage.schedules, garage.templates, garage.inspections, garage.insurancePolicies) {
             vehicles, schedules, templates, inspections, policies ->
         { ids: Set<String>, filter: String? ->
@@ -93,6 +99,9 @@ class RemindersViewModel @Inject constructor(garage: GarageRepository, control: 
     }
 
     override fun content() = source
+
+    /** The web's "remove": the schedule stops reminding; its records stay. */
+    fun deleteSchedule(id: String) = perform { deleteSchedule(id) }
 }
 
 data class HistoryData(
@@ -102,8 +111,8 @@ data class HistoryData(
 )
 
 @HiltViewModel
-class HistoryViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<HistoryData>(garage, HistoryData(), control) {
+class HistoryViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<HistoryData>(garage, HistoryData(), control, writer) {
     private val names = combine(garage.records, garage.schedules, garage.templates) { records, schedules, templates ->
         val scheduleById = schedules.associateBy { it.id }
         val templateById = templates.associateBy { it.id }
@@ -126,8 +135,8 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository, control: Sy
 data class OdometerData(val logs: List<OdometerLog> = emptyList(), val deltas: Map<String, Int> = emptyMap())
 
 @HiltViewModel
-class OdometerViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<OdometerData>(garage, OdometerData(), control) {
+class OdometerViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<OdometerData>(garage, OdometerData(), control, writer) {
     private val source = garage.odometerLogs.map { logs ->
         val deltas = SectionMath.odometerDeltas(logs)
         val build = { ids: Set<String>, filter: String? ->
@@ -143,8 +152,8 @@ class OdometerViewModel @Inject constructor(garage: GarageRepository, control: S
 }
 
 @HiltViewModel
-class ExpensesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<List<Expense>>(garage, emptyList(), control) {
+class ExpensesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<List<Expense>>(garage, emptyList(), control, writer) {
     private val source = garage.expenses.map { expenses ->
         val build = { ids: Set<String>, filter: String? ->
             expenses.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.occurredAt.toInstantOrNull() ?: Instant.MIN }
@@ -153,6 +162,8 @@ class ExpensesViewModel @Inject constructor(garage: GarageRepository, control: S
     }
 
     override fun content() = source
+
+    fun deleteExpense(id: String) = perform { deleteExpense(id) }
 }
 
 /** What happened when the user tapped a document. */
@@ -170,7 +181,8 @@ class DocumentsViewModel @Inject constructor(
     private val photos: PhotoStore,
     @ApplicationContext private val context: Context,
     control: SyncControl,
-) : SectionViewModel<List<Document>>(garage, emptyList(), control) {
+    writer: GarageWriter,
+) : SectionViewModel<List<Document>>(garage, emptyList(), control, writer) {
     private val source = garage.documents.map { documents ->
         val build = { ids: Set<String>, filter: String? ->
             documents.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.createdAt }
@@ -200,6 +212,8 @@ class DocumentsViewModel @Inject constructor(
         _open.value = DocumentOpen.Idle
     }
 
+    fun deleteDocument(id: String) = perform { deleteDocument(id) }
+
     private fun view(document: Document, file: java.io.File): DocumentOpen {
         // The cached file has no extension; the display name gives the viewer a sensible title and type hint.
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file, document.originalFilename)
@@ -216,8 +230,8 @@ class DocumentsViewModel @Inject constructor(
 }
 
 @HiltViewModel
-class NotesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<List<Note>>(garage, emptyList(), control) {
+class NotesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<List<Note>>(garage, emptyList(), control, writer) {
     private val source = garage.notes.map { notes ->
         val build = { ids: Set<String>, filter: String? ->
             // Notes without a vehicle are general notes: shown under "All vehicles" only.
@@ -228,11 +242,13 @@ class NotesViewModel @Inject constructor(garage: GarageRepository, control: Sync
     }
 
     override fun content() = source
+
+    fun deleteNote(id: String) = perform { deleteNote(id) }
 }
 
 @HiltViewModel
-class WishlistViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) :
-    SectionViewModel<List<WishlistItem>>(garage, emptyList(), control) {
+class WishlistViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
+    SectionViewModel<List<WishlistItem>>(garage, emptyList(), control, writer) {
     private val source = garage.wishlist.map { items ->
         val build = { ids: Set<String>, filter: String? ->
             items.filter { it.vehicleId.inView(ids, filter) }
@@ -242,4 +258,6 @@ class WishlistViewModel @Inject constructor(garage: GarageRepository, control: S
     }
 
     override fun content() = source
+
+    fun deleteWishlistItem(id: String) = perform { deleteWishlistItem(id) }
 }

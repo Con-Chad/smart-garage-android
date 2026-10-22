@@ -226,3 +226,38 @@ App decisions use the `D-A` prefix.
     never fails silently. Rows waiting to sync carry an icon-plus-text mark;
     the sync banner counts queued changes while offline and lists the
     rejected ones with Retry/Dismiss.
+  - Phase B (the remaining editors): a setting rather than a log entry
+    (a service schedule) is added from the top bar's "+" and the empty
+    state, so each list tab keeps its one FAB verb. Vehicle-level verbs
+    (edit, change photo, delete) sit in the detail screen's overflow menu;
+    "add" buttons for papers sit inside their card. Deleting a vehicle asks
+    twice, the second time naming the vehicle and the server. "Deleting" a
+    schedule is the web's deactivate: the copy says reminders stop and the
+    history stays. An inspection is one per vehicle and type; the form says
+    when saving would replace the existing one. Patch bodies that the server
+    takes as plain strings (schedule name, notes) are sent as "" rather than
+    cleared. Notes and wishlist items are the user's own, so their forms
+    skip the view-only gate and offer every vehicle, shared ones included.
+- **D-A21: Files are picked with the system pickers and checked against the
+  server's rules before anything is queued.**
+  - Photos use the Android photo picker (`PickVisualMedia`, images only);
+    documents use the Storage Access Framework (`OpenDocument`) limited to
+    the server's `ALLOWED_DOCUMENT_MIME_TYPES` (JPEG, PNG, WebP, GIF, PDF).
+    Neither needs a runtime permission or a Google library; the app never
+    reads the media store itself.
+  - The file's name and size come from the provider's `OpenableColumns`
+    (falling back to the URI's last segment and a byte count); the MIME
+    type is what the first KiB says (`FileRules.sniffMimeType`, the same
+    signatures as `lib/storage/sniff.ts`), else the provider's declared type
+    when the server accepts it, else the extension's. The type sent is
+    therefore the one the server will see, so a provider reporting a
+    wildcard or a wrong type doesn't earn a 415 later.
+  - `FileRules.check` applies the server's defaults before queuing: 10 MiB
+    for a vehicle photo (`MAX_IMAGE_SIZE_MB`), 25 MiB for a document
+    (`MAX_UPLOAD_SIZE_MB`), type first, then size. A file that fails is
+    named in the form's file slot (or a snackbar for the photo) and nothing
+    enters the outbox; a server configured with a smaller limit still
+    answers 413, which the failed-writes list shows as before.
+  - The stream is opened at save time and handed to the writer, which
+    stages a copy (D-A19); the URI itself is not persisted, so no
+    persistable permission is taken.
