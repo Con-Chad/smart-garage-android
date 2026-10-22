@@ -12,10 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.OpenInNew
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
@@ -51,6 +47,12 @@ import io.github.conchad.smartgarage.ui.files.UploadKind
 import io.github.conchad.smartgarage.ui.files.fileProblemText
 import io.github.conchad.smartgarage.ui.files.inspect
 import io.github.conchad.smartgarage.ui.files.open
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.GlassMenu
+import io.github.conchad.smartgarage.ui.glass.GlassMenuItem
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -178,7 +180,8 @@ fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar:
 /**
  * The long-press menu over a vehicle photo: "Change photo" or "Upload photo" (whichever the vehicle needs; only
  * with edit access), "Rename vehicle" (local, so everyone), and "Open vehicle" so the menu also works as the
- * card's actions for people who reach it by other means.
+ * card's actions for people who reach it by other means. On glass since D-A31 ([GlassMenu]): a panel centred on
+ * the photo, headed by the car's name as the user sees it (nickname when set).
  */
 @Composable
 fun VehicleCardMenu(
@@ -188,34 +191,22 @@ fun VehicleCardMenu(
     actions: VehicleCardActions,
     onOpen: (() -> Unit)? = null,
 ) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+    GlassMenu(expanded = expanded, onDismiss = onDismiss, title = actions.titleOf(vehicle)) {
         if (vehicle.access.canEdit) {
-            DropdownMenuItem(
-                text = { Text(stringResource(photoActionRes(vehicle))) },
-                leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
-                onClick = {
-                    onDismiss()
-                    actions.changePhoto(vehicle)
-                },
-            )
-        }
-        DropdownMenuItem(
-            text = { Text(stringResource(R.string.action_rename_vehicle)) },
-            leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null) },
-            onClick = {
+            GlassMenuItem(Icons.Outlined.AddAPhoto, stringResource(photoActionRes(vehicle))) {
                 onDismiss()
-                actions.rename(vehicle)
-            },
-        )
+                actions.changePhoto(vehicle)
+            }
+        }
+        GlassMenuItem(Icons.Outlined.DriveFileRenameOutline, stringResource(R.string.action_rename_vehicle)) {
+            onDismiss()
+            actions.rename(vehicle)
+        }
         if (onOpen != null) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_open_vehicle)) },
-                leadingIcon = { Icon(Icons.Outlined.OpenInNew, contentDescription = null) },
-                onClick = {
-                    onDismiss()
-                    onOpen()
-                },
-            )
+            GlassMenuItem(Icons.Outlined.OpenInNew, stringResource(R.string.action_open_vehicle)) {
+                onDismiss()
+                onOpen()
+            }
         }
     }
 }
@@ -237,32 +228,34 @@ fun Modifier.vehicleCardSemantics(vehicle: Vehicle, actions: VehicleCardActions,
     }
 }
 
-/** Nickname editor. Empty saves as "no nickname"; the server's name is quoted so it's clear what stays. */
+/** Nickname editor on glass (D-A31). Empty saves as "no nickname"; the server's name is quoted so it's clear what stays. */
 @Composable
 fun RenameVehicleDialog(serverName: String, current: String?, onSave: (String?) -> Unit, onDismiss: () -> Unit) {
     var text by rememberSaveable(current) { mutableStateOf(current.orEmpty()) }
-    AlertDialog(
+    val tokens = glass
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.rename_vehicle_title)) },
+        title = stringResource(R.string.rename_vehicle_title),
         text = {
             Column {
-                Text(stringResource(R.string.rename_vehicle_body, serverName), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.rename_vehicle_body, serverName), style = MaterialTheme.typography.bodyMedium, color = tokens.textSecondary)
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
                     label = { Text(stringResource(R.string.rename_vehicle_field)) },
                     singleLine = true,
+                    colors = glassTextFieldColors(),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(text.trim().ifEmpty { null }) }) { Text(stringResource(R.string.action_save)) } },
+        confirmButton = { TextButton(onClick = { onSave(text.trim().ifEmpty { null }) }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_save)) } },
         dismissButton = {
             if (current != null) {
-                TextButton(onClick = { onSave(null) }) { Text(stringResource(R.string.rename_vehicle_clear)) }
+                TextButton(onClick = { onSave(null) }, colors = glassTextButtonColors()) { Text(stringResource(R.string.rename_vehicle_clear)) }
             } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = onDismiss, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )

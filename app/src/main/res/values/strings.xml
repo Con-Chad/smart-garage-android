@@ -829,4 +829,9 @@
     <string name="push_channel_desc">Maintenance due, odometer reminders and other alerts from your Smart Garage server.</string>
     <string name="push_action_open_web">Open on web</string>
     <string name="push_distributor_message">Smart Garage reminders for %1$s</string>
+    <!-- Home card round (D-A31): quick-info chevron label, View all pill, radial fan FAB. -->
+    <string name="card_quick_info">Quick info</string>
+    <string name="card_view_all">View all</string>
+    <string name="fab_quick_log">Log quick expense</string>
+    <string name="fab_log_expense">Log expense</string>
 </resources>

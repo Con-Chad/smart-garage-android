@@ -780,3 +780,105 @@ App decisions use the `D-A` prefix.
     ribbon under them can't take the contrast away. Metallic headers are
     unchanged (the halo would be tinted by their `SrcIn` gradient); they
     were already accepted over the aurora on Home. No new strings.
+- **D-A31: Only the photo tilts, and only to the gyroscope; the home card gets
+  a labelled chevron, a "View all" pill, Add / Update buttons, the insurer's
+  icon and a radial fan FAB; the long-press menu moves onto glass.**
+  - **Tilt, 60 % of D-A30, photo only, gyro only.** `MAX_TILT_DEGREES` is
+    **8.4°** (was 14°), the depths are `TiltDepths.Photo −14 dp`, `Subtitle
+    14 dp`, `Title 19 dp` (were −24 / 24 / 32; `Line`, `Chip` and `Value` are
+    gone with the layers that used them), and the shine's centre travels
+    **60 %** of the frame (`SHINE_TRAVEL`) for the full pointer range, with
+    the same 45 % radius and 0.45 gyro strength. The tilting element is now
+    `TiltPhotoFrame` (`ui/glass/TiltParallax.kt`): a `MetallicFrame` that
+    rotates, shines and provides `LocalCardTilt` to the photo and the name
+    inside it. It is used on the home card, the vehicles-list card and the
+    vehicle page's photo card; the card around each is a flat `GlassCard` /
+    `GlassPanel` in the vehicle's tint, so the rows, buttons and the drop-down
+    never rotate. The "At a glance" tiles are plain `GlassPanel`s with the
+    aurora-tint plate glow. `TiltParallaxCard` / `TiltParallaxListCard` are
+    deleted. The finger is no longer a pointer source: `Modifier.tiltPointer`,
+    the pressed fast-track (90 ms linear) and `CardTilt.press / release` are
+    removed, `GlassPanel` lost its `shine` parameter and `GlassCard` /
+    `GlassDropdown` keep the plate glow only. A phone without a rotation
+    sensor has static frames. Kept unchanged: the 0.015° deadband, the slowly
+    tracking resting pose, registration only while RESUMED and in the tree,
+    `motion = false` under reduced motion (flat, no shine), the 280 ms
+    ease-out, `cameraDistance 7`, the home pager's "settled page only" rule
+    and the `Animatable` + `snapshotFlow` path that recomposes nothing per
+    tick.
+  - **"Quick info" toggle** (`QuickInfoToggle`, home card): a full-width
+    48 dp row with the text "Quick info" / "Kurzinfo" in `labelLarge` and a
+    **28 dp** `ExpandCircleDown` ring chevron, both in `tokens.sheen`,
+    right-aligned under the plate line; the chevron turns 180° on a
+    `spring(StiffnessMediumLow)`, `snap()` under reduced motion. TalkBack:
+    one button, state from `form_expanded / form_collapsed`, click label
+    "Show / Hide details". The old 24 dp `IconButton` is gone.
+  - **Radial fan FAB** (`ui/glass/FanFab.kt`, bottom-left of Home at 16 dp
+    from the left and from the bottom-bar padding): a **56 dp** glass core
+    (panel fill over 35 % page colour, 1 dp `panelBorder`, `shadow` lift) with
+    a 28 dp "+" in the sheen that turns **135°** to an ×; open, the core takes
+    the nav blob's `navBlobStart → navBlobEnd` gradient, `navBorder` and a
+    14 dp `navGlow` shadow, the glyph `onAccent`. Three **46 dp** petals
+    (48 dp touch targets) spring out to **76 dp** from the centre at **80°,
+    40°, 0°** (counter-clockwise from "right": up, up-right, right), each
+    scaling from 40 % and fading in, `spring(dampingRatio 0.62, stiffness
+    380)`, staggered **45 ms** opening (first petal first) and **30 ms** closing
+    (last petal first). 76 dp rather than the asked-for ~72 so the 48 dp
+    targets sit 52 dp apart and don't touch. Reduced motion: everything
+    snaps, no fade. Petals: **Log service** → `RecordFormRoute(vehicleId)`,
+    **Log expense** → `ExpenseFormRoute(vehicleId)`, **Log fill-up** →
+    `FuelEntryRoute(vehicleId)`, all for the vehicle in the pager, wired in
+    `MainShell` through the new `DashboardActions`. Core label "Log quick
+    expense" / "Schnell erfassen" with expanded / collapsed state; each petal
+    is a button named after its action and is only in the tree while
+    visible. A `FanScrim` (`tokens.veil`, tap = cancel) sits between the
+    content and the fan; Back closes it. The fan fades out (scale 0.6) and
+    closes while the pager scrolls, and is not shown at all when the vehicle
+    in view can't be edited or there is no vehicle. The home column's bottom
+    padding grew 24 → 96 dp so the last card scrolls clear of the core.
+    Nothing in a frame recomposes: petal positions are read in `offset {}`
+    and their scale / alpha in `graphicsLayer {}`.
+  - **"View all" pill + glass menu.** `GlassPillButton` (`ui/glass/
+    GlassMenu.kt`): the panel's `pill` fill and `pillBorder`, label in the
+    sheen, optional trailing icon; 48 dp tall, or `compact` (36 dp pill in a
+    48 dp `minimumInteractiveComponentSize` target, ripple clipped to the
+    pill). The home card shows it right of the plate · mileage line as
+    **"View all" / "Alles anzeigen"** with a `ChevronRight`; it fires
+    `HapticFeedbackType.Confirm` (the shortest distinct platform pattern; a
+    `LongPress` buzz would read as "held") and opens the vehicle page.
+    Tapping the photo opens the page too; long-press keeps the menu. The
+    menu is now `GlassMenu`: a centred `Popup` (focusable, Back and outside
+    tap dismiss) over the photo holding a `GlassPanel` on 94 % page colour
+    (D-A30 kept menus opaque for contrast, and the panel alone over a bright
+    photo would not clear 4.5:1), a `MetallicText` header with the car's
+    name as shown (nickname when set), a divider and 48 dp `GlassMenuItem`
+    rows with 22 dp sheen icons: change / upload photo, rename, open vehicle
+    — same actions and gates as before. It springs in from 90 % (snap under
+    reduced motion). The rename dialog is a `GlassAlertDialog` (page colour
+    container, `panelBorder`, `radiusLarge`, metallic title) with
+    `glassTextButtonColors` (sheen) and `glassTextFieldColors` (sheen focus
+    ring and cursor, panel border at rest). The vehicles list and the
+    vehicle page get the glass menu through the shared `VehicleCardMenu`.
+  - **Insurer app icon.** `rememberInsurerIcon(provider)` (`ui/links/
+    InsurerIcon.kt`) resolves the package through `InsuranceApps.packageFor`,
+    rasterises `PackageManager.getApplicationIcon` at **24 dp** on
+    `Dispatchers.IO` once per package into the process-wide `InsurerIcons`
+    cache, and returns null when there is no match or the app isn't
+    installed. The home card's insurance row shows it left of the provider
+    name only when the launch intent exists (so no load for an app that
+    isn't there); the vehicle page's insurer tile shows the same badge. No
+    icon: the rows are exactly as before.
+  - **Add / Update.** Every `DetailLine` of the drop-down ends in a compact
+    `GlassPillButton` for people with `canEdit`: **"Update"** when the row
+    has an entry, **"Add"** when it hasn't (`action_update` /
+    `action_add`, already in both languages). Insurance → `InsuranceFormRoute
+    (vehicleId, policyId?)`, inspection → `InspectionFormRoute(vehicleId,
+    inspectionId?)`, mileage → `OdometerSheet` ("Add" only when there is
+    neither an odometer log / fill-up date nor a reading above 0). Viewers
+    see no button. The row's own tap (insurer app, odometer sheet) is kept,
+    but the clickable and the merged TalkBack description now sit on the
+    icon + text part, so the button is its own accessibility node rather
+    than being swallowed by the row.
+  - New strings (en + de): `card_quick_info`, `card_view_all`,
+    `fab_quick_log`, `fab_log_expense`. No new dependencies; `core/`, `di/`
+    and the build files are untouched.

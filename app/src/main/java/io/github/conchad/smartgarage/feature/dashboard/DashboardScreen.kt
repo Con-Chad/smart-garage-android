@@ -2,12 +2,16 @@ package io.github.conchad.smartgarage.feature.dashboard
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -29,11 +33,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.EventAvailable
-import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandCircleDown
 import androidx.compose.material.icons.outlined.Garage
+import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Speed
@@ -59,13 +66,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -105,36 +117,56 @@ import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
 import io.github.conchad.smartgarage.ui.glass.DisconnectedPopup
+import io.github.conchad.smartgarage.ui.glass.FanAction
+import io.github.conchad.smartgarage.ui.glass.FanFab
+import io.github.conchad.smartgarage.ui.glass.FanScrim
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
+import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
-import io.github.conchad.smartgarage.ui.glass.MetallicFrame
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.PagerDots
 import io.github.conchad.smartgarage.ui.glass.RefreshIcon
+import io.github.conchad.smartgarage.ui.glass.TiltDepths
+import io.github.conchad.smartgarage.ui.glass.TiltPhotoFrame
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.rememberCardTilt
 import io.github.conchad.smartgarage.ui.glass.rememberDisconnectedState
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
-import io.github.conchad.smartgarage.ui.glass.TiltDepths
-import io.github.conchad.smartgarage.ui.glass.TiltParallaxListCard
-import io.github.conchad.smartgarage.ui.glass.rememberCardTilt
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
+import io.github.conchad.smartgarage.ui.links.ICON_SIZE
 import io.github.conchad.smartgarage.ui.links.InsuranceApps
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
+import io.github.conchad.smartgarage.ui.links.rememberInsurerIcon
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 
 /**
- * The home page (D-A24): the shell's aurora takes the current vehicle's tint; one full-width holographic card per
- * vehicle in a pager, with a dropdown for insurance, mileage and inspection; "Needs attention" and "Recent
- * fill-ups" follow the pager; the monthly odometer reminder sits at the top of attention; and the "can't reach"
- * popup collapses into a refresh icon in the top bar.
+ * What the home card's Add / Update buttons and the fan FAB start (D-A31); the shell wires each to the existing
+ * form route for the vehicle in the pager.
+ */
+class DashboardActions(
+    val onLogFillUp: (vehicleId: String) -> Unit,
+    val onLogService: (vehicleId: String) -> Unit,
+    val onAddExpense: (vehicleId: String) -> Unit,
+    val onAddInsurance: (vehicleId: String) -> Unit,
+    val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
+    val onAddInspection: (vehicleId: String) -> Unit,
+    val onEditInspection: (vehicleId: String, inspectionId: String) -> Unit,
+)
+
+/**
+ * The home page (D-A24): the shell's aurora takes the current vehicle's tint; one full-width glass card per
+ * vehicle in a pager with a tilting photo, a "View all" pill and a "Quick info" drop-down for insurance, mileage
+ * and inspection (D-A31); "Needs attention" and "Recent fill-ups" follow the pager; the monthly odometer reminder
+ * sits at the top of attention; the "can't reach" popup collapses into a refresh icon in the top bar; and a radial
+ * fan FAB bottom-left logs a service, an expense or a fill-up for the vehicle in view.
  */
 @Composable
 fun DashboardScreen(
@@ -145,6 +177,7 @@ fun DashboardScreen(
     onOpenMaintenance: () -> Unit,
     onOpenFuel: () -> Unit,
     onLogService: (scheduleId: String) -> Unit,
+    actions: DashboardActions,
     viewModel: DashboardViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
 ) {
@@ -162,8 +195,9 @@ fun DashboardScreen(
     val current = vehicles.getOrNull(pagerState.currentPage)
     AuroraTint(VehicleTint.color(current?.vehicle?.color, MaterialTheme.colorScheme.primary))
     val disconnected = rememberDisconnectedState(state.sync)
-    // One gyroscope pointer for the screen (D-A30); each card mixes in its own touch.
+    // One gyroscope pointer for the screen (D-A30); the settled page's photo frame follows it.
     val tilt = rememberTilt()
+    var fanOpen by rememberSaveable { mutableStateOf(false) }
 
     CompositionLocalProvider(LocalTilt provides tilt) {
         MetallicSheenHost {
@@ -189,37 +223,58 @@ fun DashboardScreen(
                 },
                 snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
-                Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                    // Rejected writes stay with the banner; "can't reach" is the popup's, so the banner skips the sync states.
-                    WriteQueueBanner(state.sync, viewModel, syncStates = false)
-                    DisconnectedPopup(disconnected, profile.name, onRetry = viewModel::refresh)
-                    RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                        LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
-                            val dashboard = state.dashboard ?: return@LoadedContent
-                            if (dashboard.vehicles.isEmpty()) {
-                                EmptyState(
-                                    icon = Icons.Outlined.Garage,
-                                    title = stringResource(R.string.dashboard_no_vehicles_title),
-                                    body = stringResource(R.string.dashboard_no_vehicles_body),
-                                )
-                            } else {
-                                DashboardContent(
-                                    dashboard = dashboard,
-                                    extras = state.extras,
-                                    fmt = state.formatter,
-                                    pendingIds = pendingIds,
-                                    pagerState = pagerState,
-                                    cardActions = cardActions,
-                                    snackbar = snackbar,
-                                    onOpenVehicle = onOpenVehicle,
-                                    onOpenMaintenance = onOpenMaintenance,
-                                    onOpenFuel = onOpenFuel,
-                                    onLogService = onLogService,
-                                    onDeleteFuel = viewModel::deleteFuelEntry,
-                                    onSnoozeReminder = viewModel::snoozeOdometerReminder,
-                                )
+                Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        // Rejected writes stay with the banner; "can't reach" is the popup's, so the banner skips the sync states.
+                        WriteQueueBanner(state.sync, viewModel, syncStates = false)
+                        DisconnectedPopup(disconnected, profile.name, onRetry = viewModel::refresh)
+                        RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                            LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
+                                val dashboard = state.dashboard ?: return@LoadedContent
+                                if (dashboard.vehicles.isEmpty()) {
+                                    EmptyState(
+                                        icon = Icons.Outlined.Garage,
+                                        title = stringResource(R.string.dashboard_no_vehicles_title),
+                                        body = stringResource(R.string.dashboard_no_vehicles_body),
+                                    )
+                                } else {
+                                    DashboardContent(
+                                        dashboard = dashboard,
+                                        extras = state.extras,
+                                        fmt = state.formatter,
+                                        pendingIds = pendingIds,
+                                        pagerState = pagerState,
+                                        cardActions = cardActions,
+                                        actions = actions,
+                                        snackbar = snackbar,
+                                        onOpenVehicle = onOpenVehicle,
+                                        onOpenMaintenance = onOpenMaintenance,
+                                        onOpenFuel = onOpenFuel,
+                                        onLogService = onLogService,
+                                        onDeleteFuel = viewModel::deleteFuelEntry,
+                                        onSnoozeReminder = viewModel::snoozeOdometerReminder,
+                                    )
+                                }
                             }
                         }
+                    }
+                    // The fan FAB (D-A31): for the vehicle in view, only when it can be edited; gone while the pager moves.
+                    val fanVehicle = current?.vehicle?.takeIf { it.access.canEdit }
+                    FanScrim(visible = fanOpen && fanVehicle != null, onDismiss = { fanOpen = false })
+                    if (fanVehicle != null) {
+                        val fanActions = listOf(
+                            FanAction(Icons.Outlined.Build, stringResource(R.string.action_log_service)) { actions.onLogService(fanVehicle.id) },
+                            FanAction(Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.fab_log_expense)) { actions.onAddExpense(fanVehicle.id) },
+                            FanAction(Icons.Outlined.LocalGasStation, stringResource(R.string.action_log_fill_up)) { actions.onLogFillUp(fanVehicle.id) },
+                        )
+                        FanFab(
+                            actions = fanActions,
+                            label = stringResource(R.string.fab_quick_log),
+                            expanded = fanOpen,
+                            onExpandedChange = { fanOpen = it },
+                            visible = !pagerState.isScrollInProgress,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 16.dp),
+                        )
                     }
                 }
             }
@@ -235,6 +290,7 @@ private fun DashboardContent(
     pendingIds: Set<String>,
     pagerState: PagerState,
     cardActions: VehicleCardActions,
+    actions: DashboardActions,
     snackbar: SnackbarHostState,
     onOpenVehicle: (String) -> Unit,
     onOpenMaintenance: () -> Unit,
@@ -251,7 +307,7 @@ private fun DashboardContent(
     val vehicles = dashboard.vehicles
     val page = pagerState.currentPage.coerceIn(0, vehicles.lastIndex)
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 96.dp)) {
         GlassGroupHeader(stringResource(R.string.dashboard_vehicles))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // One card per page, no peeking: the page is the full width and the card keeps the list margin inside it.
@@ -264,6 +320,7 @@ private fun DashboardContent(
                     fmt = fmt,
                     tiltEnabled = pagerState.settledPage == index && !pagerState.isScrollInProgress,
                     cardActions = cardActions,
+                    actions = actions,
                     onOpen = { onOpenVehicle(summary.vehicle.id) },
                     onOpenOdometer = { odometerFor = summary.vehicle.id },
                 )
@@ -378,11 +435,12 @@ private fun DashboardContent(
 }
 
 /**
- * One vehicle on a tilt-parallax card (D-A30): the whole card rotates toward the gyroscope or the finger, the photo
- * sits behind the plate inside its chrome frame, the name, the plate · mileage line and the status chip float
- * above it at their own depths, and a shine follows the pointer. Then a chevron drops down insurance, mileage and
- * inspection. Long-press on the photo opens the photo / rename menu; TalkBack gets the same as custom actions.
- * [tiltEnabled] is false while the pager moves or for a page that isn't the settled one: the card then eases flat.
+ * One vehicle on a glass card (D-A30, D-A31): only the chrome-framed photo tilts toward the gyroscope, with the
+ * photo behind its frame and the name floating above it; the card around it is flat. Under the photo: the plate ·
+ * mileage line and the status chip with a "View all" pill (haptic confirm, opens the vehicle page), then a
+ * "Quick info" toggle that drops down insurance, mileage and inspection. Tap on the photo opens the vehicle page,
+ * long-press the photo / rename menu; TalkBack gets the same as custom actions. [tiltEnabled] is false while the
+ * pager moves or for a page that isn't the settled one: the photo then eases flat.
  */
 @Composable
 private fun VehicleCard(
@@ -392,23 +450,23 @@ private fun VehicleCard(
     fmt: Formatter,
     tiltEnabled: Boolean,
     cardActions: VehicleCardActions,
+    actions: DashboardActions,
     onOpen: () -> Unit,
     onOpenOdometer: () -> Unit,
 ) {
     val vehicle = summary.vehicle
     val tokens = glass
-    val tilt = rememberCardTilt(followGyro = tiltEnabled)
     val glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)
+    val haptics = LocalHapticFeedback.current
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val title = cardActions.titleOf(vehicle)
-    val expandLabel = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
 
-    TiltParallaxListCard(modifier = Modifier.animateContentSize(), tilt = tilt, glow = glow) {
+    GlassCard(modifier = Modifier.animateContentSize(), glow = glow) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
-            MetallicFrame(
-                cornerRadius = tokens.radiusMedium,
+            TiltPhotoFrame(
+                tilt = rememberCardTilt(followGyro = tiltEnabled),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
@@ -452,44 +510,95 @@ private fun VehicleCard(
             }
         }
         Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp),
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetallicText(
                     listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.tiltLayer(TiltDepths.Line),
                 )
-                VehicleStatusChip(summary, Modifier.tiltLayer(TiltDepths.Chip))
+                VehicleStatusChip(summary)
             }
-            val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
-            IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(48.dp)) {
-                Icon(
-                    Icons.Outlined.ExpandMore,
-                    contentDescription = expandLabel,
-                    tint = tokens.sheen,
-                    modifier = Modifier.graphicsLayer { rotationZ = rotation },
-                )
-            }
+            GlassPillButton(
+                label = stringResource(R.string.card_view_all),
+                icon = Icons.Outlined.ChevronRight,
+                onClick = {
+                    // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onOpen()
+                },
+            )
         }
+        QuickInfoToggle(expanded = expanded, onToggle = { expanded = !expanded })
         if (expanded) {
             RowDivider()
-            CardDetails(summary, extras, dashboard, fmt, onOpenOdometer)
+            CardDetails(summary, extras, dashboard, fmt, actions, onOpenOdometer)
         }
     }
 }
 
-/** The dropdown: insurance plan (opens the insurer's app when installed), mileage (opens the odometer sheet), inspection due. */
+/**
+ * The "Quick info" row (D-A31): the whole row is the 48 dp target, the label and a 28 dp ring chevron in the sheen
+ * on the right; the chevron turns 180° on a spring (snaps under reduced motion). TalkBack reads it as a button with
+ * its state and the show / hide action.
+ */
 @Composable
-private fun CardDetails(summary: VehicleSummary, extras: VehicleExtras, dashboard: Dashboard, fmt: Formatter, onOpenOdometer: () -> Unit) {
+private fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit) {
+    val tokens = glass
+    val reduced = rememberReducedMotion()
+    val rotation by animateFloatAsState(
+        if (expanded) 180f else 0f,
+        animationSpec = if (reduced) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+        label = "chevron",
+    )
+    val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
+    val actionText = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
+            .semantics(mergeDescendants = true) { stateDescription = stateText }
+            .heightIn(min = 48.dp)
+            .padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen)
+        Icon(
+            Icons.Outlined.ExpandCircleDown,
+            contentDescription = null,
+            tint = tokens.sheen,
+            modifier = Modifier.padding(start = 6.dp).size(28.dp).graphicsLayer { rotationZ = rotation },
+        )
+    }
+}
+
+/**
+ * The dropdown: insurance plan (the insurer's launcher icon beside the name and a tap opens the app when
+ * installed), mileage (opens the odometer sheet), inspection due. Each row ends in "Add" or "Update" for people
+ * who can edit (D-A31): insurance and inspection go to their forms, mileage to the odometer sheet.
+ */
+@Composable
+private fun CardDetails(
+    summary: VehicleSummary,
+    extras: VehicleExtras,
+    dashboard: Dashboard,
+    fmt: Formatter,
+    actions: DashboardActions,
+    onOpenOdometer: () -> Unit,
+) {
     val vehicle = summary.vehicle
+    val canEdit = vehicle.access.canEdit
     val context = LocalContext.current
     val policy = dashboard.policyByVehicle[vehicle.id]
     val inspection = dashboard.inspectionByVehicle[vehicle.id]
     val insurerIntent = remember(policy?.provider) { InsuranceApps.launchIntent(context, policy?.provider) }
+    val insurerIcon = if (insurerIntent != null) rememberInsurerIcon(policy?.provider) else null
+    val add = stringResource(R.string.action_add)
+    val update = stringResource(R.string.action_update)
 
     Column(Modifier.padding(bottom = 8.dp)) {
         DetailLine(
@@ -497,19 +606,27 @@ private fun CardDetails(summary: VehicleSummary, extras: VehicleExtras, dashboar
             label = stringResource(R.string.dashboard_insurance),
             value = policy?.provider ?: stringResource(R.string.card_no_insurance),
             detail = policy?.endDate?.toInstantOrNull()?.let { stringResource(R.string.dashboard_insurance_until, fmt.date(it)) },
+            badge = insurerIcon,
             trailing = if (insurerIntent != null) Icons.Outlined.OpenInNew else null,
             actionLabel = policy?.let { stringResource(R.string.card_insurance_open_app, it.provider) }.takeIf { insurerIntent != null },
             onClick = if (insurerIntent != null) ({ InsuranceApps.open(context, policy?.provider) }) else null,
+            button = when {
+                !canEdit -> null
+                policy != null -> update to { actions.onEditInsurance(vehicle.id, policy.id) }
+                else -> add to { actions.onAddInsurance(vehicle.id) }
+            },
         )
         RowDivider()
+        val hasReading = extras.lastOdometerAt != null || vehicle.currentOdometerKm > 0
         DetailLine(
             icon = Icons.Outlined.Speed,
             label = stringResource(R.string.card_mileage),
             value = fmt.distance(vehicle.currentOdometerKm),
             detail = extras.lastOdometerAt?.let { stringResource(R.string.odometer_updated, relativeTime(it)) },
             trailing = null,
-            actionLabel = stringResource(R.string.action_update_odometer).takeIf { vehicle.access.canEdit },
-            onClick = onOpenOdometer.takeIf { vehicle.access.canEdit },
+            actionLabel = stringResource(R.string.action_update_odometer).takeIf { canEdit },
+            onClick = onOpenOdometer.takeIf { canEdit },
+            button = if (canEdit) (if (hasReading) update else add) to onOpenOdometer else null,
         )
         RowDivider()
         val due = inspection?.nextDueAt?.toInstantOrNull()
@@ -521,11 +638,19 @@ private fun CardDetails(summary: VehicleSummary, extras: VehicleExtras, dashboar
             trailing = null,
             actionLabel = null,
             onClick = null,
+            button = when {
+                !canEdit -> null
+                inspection != null -> update to { actions.onEditInspection(vehicle.id, inspection.id) }
+                else -> add to { actions.onAddInspection(vehicle.id) }
+            },
         )
     }
 }
 
-/** Icon, label, value and a detail line; one TalkBack item, with the tap action named when there is one. */
+/**
+ * Icon, label, value (with an optional app-icon [badge] beside it) and a detail line as one TalkBack item, with
+ * the tap action named when there is one; the optional compact [button] at the end is its own target.
+ */
 @Composable
 private fun DetailLine(
     icon: ImageVector,
@@ -535,24 +660,36 @@ private fun DetailLine(
     trailing: ImageVector?,
     actionLabel: String?,
     onClick: (() -> Unit)?,
+    badge: ImageBitmap? = null,
+    button: Pair<String, () -> Unit>? = null,
 ) {
     val tokens = glass
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .semantics(mergeDescendants = true) { if (actionLabel != null) contentDescription = "$label, $value. $actionLabel" },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
-        Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = tokens.textSecondary)
-            MetallicText(value, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Row(Modifier.fillMaxWidth().padding(end = if (button != null) 8.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier
+                .weight(1f)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .semantics(mergeDescendants = true) { if (actionLabel != null) contentDescription = "$label, $value. $actionLabel" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
+            Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                Text(label, style = MaterialTheme.typography.labelMedium, color = tokens.textSecondary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (badge != null) {
+                        Image(badge, contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(ICON_SIZE))
+                    }
+                    MetallicText(value, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (trailing != null) Icon(trailing, contentDescription = null, tint = tokens.textSecondary, modifier = Modifier.size(18.dp))
         }
-        if (trailing != null) Icon(trailing, contentDescription = null, tint = tokens.textSecondary, modifier = Modifier.size(18.dp))
+        if (button != null) {
+            GlassPillButton(label = button.first, onClick = button.second, compact = true)
+        }
     }
 }
 

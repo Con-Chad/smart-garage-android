@@ -51,13 +51,13 @@ import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
-import io.github.conchad.smartgarage.ui.glass.MetallicFrame
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
-import io.github.conchad.smartgarage.ui.glass.TiltParallaxCard
+import io.github.conchad.smartgarage.ui.glass.TiltPhotoFrame
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
 
@@ -117,16 +117,16 @@ fun VehiclesScreen(
     }
 }
 
-/** One vehicle in the list on a tilt-parallax card (D-A30), with the home card's layers: photo behind the plate, name and server name above it. */
+/** One vehicle in the list on a glass card (D-A30, D-A31): only the framed photo tilts, with the photo behind the frame and the name above it; the card stays flat. */
 @Composable
 private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions: VehicleCardActions, onClick: () -> Unit) {
     val vehicle = summary.vehicle
     val tokens = glass
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
-    TiltParallaxCard(Modifier.fillMaxWidth(), glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary), onClick = onClick) {
+    GlassPanel(Modifier.fillMaxWidth(), glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary), onClick = onClick) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
-            MetallicFrame(
+            TiltPhotoFrame(
                 cornerRadius = tokens.radiusMedium,
                 modifier = Modifier.fillMaxWidth().aspectRatio(2f).vehicleCardSemantics(vehicle, cardActions, onClick),
             ) {
@@ -168,10 +168,9 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.tiltLayer(TiltDepths.Line),
             )
             if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
-            Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary, Modifier.tiltLayer(TiltDepths.Chip)) }
+            Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary) }
         }
     }
 }

@@ -37,6 +37,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.core.push.PushTarget
+import io.github.conchad.smartgarage.feature.dashboard.DashboardActions
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
 import io.github.conchad.smartgarage.feature.documents.DocumentFormScreen
 import io.github.conchad.smartgarage.feature.expenses.ExpenseFormScreen
@@ -144,6 +145,17 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
                             onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
                             onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                            actions = remember(navController) {
+                                DashboardActions(
+                                    onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
+                                    onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
+                                    onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                                    onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                                    onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                                    onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                                    onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                                )
+                            },
                         )
                     }
                     composable<VehiclesRoute> {

@@ -45,8 +45,9 @@ import kotlin.math.max
  * over the already-soft aurora, and costs one fill. Sets the content color to the glass text color.
  *
  * D-A30 adds the tilt-parallax plate: [glow] draws the reference's `radial-gradient(at 30% 20%, plateGlow →
- * transparent 55%)` in that color over the fill, and [shine] draws the pointer-following radial shine over the
- * content (see [tiltShine]) and feeds it the finger. Brushes are built once per size in `drawWithCache`.
+ * transparent 55%)` in that color over the fill. The touch shine of D-A30 went with D-A31: the panel is flat and
+ * static; only the photo frame inside a card tilts and shines ([TiltPhotoFrame]). Brushes are built once per size
+ * in `drawWithCache`.
  *
  * [onClick] gives the whole panel the snippet's press lift (scale 1.02) in addition to the ripple.
  */
@@ -58,7 +59,6 @@ fun GlassPanel(
     onLongClick: (() -> Unit)? = null,
     contentPadding: Dp = 0.dp,
     glow: Color = Color.Unspecified,
-    shine: CardTilt? = null,
     elevated: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -81,7 +81,6 @@ fun GlassPanel(
             )
             .clip(shape)
             .glassPlate(tokens, glow)
-            .then(if (shine != null) Modifier.tiltPointer(shine) else Modifier)
             .border(1.dp, tokens.panelBorder, shape)
             .then(
                 if (onClick != null || onLongClick != null) {
@@ -93,10 +92,6 @@ fun GlassPanel(
     ) {
         CompositionLocalProvider(LocalContentColor provides tokens.textPrimary) {
             Column(Modifier.padding(contentPadding), content = content)
-        }
-        if (shine != null) {
-            // Its own layer: a frame of shine repaints this circle only, not the text and photos under it.
-            Box(Modifier.matchParentSize().graphicsLayer().tiltShine(shine, tokens))
         }
     }
 }
@@ -133,8 +128,8 @@ private fun Modifier.glassPlate(tokens: GlassTokens, glow: Color): Modifier = dr
 
 /**
  * [GlassPanel] with the list cards' outer margin, the drop-in for `GroupCard` on glass screens. Every content card
- * carries the plate glow in the aurora tint and a touch-only shine (D-A30): nothing moves until it is pressed, so
- * a list of them costs nothing while idle.
+ * carries the plate glow in the aurora tint (D-A30); nothing on it moves, so a list of them costs nothing while
+ * idle (D-A31). The vehicle cards pass the car's tint as [glow].
  */
 @Composable
 fun GlassCard(
@@ -143,7 +138,7 @@ fun GlassCard(
     onLongClick: (() -> Unit)? = null,
     contentPadding: Dp = 0.dp,
     glow: Color = LocalAuroraTint.current.color ?: MaterialTheme.colorScheme.primary,
-    shine: CardTilt? = rememberCardTilt(followGyro = false),
+    elevated: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) = GlassPanel(
     modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -151,7 +146,7 @@ fun GlassCard(
     onLongClick = onLongClick,
     contentPadding = contentPadding,
     glow = glow,
-    shine = shine,
+    elevated = elevated,
     content = content,
 )
 
