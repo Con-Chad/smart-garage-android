@@ -1043,3 +1043,45 @@ App decisions use the `D-A` prefix.
     unchanged (already `None` in both directions into the page). A true
     frame-1 hero would need the detail ViewModel to seed its initial state
     from the cached vehicle — left for a logic change.
+
+- **D-A34: the vehicle card glides to the vehicle page; the page's cards
+  slide up under it as one drawer; Quick info slides open.**
+  - **Why it snapped.** The Home card sits under the "Vehicles" group header
+    (`GlassGroupHeader`, 24 + 12 + title + 12 + 8 dp, about 80 dp) and is
+    taller (plate, chip, footer, maybe Quick info); the page's photo card is
+    the first list item straight under the top bar. Same width (16 dp margin
+    + 12 dp inset), same 16:9 photo and corner (`radiusMedium`), so the jump
+    was the y offset plus the height change, shown on frame 1 with nav
+    transitions `None`.
+  - **Hero.** `SharedTransitionLayout` wraps the shell's NavHost; Home,
+    Vehicles and the page get the entry's `AnimatedContentScope` through
+    `LocalNavAnimatedScope` (ui/glass/VehicleHero.kt). Home's `VehicleCard`
+    and the page's `PhotoCard` carry `Modifier.vehicleHero(id)`: a
+    `sharedBounds` keyed `vehicle-card-<id>`, `tween(320 ms,
+    FastOutSlowInEasing)` (no overshoot), `scaleToBounds(FillWidth,
+    TopCenter)` so content keeps its own size (the photo never stretches),
+    clipped in the overlay to the plate (16 dp side margin, `radiusLarge`),
+    so as the bounds shrink Home's footer slides up under the card's edge.
+    The arriving card's content is at full alpha from the first frame
+    (`enter = None`); the leaving card's content fades in 120 ms. The two
+    photos are in the same place, so the photo never reads as transparent
+    and never scales. Off under reduced motion.
+  - **Drawer.** The `popIn` scale bubble is gone from the page. Every item
+    under the photo (owner line, drop-downs, headers, cards) takes
+    `Modifier.drawerSlide`: translationY from where the Home card's bottom
+    edge was (handed over by the tap through `VehicleHeroOrigins`) to its
+    place, driven by `transition.animateFloat` on the nav entry's own
+    transition with the same 320 ms tween, so card and drawer start on the
+    same frame and end together; opaque by 40 % of the way. Opened any other
+    way (Vehicles tab, a section, a push) it rises 48 dp. Going back it runs
+    in reverse. Under reduced motion everything is simply in place.
+  - **Nav.** The screen the page opens over now fades out in 120 ms
+    (`NAV_POP_OUT_MS`) rather than `None`: the drawer keeps the transition
+    running for 320 ms, and without the fade the old screen would show
+    through the transparent page. Every other transition is unchanged.
+  - **Quick info** on Home and Vehicles cards is `AnimatedVisibility(expand
+    Vertically + fadeIn / shrinkVertically + fadeOut)`. The cards'
+    `animateContentSize` went with it (it lagged a frame behind the
+    expanding child).
+  - The Vehicles tab cards keep their D-A32 pop-in and are not a hero (a
+    scale pop on a shared element would break full-scale-throughout).

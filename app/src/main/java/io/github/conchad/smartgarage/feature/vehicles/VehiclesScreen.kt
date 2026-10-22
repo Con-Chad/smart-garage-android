@@ -1,6 +1,10 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -154,7 +158,7 @@ fun VehiclesScreen(
 /**
  * One vehicle in the list on a glass card (D-A30, D-A31, D-A32): only the framed photo tilts, with the photo behind
  * the frame and the name above it; the card stays flat. Under the photo the plate · mileage line and the status
- * chip, then the "Quick info" toggle that drops the shared details down (`animateContentSize`, not the pop-in).
+ * chip, then the "Quick info" toggle that drops the shared details down (`AnimatedVisibility` expand / shrink, D-A34; not the pop-in).
  */
 @Composable
 private fun VehicleListCard(
@@ -175,7 +179,7 @@ private fun VehicleListCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     GlassPanel(
-        Modifier.fillMaxWidth().popIn(popIn).animateContentSize(),
+        Modifier.fillMaxWidth().popIn(popIn),
         glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary),
         onClick = onClick,
     ) {
@@ -228,17 +232,20 @@ private fun VehicleListCard(
             onToggle = { expanded = !expanded },
             onViewAll = onClick,
         )
-        if (expanded) {
-            RowDivider()
-            QuickInfoDetails(
-                vehicle = vehicle,
-                policy = policy,
-                inspection = inspection,
-                lastOdometerAt = lastOdometerAt,
-                fmt = fmt,
-                actions = quickInfoActions,
-                onOpenOdometer = onOpenOdometer,
-            )
+        // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
+        AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column {
+                RowDivider()
+                QuickInfoDetails(
+                    vehicle = vehicle,
+                    policy = policy,
+                    inspection = inspection,
+                    lastOdometerAt = lastOdometerAt,
+                    fmt = fmt,
+                    actions = quickInfoActions,
+                    onOpenOdometer = onOpenOdometer,
+                )
+            }
         }
     }
 }

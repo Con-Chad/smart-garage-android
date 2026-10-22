@@ -1,7 +1,9 @@
 package io.github.conchad.smartgarage.feature.dashboard
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -108,6 +110,11 @@ import io.github.conchad.smartgarage.ui.glass.FanScrim
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
+import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
+import io.github.conchad.smartgarage.ui.glass.heroAnchor
+import io.github.conchad.smartgarage.ui.glass.launch
+import io.github.conchad.smartgarage.ui.glass.rememberHeroAnchor
+import io.github.conchad.smartgarage.ui.glass.vehicleHero
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.PagerDots
@@ -450,8 +457,16 @@ private fun VehicleCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val title = cardActions.titleOf(vehicle)
+    // The card is the hero of the vehicle page (D-A34): its last bottom edge goes with the tap, so the page's
+    // drawer can slide up from exactly there while the card glides into place.
+    val anchor = rememberHeroAnchor()
+    val origins = LocalVehicleHeroOrigins.current
+    val onOpen = {
+        origins.launch(vehicle.id, anchor)
+        onOpen()
+    }
 
-    GlassCard(modifier = Modifier.animateContentSize(), glow = glow) {
+    GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow) {
         Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
             TiltPhotoFrame(
                 tilt = rememberCardTilt(followGyro = tiltEnabled),
@@ -516,17 +531,20 @@ private fun VehicleCard(
             },
             modifier = Modifier.padding(top = 4.dp),
         )
-        if (expanded) {
-            RowDivider()
-            QuickInfoDetails(
-                vehicle = vehicle,
-                policy = dashboard.policyByVehicle[vehicle.id],
-                inspection = dashboard.inspectionByVehicle[vehicle.id],
-                lastOdometerAt = extras.lastOdometerAt,
-                fmt = fmt,
-                actions = actions.quickInfo,
-                onOpenOdometer = onOpenOdometer,
-            )
+        // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
+        AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column {
+                RowDivider()
+                QuickInfoDetails(
+                    vehicle = vehicle,
+                    policy = dashboard.policyByVehicle[vehicle.id],
+                    inspection = dashboard.inspectionByVehicle[vehicle.id],
+                    lastOdometerAt = extras.lastOdometerAt,
+                    fmt = fmt,
+                    actions = actions.quickInfo,
+                    onOpenOdometer = onOpenOdometer,
+                )
+            }
         }
     }
 }

@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -74,6 +76,10 @@ import io.github.conchad.smartgarage.ui.glass.AuroraBackground
 import io.github.conchad.smartgarage.ui.glass.AuroraTintHolder
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
+import io.github.conchad.smartgarage.ui.glass.LocalNavAnimatedScope
+import io.github.conchad.smartgarage.ui.glass.LocalSharedTransitionScope
+import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
+import io.github.conchad.smartgarage.ui.glass.VehicleHeroOrigins
 import io.github.conchad.smartgarage.ui.glass.MorphingBottomNav
 import io.github.conchad.smartgarage.ui.glass.NavTab
 
@@ -91,6 +97,7 @@ fun MainShell(profile: ServerProfile, account: Account, shell: ShellViewModel = 
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewModel) {
     val navController = rememberNavController()
@@ -121,8 +128,9 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     val tint = if (destination.honoursScreenTint()) auroraTint.color ?: fallbackTint else fallbackTint
     SideEffect { auroraTint.shown = tint }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
+    val heroOrigins = remember { VehicleHeroOrigins() }
 
-    CompositionLocalProvider(LocalAuroraTint provides auroraTint) {
+    CompositionLocalProvider(LocalAuroraTint provides auroraTint, LocalVehicleHeroOrigins provides heroOrigins) {
         Box(Modifier.fillMaxSize()) {
             AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize())
             Scaffold(
@@ -143,159 +151,178 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                     }
                 },
             ) { padding ->
-                NavHost(
-                    navController = navController,
-                    startDestination = DashboardRoute,
-                    modifier = Modifier.padding(padding).consumeWindowInsets(padding),
-                    // The vehicle page and the Vehicles tab bubble their cards in (D-A32), so nothing cross-fades
-                    // around them: the page is simply there and the screen it replaces is simply gone. Leaving one
-                    // of them, the page fades out in NAV_POP_OUT_MS over the screen beneath, which is there at once.
-                    // Every other navigation keeps NavHost's 700 ms cross-fade.
-                    enterTransition = { if (targetState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
-                    exitTransition = { if (targetState.popsIn()) ExitTransition.None else fadeOut(tween(NAV_FADE_MS)) },
-                    popEnterTransition = { if (targetState.popsIn() || initialState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
-                    popExitTransition = {
-                        when {
-                            initialState.popsIn() -> fadeOut(tween(NAV_POP_OUT_MS))
-                            targetState.popsIn() -> ExitTransition.None
-                            else -> fadeOut(tween(NAV_FADE_MS))
-                        }
-                    },
-                ) {
-                    composable<DashboardRoute> {
-                        DashboardScreen(
-                            profile = profile,
-                            account = account,
-                            onOpenSettings = { navController.navigate(SettingsRoute) },
-                            onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
-                            onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
-                            onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
-                            onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
-                            actions = remember(navController) {
-                                DashboardActions(
-                                    onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
-                                    onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
-                                    onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
-                                    onScanReceipt = { navController.navigate(FuelEntryRoute(vehicleId = it, scan = true)) },
-                                    onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
-                                    onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
-                                    onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
-                                    onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                // The vehicle hero (D-A34): Home's car card and the vehicle page's photo card are one shared element.
+                SharedTransitionLayout(Modifier.padding(padding).consumeWindowInsets(padding)) {
+                    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = DashboardRoute,
+                            modifier = Modifier.fillMaxSize(),
+                            // The vehicle page and the Vehicles tab bring their own cards in (D-A32, D-A34), so nothing
+                            // cross-fades into them: the page is simply there. The screen the vehicle page opens over fades
+                            // out in NAV_POP_OUT_MS while the hero glides and the drawer slides up (the page's own drawer
+                            // animation keeps the transition running for HERO_MS); leaving it, the page fades out the same
+                            // way over the screen beneath, which is there at once. Every other navigation keeps NavHost's
+                            // 700 ms cross-fade.
+                            enterTransition = { if (targetState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                            exitTransition = {
+                                when {
+                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(tween(NAV_POP_OUT_MS))
+                                    targetState.popsIn() -> ExitTransition.None
+                                    else -> fadeOut(tween(NAV_FADE_MS))
+                                }
+                            },
+                            popEnterTransition = { if (targetState.popsIn() || initialState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                            popExitTransition = {
+                                when {
+                                    initialState.popsIn() -> fadeOut(tween(NAV_POP_OUT_MS))
+                                    targetState.popsIn() -> ExitTransition.None
+                                    else -> fadeOut(tween(NAV_FADE_MS))
+                                }
+                            },
+                        ) {
+                            composable<DashboardRoute> {
+                                CompositionLocalProvider(LocalNavAnimatedScope provides this) {
+                                    DashboardScreen(
+                                        profile = profile,
+                                        account = account,
+                                        onOpenSettings = { navController.navigate(SettingsRoute) },
+                                        onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                                        onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
+                                        onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
+                                        onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                                        actions = remember(navController) {
+                                            DashboardActions(
+                                                onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
+                                                onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
+                                                onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                                                onScanReceipt = { navController.navigate(FuelEntryRoute(vehicleId = it, scan = true)) },
+                                                onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                                                onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                                                onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                                                onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                            composable<VehiclesRoute> {
+                                CompositionLocalProvider(LocalNavAnimatedScope provides this) {
+                                    VehiclesScreen(
+                                        onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                                        onAddVehicle = { navController.navigate(VehicleFormRoute()) },
+                                        quickInfoActions = remember(navController) {
+                                            QuickInfoActions(
+                                                onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                                                onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                                                onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                                                onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                            composable<VehicleDetailRoute> {
+                                CompositionLocalProvider(LocalNavAnimatedScope provides this) {
+                                    val vehicleActions = remember(navController) {
+                                        VehicleActions(
+                                            onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
+                                            onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                                            onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                                            onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                                            onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                                            onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                                            onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                                            onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                                            onAttachReceipt = { vehicleId, recordId ->
+                                                navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                                            },
+                                            onEditVehicle = { navController.navigate(VehicleFormRoute(vehicleId = it)) },
+                                            onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
+                                            onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                                            onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
+                                            onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
+                                        )
+                                    }
+                                    VehicleDetailScreen(onBack = navController::popBackStack, actions = vehicleActions)
+                                }
+                            }
+                            composable<MaintenanceRoute> {
+                                MaintenanceScreen(
+                                    onLogService = { scheduleId, vehicleId -> navController.navigate(RecordFormRoute(scheduleId = scheduleId, vehicleId = vehicleId)) },
+                                    onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                                    onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                                    onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                                    onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                                    onAttachReceipt = { vehicleId, recordId ->
+                                        navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                                    },
                                 )
-                            },
-                        )
-                    }
-                    composable<VehiclesRoute> {
-                        VehiclesScreen(
-                            onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
-                            onAddVehicle = { navController.navigate(VehicleFormRoute()) },
-                            quickInfoActions = remember(navController) {
-                                QuickInfoActions(
-                                    onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
-                                    onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
-                                    onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
-                                    onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
+                            }
+                            composable<FuelRoute> {
+                                FuelScreen(onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) })
+                            }
+                            composable<FuelEntryRoute> { entry ->
+                                FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = entry.toRoute<FuelEntryRoute>().scan)
+                            }
+                            composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
+                            composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
+                            composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
+                            composable<ExpenseFormRoute> { ExpenseFormScreen(onClose = navController::popBackStack) }
+                            composable<NoteFormRoute> { NoteFormScreen(onClose = navController::popBackStack) }
+                            composable<WishlistFormRoute> { WishlistFormScreen(onClose = navController::popBackStack) }
+                            composable<VehicleFormRoute> { VehicleFormScreen(onClose = navController::popBackStack) }
+                            composable<InspectionFormRoute> { InspectionFormScreen(onClose = navController::popBackStack) }
+                            composable<InsuranceFormRoute> { InsuranceFormScreen(onClose = navController::popBackStack) }
+                            composable<DocumentFormRoute> { DocumentFormScreen(onClose = navController::popBackStack) }
+                            composable<MoreRoute> {
+                                MoreScreen(
+                                    onOpenSection = { navController.navigate(SectionRoute(it)) },
+                                    onOpenSettings = { navController.navigate(SettingsRoute) },
                                 )
-                            },
-                        )
-                    }
-                    composable<VehicleDetailRoute> {
-                        val vehicleActions = remember(navController) {
-                            VehicleActions(
-                                onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
-                                onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
-                                onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
-                                onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
-                                onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
-                                onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
-                                onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
-                                onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
-                                onAttachReceipt = { vehicleId, recordId ->
-                                    navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
-                                },
-                                onEditVehicle = { navController.navigate(VehicleFormRoute(vehicleId = it)) },
-                                onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
-                                onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
-                                onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
-                                onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
-                            )
+                            }
+                            composable<SectionRoute> { entry ->
+                                val sectionActions = remember(navController) {
+                                    SectionActions(
+                                        onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                                        onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
+                                        onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
+                                        onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                                        onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                                        onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
+                                        onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                                        onAttachReceipt = { vehicleId, recordId ->
+                                            navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                                        },
+                                        onNewNote = { navController.navigate(NoteFormRoute(vehicleId = it)) },
+                                        onEditNote = { navController.navigate(NoteFormRoute(noteId = it)) },
+                                        onAddWishlistItem = { navController.navigate(WishlistFormRoute(vehicleId = it)) },
+                                        onEditWishlistItem = { navController.navigate(WishlistFormRoute(itemId = it)) },
+                                    )
+                                }
+                                SectionScreen(
+                                    section = entry.toRoute<SectionRoute>().section,
+                                    onBack = navController::popBackStack,
+                                    actions = sectionActions,
+                                )
+                            }
+                            composable<SettingsRoute> {
+                                SettingsScreen(
+                                    onBack = navController::popBackStack,
+                                    onManageProfiles = { navController.navigate(ProfilesRoute) },
+                                )
+                            }
+                            composable<ProfilesRoute> {
+                                ProfilesScreen(
+                                    onBack = navController::popBackStack,
+                                    onAddProfile = { navController.navigate(AddProfileRoute) },
+                                )
+                            }
+                            composable<AddProfileRoute> {
+                                // On success the new profile becomes active and AppRoot rebuilds the shell for it.
+                                SetupFlow(mode = SetupMode.AddProfile, onCancel = navController::popBackStack)
+                            }
                         }
-                        VehicleDetailScreen(onBack = navController::popBackStack, actions = vehicleActions)
-                    }
-                    composable<MaintenanceRoute> {
-                        MaintenanceScreen(
-                            onLogService = { scheduleId, vehicleId -> navController.navigate(RecordFormRoute(scheduleId = scheduleId, vehicleId = vehicleId)) },
-                            onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
-                            onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
-                            onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
-                            onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
-                            onAttachReceipt = { vehicleId, recordId ->
-                                navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
-                            },
-                        )
-                    }
-                    composable<FuelRoute> {
-                        FuelScreen(onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) })
-                    }
-                    composable<FuelEntryRoute> { entry ->
-                        FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = entry.toRoute<FuelEntryRoute>().scan)
-                    }
-                    composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
-                    composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
-                    composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
-                    composable<ExpenseFormRoute> { ExpenseFormScreen(onClose = navController::popBackStack) }
-                    composable<NoteFormRoute> { NoteFormScreen(onClose = navController::popBackStack) }
-                    composable<WishlistFormRoute> { WishlistFormScreen(onClose = navController::popBackStack) }
-                    composable<VehicleFormRoute> { VehicleFormScreen(onClose = navController::popBackStack) }
-                    composable<InspectionFormRoute> { InspectionFormScreen(onClose = navController::popBackStack) }
-                    composable<InsuranceFormRoute> { InsuranceFormScreen(onClose = navController::popBackStack) }
-                    composable<DocumentFormRoute> { DocumentFormScreen(onClose = navController::popBackStack) }
-                    composable<MoreRoute> {
-                        MoreScreen(
-                            onOpenSection = { navController.navigate(SectionRoute(it)) },
-                            onOpenSettings = { navController.navigate(SettingsRoute) },
-                        )
-                    }
-                    composable<SectionRoute> { entry ->
-                        val sectionActions = remember(navController) {
-                            SectionActions(
-                                onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
-                                onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
-                                onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
-                                onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
-                                onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
-                                onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
-                                onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
-                                onAttachReceipt = { vehicleId, recordId ->
-                                    navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
-                                },
-                                onNewNote = { navController.navigate(NoteFormRoute(vehicleId = it)) },
-                                onEditNote = { navController.navigate(NoteFormRoute(noteId = it)) },
-                                onAddWishlistItem = { navController.navigate(WishlistFormRoute(vehicleId = it)) },
-                                onEditWishlistItem = { navController.navigate(WishlistFormRoute(itemId = it)) },
-                            )
-                        }
-                        SectionScreen(
-                            section = entry.toRoute<SectionRoute>().section,
-                            onBack = navController::popBackStack,
-                            actions = sectionActions,
-                        )
-                    }
-                    composable<SettingsRoute> {
-                        SettingsScreen(
-                            onBack = navController::popBackStack,
-                            onManageProfiles = { navController.navigate(ProfilesRoute) },
-                        )
-                    }
-                    composable<ProfilesRoute> {
-                        ProfilesScreen(
-                            onBack = navController::popBackStack,
-                            onAddProfile = { navController.navigate(AddProfileRoute) },
-                        )
-                    }
-                    composable<AddProfileRoute> {
-                        // On success the new profile becomes active and AppRoot rebuilds the shell for it.
-                        SetupFlow(mode = SetupMode.AddProfile, onCancel = navController::popBackStack)
                     }
                 }
             }
