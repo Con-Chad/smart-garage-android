@@ -132,10 +132,11 @@ fun rememberStaticTilt(): TiltState {
 val LocalTilt = staticCompositionLocalOf<TiltState?> { null }
 
 /**
- * Largest rotation of a tilting photo frame, degrees, reached when the pointer is at the frame's edge. D-A31: 60 %
- * of D-A30's 14°, the same cut as the depths and the shine travel.
+ * Largest rotation of a tilting photo frame, degrees, reached when the pointer is at the frame's edge. D-A31
+ * (2026-10-22): 20 % of the earlier 8.4° (D-A30 had 14°) after the phone test found the roll far too strong; the
+ * depths and the shine travel were cut to 40 % at the same time (see [TiltDepths]).
  */
-const val MAX_TILT_DEGREES = 8.4f
+const val MAX_TILT_DEGREES = 1.68f
 
 /** Shine strength while the gyroscope moves the frame; it is 0 when the frame is static. */
 private const val GYRO_SHINE = 0.45f

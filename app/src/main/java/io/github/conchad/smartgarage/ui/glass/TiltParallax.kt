@@ -29,17 +29,23 @@ private const val DEPTH_SCALE_PER_DP = 1f / 1100f
 /** Radius of the shine as a fraction of the frame's diagonal; the reference fades to transparent at 45 %. */
 private const val SHINE_RADIUS = 0.45f
 
-/** How far across the frame the shine's centre travels for the full pointer range (D-A31: 60 % of D-A30's edge-to-edge). */
-private const val SHINE_TRAVEL = 0.6f
+/**
+ * How far across the frame the shine's centre travels for the full pointer range. D-A31 (2026-10-22): 40 % of the
+ * earlier 0.6 (D-A30 was edge-to-edge). The shine follows the pointer, not the angle, so it isn't cut by the
+ * [MAX_TILT_DEGREES] change on its own; at 0.12 the 45 %-radius blob would barely be seen to move.
+ */
+private const val SHINE_TRAVEL = 0.24f
 
 /**
- * The depths the photo frames use (D-A30 scaled to 60 %, D-A31): the photo sits 14 dp *behind* the frame and
- * slides the other way inside it, the server name floats 14 dp above, the title 19 dp.
+ * The depths the photo frames use (D-A31, 2026-10-22: 40 % of the earlier −14 / 14 / 19, themselves 60 % of D-A30):
+ * the photo sits 6 dp *behind* the frame and slides the other way inside it, the server name floats 6 dp above,
+ * the title 8 dp. A layer's shift is `depth · sin(angle)`, so the 8.4° → 1.68° cut already takes the parallax to
+ * 20 % on its own; 40 % here (rather than 20 %) still lands at ≈ 0.18 dp of travel, under the old 20 % mark.
  */
 object TiltDepths {
-    val Photo: Dp = (-14).dp
-    val Subtitle: Dp = 14.dp
-    val Title: Dp = 19.dp
+    val Photo: Dp = (-6).dp
+    val Subtitle: Dp = 6.dp
+    val Title: Dp = 8.dp
 }
 
 /** The frame's [CardTilt], for the layers inside it. */

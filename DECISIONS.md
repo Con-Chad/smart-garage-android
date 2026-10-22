@@ -882,3 +882,19 @@ App decisions use the `D-A` prefix.
   - New strings (en + de): `card_quick_info`, `card_view_all`,
     `fab_quick_log`, `fab_log_expense`. No new dependencies; `core/`, `di/`
     and the build files are untouched.
+  - **2026-10-22, after the phone test: gyro response cut to 20 %, "View all"
+    moves down.** `MAX_TILT_DEGREES` **8.4° → 1.68°**. A layer's parallax is
+    `depth · sin(angle)`, so that cut alone takes the parallax to 20 %; the
+    depths were still trimmed to 40 % rather than 20 % (`TiltDepths.Photo
+    −14 → −6 dp`, `Subtitle 14 → 6 dp`, `Title 19 → 8 dp`) because at 20 %
+    the shift would be ≈ 0.08 dp, i.e. nothing, while 40 % lands at ≈ 0.18 dp,
+    still under the old 20 % mark. `SHINE_TRAVEL` **0.6 → 0.24** (40 %, not
+    20 %: the shine follows the pointer, not the angle, and at 0.12 the
+    45 %-radius blob would barely be seen to move). Deadband, resting pose,
+    RESUMED-only registration, reduced-motion flattening, 280 ms ease-out and
+    the "settled page only" rule are unchanged. The **"View all"** pill left
+    the plate · mileage row and is now its own **centred** row between the
+    details (plate · mileage line and status chip) and the "Quick info"
+    toggle, with 8 dp above and below; the plate / mileage column now spans
+    the card's width, the Quick info row is still full-width beneath. Same
+    48 dp target, `Confirm` haptic and vehicle-page navigation. No new strings.

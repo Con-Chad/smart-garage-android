@@ -437,7 +437,7 @@ private fun DashboardContent(
 /**
  * One vehicle on a glass card (D-A30, D-A31): only the chrome-framed photo tilts toward the gyroscope, with the
  * photo behind its frame and the name floating above it; the card around it is flat. Under the photo: the plate ·
- * mileage line and the status chip with a "View all" pill (haptic confirm, opens the vehicle page), then a
+ * mileage line and the status chip, then a centred "View all" pill (haptic confirm, opens the vehicle page), then a
  * "Quick info" toggle that drops down insurance, mileage and inspection. Tap on the photo opens the vehicle page,
  * long-press the photo / rename menu; TalkBack gets the same as custom actions. [tiltEnabled] is false while the
  * pager moves or for a page that isn't the settled one: the photo then eases flat.
@@ -509,19 +509,20 @@ private fun VehicleCard(
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
             }
         }
-        Row(
+        Column(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetallicText(
-                    listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                VehicleStatusChip(summary)
-            }
+            MetallicText(
+                listOfNotNull(vehicle.licensePlate, fmt.distance(vehicle.currentOdometerKm)).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            VehicleStatusChip(summary)
+        }
+        // "View all" as its own centred row between the details and the "Quick info" toggle (D-A31, 2026-10-22).
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
             GlassPillButton(
                 label = stringResource(R.string.card_view_all),
                 icon = Icons.Outlined.ChevronRight,
