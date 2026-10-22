@@ -317,3 +317,50 @@ App decisions use the `D-A` prefix.
     `VehiclePhoto` starts from that, so a card scrolled back into view no
     longer flashes the placeholder.
 
+- **D-A25: Calendar reminders via `ACTION_INSERT`; the vehicle page leads
+  with the car, not its specs; fuel economy is a device-side switch.**
+  - "Add to calendar" hands an all-day event to whatever calendar app the
+    user has: `Intent(ACTION_INSERT)` on `CalendarContract.Events` with
+    title, description, `EXTRA_EVENT_ALL_DAY` and begin/end at midnight UTC
+    of the day (`CalendarLinks`, pure and unit-tested). Nothing is written
+    until the user saves in their app, so no calendar permission, no
+    account access and no Google dependency; a phone without a calendar app
+    gets a snackbar. A due date is a day, not a time, hence all-day. The
+    button (`AddToCalendarButton`, 48 dp, label carries the date) appears
+    wherever a due day is known: the schedule form (baseline + months, else
+    the server's `nextDueAt`; a new schedule without a baseline has none
+    until saved), the record form (date + the schedule's month interval),
+    the inspection form (`nextDueAt`), the insurance form (`endDate`,
+    titled "… renewal"), and the saved-item sheets for schedules,
+    inspections and policies. Viewers get it too: a reminder is not an edit.
+    Titles follow "Oil change due — 2019 Mazda MX-5"; the description names
+    the vehicle, the interval or coverage and the notes.
+  - The vehicle page (notes 13–15) now reads top-down as the car, who it
+    belongs to, the four figures one asks about first, the quick actions,
+    and everything else behind one header. The make/model sits inside the
+    16:9 photo card, bottom-left over a dark bottom gradient (fixed light-on-
+    dark pair, not theme colours, since it sits on a photo); the top bar
+    still takes the name over on scroll. "Owner: …" names the signed-in
+    account for own vehicles (from `ProfileStore`, the same source Settings
+    uses) and the sharing owner for shared ones. The 2×2 immediate-info grid
+    is mileage, the insurer in force (`GarageMath.currentPolicy`, the
+    dashboard's pick), the plate and this year's spend (fuel + records +
+    expenses, server-zone calendar year, deduplicated as before). "Vehicle
+    details" is a collapsible, closed by default and remembered across
+    rotation, holding registration (plate, HSN/TSN, inspection sticker,
+    VIN), colour and purchase, specs, tyres, modifications, custom fields
+    and notes — nothing about service, which keeps its own groups below.
+    Tyres are a row only when the owner keeps a tyre custom field or
+    modification (`GarageMath.isAboutTires`, English and German whole
+    words); the server has no tyre model and the app does not invent one.
+    The average consumption moved from the old stat strip to the top of the
+    Fuel card, so the grid stays the four figures asked for.
+  - "Track fuel economy" (`AppSettings.trackFuelEconomy`, default on) is a
+    setting of this phone, not of the server or the entry: off hides the
+    odometer field on the fill-up form (no validation, no regression prompt,
+    no `odometerKm` sent) and hides consumption everywhere it is derived
+    (Fuel summary card, consumption chart, rows, sheets, the vehicle page).
+    Prices per unit and totals stay, since they need no odometer. Entries
+    that already carry a reading keep it, the server is unaffected, and
+    other screens take the flag with a default of `true` so the dashboard
+    is untouched.

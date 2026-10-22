@@ -105,6 +105,9 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
 
     fun date(instant: Instant): String = mediumDate.format(instant)
 
+    /** A calendar day (a due date already in the server's zone), in the same medium style. */
+    fun date(date: LocalDate): String = mediumDate.format(date)
+
     /** "Oct 19" this year, "Dec 25, 2025" for other years. */
     fun shortDate(instant: Instant, today: LocalDate = LocalDate.now(zone)): String {
         val sameYear = instant.atZone(zone).year == today.year

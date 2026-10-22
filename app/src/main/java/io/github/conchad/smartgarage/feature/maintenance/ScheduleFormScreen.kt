@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.LoadingState
+import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.forms.FormDisclosure
 import io.github.conchad.smartgarage.ui.components.forms.FormDistanceField
 import io.github.conchad.smartgarage.ui.components.forms.FormEndSpacer
@@ -40,6 +42,8 @@ import io.github.conchad.smartgarage.ui.components.forms.FormSection
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.maintenanceCategoryLabel
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 
 /**
  * New or edited service schedule (D-A20): vehicle, template or custom name and category, the two intervals,
@@ -51,6 +55,7 @@ fun ScheduleFormScreen(onClose: () -> Unit, viewModel: ScheduleFormViewModel = h
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
     var baselineOpen by rememberSaveable { mutableStateOf(false) }
+    val addToCalendar = rememberAddToCalendar(snackbar)
 
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
@@ -178,6 +183,14 @@ fun ScheduleFormScreen(onClose: () -> Unit, viewModel: ScheduleFormViewModel = h
                     error = if (state.lastOdometerInvalid) stringResource(R.string.form_invalid_number) else null,
                 )
             }
+        }
+        // A reminder in the user's calendar for the day the service falls due (D-A25), once that day is known.
+        val vehicle = state.vehicle
+        val dueDate = state.dueDate
+        if (vehicle != null && dueDate != null) {
+            val name = state.name.trim().ifEmpty { state.template?.name.orEmpty() }.ifEmpty { stringResource(R.string.vehicle_service) }
+            val event = dueCalendarEvent(name, vehicle, dueDate, intervalText(state.intervalKm, state.months, fmt), state.notes)
+            AddToCalendarButton(fmt.date(dueDate), onClick = { addToCalendar(event) })
         }
         FormEndSpacer()
     }

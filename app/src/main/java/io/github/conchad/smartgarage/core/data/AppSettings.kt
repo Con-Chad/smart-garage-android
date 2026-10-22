@@ -20,6 +20,14 @@ data class AppearanceSettings(
     val dynamicColor: Boolean = true,
 )
 
+data class FuelSettings(
+    /**
+     * Whether fill-ups ask for the odometer and the app shows consumption (D-A25). Off hides the field and the
+     * figures on this device only; entries already carrying an odometer keep it, and the server is unaffected.
+     */
+    val trackFuelEconomy: Boolean = true,
+)
+
 /** Device-local UI settings. Units and locale come from the server instead (see [DisplayPreferences]). */
 @Singleton
 class AppSettings @Inject constructor(private val dataStore: DataStore<Preferences>) {
@@ -34,6 +42,10 @@ class AppSettings @Inject constructor(private val dataStore: DataStore<Preferenc
         }
         .distinctUntilChanged()
 
+    val fuel: Flow<FuelSettings> = dataStore.data
+        .map { prefs -> FuelSettings(trackFuelEconomy = prefs[TRACK_FUEL_ECONOMY] ?: true) }
+        .distinctUntilChanged()
+
     suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_MODE] = mode.name }
     }
@@ -42,8 +54,13 @@ class AppSettings @Inject constructor(private val dataStore: DataStore<Preferenc
         dataStore.edit { it[DYNAMIC_COLOR] = enabled }
     }
 
+    suspend fun setTrackFuelEconomy(enabled: Boolean) {
+        dataStore.edit { it[TRACK_FUEL_ECONOMY] = enabled }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val TRACK_FUEL_ECONOMY = booleanPreferencesKey("track_fuel_economy")
     }
 }

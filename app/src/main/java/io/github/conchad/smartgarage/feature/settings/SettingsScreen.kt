@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material3.AlertDialog
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -109,6 +112,21 @@ fun SettingsScreen(
 
             item { SectionLabel(stringResource(R.string.settings_units)) }
             item { UnitsCard(profile.preferences) }
+
+            item { SectionLabel(stringResource(R.string.settings_fuel)) }
+            item {
+                GroupCard {
+                    val track = state.fuel.trackFuelEconomy
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_track_fuel_economy)) },
+                        supportingContent = { Text(stringResource(R.string.settings_track_fuel_economy_desc)) },
+                        leadingContent = { IconBadge(Icons.Outlined.LocalGasStation) },
+                        trailingContent = { Switch(checked = track, onCheckedChange = null) },
+                        colors = transparentRow(),
+                        modifier = Modifier.toggleable(value = track, role = Role.Switch, onValueChange = viewModel::setTrackFuelEconomy),
+                    )
+                }
+            }
 
             item { SectionLabel(stringResource(R.string.settings_appearance)) }
             item {

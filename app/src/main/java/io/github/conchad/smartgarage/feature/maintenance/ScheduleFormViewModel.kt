@@ -15,6 +15,7 @@ import io.github.conchad.smartgarage.core.model.MaintenanceTemplate
 import io.github.conchad.smartgarage.core.model.Schedule
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.links.CalendarLinks
 import io.github.conchad.smartgarage.ui.navigation.ScheduleDefaultsRoute
 import io.github.conchad.smartgarage.ui.navigation.ScheduleFormRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
@@ -55,6 +56,8 @@ data class ScheduleFormState(
     val notes: String = "",
     val lastPerformed: LocalDate? = null,
     val lastOdometer: String = "",
+    /** The server's next due date of the schedule being edited, in the server's zone; null for a new one. */
+    val existingNextDue: LocalDate? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
     val saving: Boolean = false,
@@ -82,6 +85,12 @@ data class ScheduleFormState(
     val anyInvalid: Boolean get() = intervalKmInvalid || monthsInvalid || costInvalid || lastOdometerInvalid || nameTooLong || notesTooLong
 
     val canSave: Boolean get() = canEdit && vehicleId != null && !needsName && !anyInvalid && !saving
+
+    /**
+     * When the service is next due, for "Add to calendar" (D-A25): the baseline as typed plus the month interval,
+     * else the server's date. Null for a new schedule, whose first due date the server sets on save.
+     */
+    val dueDate: LocalDate? get() = lastPerformed?.let { CalendarLinks.nextDueAfter(it, months) } ?: existingNextDue
 
     fun input(): ScheduleInput = ScheduleInput(
         templateId = templateId,
@@ -149,6 +158,7 @@ class ScheduleFormViewModel @Inject constructor(
                 notes = schedule?.notes.orEmpty(),
                 lastPerformed = schedule?.lastPerformedAt?.toInstantOrNull()?.let(fmt::localDate),
                 lastOdometer = schedule?.lastOdometerKm?.let(fmt::distanceInput).orEmpty(),
+                existingNextDue = schedule?.nextDueAt?.toInstantOrNull()?.let(fmt::localDate),
                 formatter = fmt,
                 loaded = true,
             )

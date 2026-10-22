@@ -51,6 +51,13 @@ class FormatterTest {
     }
 
     @Test
+    fun `a calendar day formats like the same instant in the server's zone`() {
+        val day = LocalDate.parse("2026-11-15")
+        assertThat(us.date(day)).isEqualTo(us.date(Instant.parse("2026-11-15T18:00:00Z")))
+        assertThat(metric.date(day)).isEqualTo("15.11.2026")
+    }
+
+    @Test
     fun `short dates add the year only outside the current year`() {
         val today = LocalDate.parse("2026-10-21")
         assertThat(us.shortDate(Instant.parse("2026-03-05T18:00:00Z"), today)).isEqualTo("Mar 5")

@@ -31,6 +31,7 @@ import io.github.conchad.smartgarage.core.model.Inspection
 import io.github.conchad.smartgarage.core.model.InsurancePolicy
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.coverageLabel
@@ -46,6 +47,9 @@ import io.github.conchad.smartgarage.ui.components.forms.FormSwitchRow
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
+import io.github.conchad.smartgarage.ui.links.renewalCalendarEvent
 import io.github.conchad.smartgarage.ui.navigation.InspectionFormRoute
 import io.github.conchad.smartgarage.ui.navigation.InsuranceFormRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
@@ -163,6 +167,7 @@ fun InspectionFormScreen(onClose: () -> Unit, viewModel: InspectionFormViewModel
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
+    val addToCalendar = rememberAddToCalendar(snackbar)
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
 
@@ -237,6 +242,13 @@ fun InspectionFormScreen(onClose: () -> Unit, viewModel: InspectionFormViewModel
             onValueChange = viewModel::setNotes,
             error = if (state.notesTooLong) pluralStringResource(R.plurals.form_too_long, 2000, 2000) else null,
         )
+        // The inspection's due day as a calendar reminder (D-A25), once a date is picked.
+        val vehicle = state.vehicle
+        val nextDue = state.nextDue
+        if (vehicle != null && nextDue != null) {
+            val event = dueCalendarEvent(typeLabels[state.type] ?: state.type, vehicle, nextDue, state.sticker.takeIf { it.isNotBlank() }?.let { stringResource(R.string.inspection_sticker) + ": " + it }, state.notes)
+            AddToCalendarButton(fmt.date(nextDue), onClick = { addToCalendar(event) })
+        }
         FormEndSpacer()
     }
 }
@@ -368,6 +380,7 @@ fun InsuranceFormScreen(onClose: () -> Unit, viewModel: InsuranceFormViewModel =
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
+    val addToCalendar = rememberAddToCalendar(snackbar)
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
 
@@ -464,6 +477,12 @@ fun InsuranceFormScreen(onClose: () -> Unit, viewModel: InsuranceFormViewModel =
             onValueChange = viewModel::setNotes,
             error = if (state.notesTooLong) pluralStringResource(R.plurals.form_too_long, 2000, 2000) else null,
         )
+        // The renewal (the policy's end) as a calendar reminder (D-A25); the end date always has a value.
+        state.vehicle?.let { vehicle ->
+            val provider = state.provider.trim().ifEmpty { stringResource(R.string.insurance_provider) }
+            val event = renewalCalendarEvent(provider, vehicle, state.endDate, coverageLabels[state.coverage], state.policyNumber.takeIf { it.isNotBlank() }?.let { stringResource(R.string.insurance_policy_number) + ": " + it })
+            AddToCalendarButton(fmt.date(state.endDate), onClick = { addToCalendar(event) })
+        }
         FormEndSpacer()
     }
 }

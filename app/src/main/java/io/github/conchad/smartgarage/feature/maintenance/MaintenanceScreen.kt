@@ -46,6 +46,9 @@ import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
+import io.github.conchad.smartgarage.ui.components.intervalText
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.components.SearchField
 import io.github.conchad.smartgarage.ui.components.SheetTarget
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
@@ -72,6 +75,7 @@ fun MaintenanceScreen(
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
     DeniedSnackbar(viewModel, snackbar)
+    val addToCalendar = rememberAddToCalendar(snackbar)
 
     AppScaffold(
         title = stringResource(R.string.tab_service),
@@ -135,6 +139,10 @@ fun MaintenanceScreen(
 
     when (val target = open) {
         is SheetTarget.Schedule -> state.due.firstOrNull { it.schedule.id == target.id }?.let { item ->
+            // A reminder in the user's calendar for the due day (D-A25), when the schedule has one.
+            val event = item.dueAt?.let { due ->
+                dueCalendarEvent(item.name, item.vehicle, fmt.localDate(due), intervalText(item.schedule.intervalKm, item.schedule.intervalMonths, fmt), item.schedule.notes)
+            }
             ScheduleSheet(
                 item,
                 fmt,
@@ -156,6 +164,7 @@ fun MaintenanceScreen(
                     open = null
                     viewModel.deleteSchedule(item.schedule.id)
                 },
+                onAddToCalendar = event?.let { e -> { addToCalendar(e) } },
             )
         }
         is SheetTarget.Record -> state.records.firstOrNull { it.id == target.id }?.let { record ->

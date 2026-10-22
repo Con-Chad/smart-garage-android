@@ -7,8 +7,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
+import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.CustomField
 import io.github.conchad.smartgarage.core.model.GarageMath
@@ -64,9 +66,23 @@ data class VehicleDetailUiState(
     val customFields: List<Pair<CustomField, String>> = emptyList(),
     /** Fitted modifications, most recently installed first. */
     val modifications: List<Modification> = emptyList(),
+    /**
+     * Who the car belongs to, for "Owner: …" (D-A25): the signed-in account's name for an own vehicle, the sharing
+     * owner's for a shared one. Null when neither is known.
+     */
+    val ownerName: String? = null,
+    /** Settings → Fuel → Track fuel economy (D-A25): off hides consumption on this page too. */
+    val trackFuelEconomy: Boolean = true,
+    /** The custom field about tyres, if the owner keeps one; shown as the "Tires" row and left out of the field list. */
+    val tireField: Pair<CustomField, String>? = null,
+    /** The most recent modification about tyres, when there is no such field. */
+    val tireModification: Modification? = null,
     val loaded: Boolean = false,
 ) {
     fun recordName(record: MaintenanceRecord): String? = recordNames[record.id]
+
+    /** The custom fields without the one surfaced as "Tires". */
+    val otherCustomFields: List<Pair<CustomField, String>> get() = customFields.filterNot { it === tireField }
 }
 
 /** Why a picked photo was not sent, or null; the screen shows it once and clears it. */
@@ -79,6 +95,8 @@ sealed interface PhotoPick {
 class VehicleDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     garage: GarageRepository,
+    settings: AppSettings,
+    profiles: ProfileStore,
     control: SyncControl,
     writer: GarageWriter,
     @ApplicationContext private val context: Context,
@@ -93,12 +111,16 @@ class VehicleDetailViewModel @Inject constructor(
     private val history = combine(garage.records, garage.fuelEntries, garage.expenses, ::Triple)
     private val papers = combine(garage.inspections, garage.insurancePolicies, ::Pair)
     private val extras = combine(garage.customFields, garage.customFieldValues, garage.modifications, ::Triple)
+    // Device-side context: the fuel-economy switch and the signed-in account (named as the owner of own vehicles).
+    private val device = combine(settings.fuel, profiles.state) { fuelSettings, p -> fuelSettings.trackFuelEconomy to p.active?.account?.greetingName }
+    private val extrasAndDevice = combine(extras, device, ::Pair)
 
-    val state: StateFlow<VehicleDetailUiState> = combine(due, history, papers, extras, garage.formatter) { dueData, historyData, paperData, extraData, fmt ->
+    val state: StateFlow<VehicleDetailUiState> = combine(due, history, papers, extrasAndDevice, garage.formatter) { dueData, historyData, paperData, (extraData, deviceData), fmt ->
         val (vehicles, dueItems, templatesAndSchedules) = dueData
         val (records, fuel, expenses) = historyData
         val (inspections, policies) = paperData
         val (fields, values, modifications) = extraData
+        val (trackFuelEconomy, accountName) = deviceData
         val vehicle = vehicles.firstOrNull { it.id == vehicleId }
             ?: return@combine VehicleDetailUiState(formatter = fmt, loaded = true)
         val yearStart = LocalDate.now(fmt.zone).withDayOfYear(1).atStartOfDay(fmt.zone).toInstant()
@@ -116,7 +138,16 @@ class VehicleDetailViewModel @Inject constructor(
             .mapNotNull { field -> valueByField[field.id]?.value?.takeIf { it.isNotBlank() }?.let { field to it } }
         val fitted = modifications.filter { it.vehicleId == vehicleId }
             .sortedWith(compareByDescending<Modification> { it.installedAt ?: "" }.thenByDescending { it.createdAt })
-        VehicleDetailUiState(detail, fmt, names, customFields, fitted, loaded = true)
+        val tireField = customFields.firstOrNull { (field, _) -> GarageMath.isAboutTires(field.label) }
+        val tireModification = if (tireField == null) fitted.firstOrNull { GarageMath.isAboutTires(it.name) } else null
+        VehicleDetailUiState(
+            detail, fmt, names, customFields, fitted,
+            ownerName = if (vehicle.access.isShared) vehicle.owner?.name else accountName ?: vehicle.owner?.name,
+            trackFuelEconomy = trackFuelEconomy,
+            tireField = tireField,
+            tireModification = tireModification,
+            loaded = true,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehicleDetailUiState())
 
     private val closedState = MutableStateFlow(false)
