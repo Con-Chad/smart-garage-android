@@ -19,6 +19,8 @@ data class FuelEntryInput(
     val currency: String? = null,
     val stationName: String? = null,
     val note: String? = null,
+    /** The `documentId` a receipt scan returned (D-A27); the server links that document to the new entry. */
+    val receiptDocumentId: String? = null,
 )
 
 @Serializable

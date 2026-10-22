@@ -414,6 +414,18 @@
     <string name="fuel_form_price_per">Price per %1$s</string>
     <string name="fuel_form_total">Total</string>
     <string name="fuel_form_last_fill_up">Last fill-up: %1$s</string>
+    <!-- Receipt scan on the fill-up form (D-A27); shown only when the server announces the feature. -->
+    <string name="fuel_scan_receipt">Scan receipt</string>
+    <string name="fuel_scan_in_progress">Reading the receipt…</string>
+    <string name="fuel_scan_hint">Take a photo of the receipt and the form fills itself in. You still check and save.</string>
+    <string name="fuel_scan_unavailable">Receipt scanning isn\'t available on this server yet.</string>
+    <string name="fuel_scan_not_receipt">That doesn\'t look like a fuel receipt. Fill in the form by hand.</string>
+    <string name="fuel_scan_rate_limited">Today\'s scan limit is reached. Fill in the form by hand.</string>
+    <string name="fuel_scan_file_rejected">The photo couldn\'t be used. Try again with a sharper shot.</string>
+    <string name="fuel_scan_unreachable">The server didn\'t answer. Fill in the form by hand.</string>
+    <string name="fuel_scan_failed">The receipt couldn\'t be read. Fill in the form by hand.</string>
+    <string name="fuel_scan_photo_kept">Receipt photo</string>
+    <string name="fuel_scan_remove_photo">Remove receipt photo</string>
     <string name="fuel_delete_title">Delete this fill-up?</string>
     <string name="fuel_delete_body">The entry is removed from this vehicle\'s fuel history. This can\'t be undone.</string>
     <string name="odometer_form_title">Update odometer</string>

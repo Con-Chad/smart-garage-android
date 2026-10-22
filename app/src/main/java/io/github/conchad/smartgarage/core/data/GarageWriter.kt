@@ -100,6 +100,7 @@ open class GarageWrites(private val open: suspend () -> WriteSession?) {
 
     // ── Fill-ups ─────────────────────────────────────────────────────────────────────────────────────────────
 
+    /** A non-null [FuelEntryInput.receiptDocumentId] goes to the server as-is (D-A27); null is left out of the body. */
     suspend fun addFuelEntry(vehicleId: String, input: FuelEntryInput): WriteResult = write { s ->
         s.requireEdit(vehicleId) ?: s.create("fuelEntries", vehicleId, encode(FuelEntryInput.serializer(), input))
     }

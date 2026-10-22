@@ -57,6 +57,15 @@ data class MeResponse(
     val device: DeviceDto? = null,
     val preferences: PreferencesDto? = null,
     val server: ServerInfoDto? = null,
+    /** Absent on servers older than the receipt scanner (D-A27); every flag then reads false. */
+    val features: MeFeatures = MeFeatures(),
+)
+
+/** Optional server features `/me` announces; a missing key means off. */
+@Serializable
+data class MeFeatures(
+    /** `POST /api/v1/fuel/receipt-scan` is enabled and the server has a model key (docs/mobile/RECEIPT-SCANNER.md). */
+    val receiptScanner: Boolean = false,
 )
 
 /** Display preferences; every value the API returns stays metric (km, liters, cents). */

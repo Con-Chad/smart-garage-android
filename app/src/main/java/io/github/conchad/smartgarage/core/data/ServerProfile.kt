@@ -18,6 +18,8 @@ data class ServerProfile(
     val lastUsername: String? = null,
     val preferences: DisplayPreferences? = null,
     val serverVersion: String? = null,
+    /** What `/me` said this server can do; refreshed with every `/me` call (D-A27). */
+    val features: ServerFeatures = ServerFeatures(),
 ) {
     /** Host (and port) for compact display. */
     val hostLabel: String
@@ -36,6 +38,13 @@ data class Account(
 ) {
     val greetingName: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
 }
+
+/** Optional features of a server, from `/me.features`; false for servers that don't report them (D-A27). */
+@Serializable
+data class ServerFeatures(
+    /** Shows "Scan receipt" on the fill-up form. */
+    val receiptScanner: Boolean = false,
+)
 
 /** How the server wants values shown. Stored values are always km, liters and cents. */
 @Serializable

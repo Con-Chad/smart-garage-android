@@ -472,3 +472,40 @@ App decisions use the `D-A` prefix.
     from both locales; new labels (`vehicle_at_a_glance`,
     `vehicle_quick_actions`, `vehicle_purchase`, `vehicle_custom_fields`,
     `vehicle_photo_options`) are in EN and DE.
+- **D-A27: The receipt scanner is a hook, not a feature: everything the
+  real call needs is wired, the scanner itself is a stub.**
+  - The server has `POST /api/v1/fuel/receipt-scan` and announces it via
+    `GET /api/v1/me` → `features.receiptScanner` (docs/mobile/RECEIPT-
+    SCANNER.md). The user isn't enabling it yet, so the app gets the seams
+    and none of the behaviour. `MeResponse.features` (`MeFeatures`, every
+    flag `false` by default, so an older server's `/me` without the key still
+    parses) is mirrored into `ServerProfile.features` (`ServerFeatures`) by
+    `AuthRepository.applyMe`, so any screen can observe it through
+    `ProfileStore.state`, the same way Settings reads the account.
+  - `core/network/ReceiptScanner.kt`: the `ReceiptScanner` interface
+    (`scan(vehicleId, photo: File)`), the contract's shapes
+    (`ReceiptScanResponse`, `ReceiptDraft` with `confidence` and `source`,
+    the `warnings` codes as strings) and `ReceiptScanError` with one case per
+    error row (401/403/404/413/415/422/429 + `Retry-After`/502 with its
+    `documentId`) plus `Unreachable`. `StubReceiptScanner` answers
+    `Unavailable`; `di/ReceiptScannerModule` binds it, so the real multipart
+    client (through `ApiClient`, 25 s timeout, `Idempotency-Key`) is a
+    one-binding swap. Its KDoc lists what the real client must do and the
+    next steps in order: prefill, confidence highlighting, the attach-anyway
+    path, the offline "unscanned" queue. None of those exist yet.
+  - The fill-up form (fuel note 1) shows "Scan receipt" — a full-width
+    48 dp outlined button with a hint beneath, between the vehicle and the
+    date — **only when** the active server's `features.receiptScanner` is
+    true and the vehicle is editable, so nothing changes tonight. Tapping it
+    reuses the document form's camera path (`CameraCapture`, ≤ 1600 px JPEG
+    80 in `cache/captures/`, D-A23); while the photo is prepared and sent the
+    button shows a spinner and "Reading the receipt…" and Save is held.
+    The answer is a snackbar (en + de): the stub's and a 404's "Receipt
+    scanning isn't available on this server yet", or the matching line for
+    view-only, not a receipt, daily limit, rejected photo, no answer, or
+    failure. The photo stays on the form as a "Receipt photo" row with a
+    remove control so a later attach-anyway path has it; it isn't uploaded
+    on its own, since the document link only exists through the scan's
+    `documentId`. `FuelEntryInput.receiptDocumentId` (optional) is sent
+    when non-null (a successful scan or a 502 both carry one); the stub never
+    sets it.

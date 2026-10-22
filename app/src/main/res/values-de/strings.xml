@@ -403,6 +403,18 @@
     <string name="fuel_form_price_per">Preis pro %1$s</string>
     <string name="fuel_form_total">Betrag</string>
     <string name="fuel_form_last_fill_up">Letztes Tanken: %1$s</string>
+    <!-- Belegscan im Tankformular (D-A27); nur sichtbar, wenn der Server die Funktion meldet. -->
+    <string name="fuel_scan_receipt">Beleg scannen</string>
+    <string name="fuel_scan_in_progress">Beleg wird gelesen…</string>
+    <string name="fuel_scan_hint">Fotografiere den Beleg, und das Formular füllt sich von selbst aus. Prüfen und speichern musst du weiterhin.</string>
+    <string name="fuel_scan_unavailable">Belegscan ist auf diesem Server noch nicht verfügbar.</string>
+    <string name="fuel_scan_not_receipt">Das sieht nicht nach einem Tankbeleg aus. Fülle das Formular von Hand aus.</string>
+    <string name="fuel_scan_rate_limited">Das Scan-Limit für heute ist erreicht. Fülle das Formular von Hand aus.</string>
+    <string name="fuel_scan_file_rejected">Das Foto konnte nicht verwendet werden. Versuche es mit einer schärferen Aufnahme.</string>
+    <string name="fuel_scan_unreachable">Der Server hat nicht geantwortet. Fülle das Formular von Hand aus.</string>
+    <string name="fuel_scan_failed">Der Beleg konnte nicht gelesen werden. Fülle das Formular von Hand aus.</string>
+    <string name="fuel_scan_photo_kept">Belegfoto</string>
+    <string name="fuel_scan_remove_photo">Belegfoto entfernen</string>
     <string name="fuel_delete_title">Diesen Tankvorgang löschen?</string>
     <string name="fuel_delete_body">Der Eintrag wird aus dem Tankverlauf des Fahrzeugs entfernt. Das lässt sich nicht rückgängig machen.</string>
     <string name="odometer_form_title">Kilometerstand aktualisieren</string>
