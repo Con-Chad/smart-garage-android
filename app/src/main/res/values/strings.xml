@@ -832,6 +832,9 @@
     <!-- Home card round (D-A31): quick-info chevron label, View all pill, radial fan FAB. -->
     <string name="card_quick_info">Quick info</string>
     <string name="card_view_all">View all</string>
+    <!-- "View all" pill split over two lines (D-A36); the chevron follows line 2. -->
+    <string name="card_view_all_line1">View</string>
+    <string name="card_view_all_line2">all</string>
     <string name="fab_quick_log">Log quick expense</string>
     <string name="fab_log_expense">Log expense</string>
     <!-- UX round 3 (D-A32): the fan FAB's short visible petal captions; the TalkBack names stay the full verbs above. -->

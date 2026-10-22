@@ -7,7 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,9 +40,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import io.github.conchad.smartgarage.ui.components.RowDivider
@@ -199,6 +205,57 @@ fun GlassPillButton(
             Text(label, style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (icon != null) {
                 Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+            }
+        }
+    }
+}
+
+/**
+ * [GlassPillButton] with its label on two lines (D-A36): [topLine] over [bottomLine], the trailing [icon] right
+ * after the second line, so the pill is about half as wide (the vehicle cards' "View" / "all ›"). Same pill fill,
+ * border and sheen, a 14 dp-radius rounded rectangle instead of a stadium (a stadium two lines tall would read as
+ * a blob), and at least 48 × 48 dp. TalkBack reads [contentDescription] (the one-line label) once, as a button.
+ */
+@Composable
+fun GlassStackedPillButton(
+    topLine: String,
+    bottomLine: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+) {
+    val tokens = glass
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(tokens.radiusMedium)
+    // Two tight lines inside the 48 dp row: the label size, line spacing trimmed to 1.15 em.
+    val style = MaterialTheme.typography.labelLarge.copy(lineHeight = 1.15.em)
+    Box(
+        modifier
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            Modifier
+                .heightIn(min = 48.dp)
+                .widthIn(min = 48.dp)
+                .clip(shape)
+                .drawBehind { drawRect(tokens.pill) }
+                .border(1.dp, tokens.pillBorder, shape)
+                .indication(interaction, ripple())
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                // The two lines are one label; the button's description already says it.
+                .clearAndSetSemantics {},
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(topLine, style = style, color = tokens.sheen, maxLines = 1, softWrap = false)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(bottomLine, style = style, color = tokens.sheen, maxLines = 1, softWrap = false)
+                if (icon != null) {
+                    Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.padding(start = 2.dp).size(16.dp))
+                }
             }
         }
     }

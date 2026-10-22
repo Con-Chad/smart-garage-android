@@ -1085,3 +1085,30 @@ App decisions use the `D-A` prefix.
     expanding child).
   - The Vehicles tab cards keep their D-A32 pop-in and are not a hero (a
     scale pop on a shared element would break full-scale-throughout).
+
+- **D-A36: the bottom bar is liquid glass; "View all" is a two-line pill.**
+  - **Bottom bar** (`MorphingBottomNav`): the opaque `navSurface` block is
+    replaced by the cards' plate (`glassPlate`, now `internal` with a `fill`
+    parameter): a translucent panel tint at ~72 % (`navSurface` dark
+    `#B8141622`, light `#B8FFFFFF`; a little denser than the cards' 42 / 55 %
+    so the inactive icons keep >= 3:1 over a bright aurora or pale car glow),
+    the aurora-tint plate glow, the 24 dp inset top highlight and 1 dp top
+    line, and the panel's 1 dp border (`navBorder` = `panelBorder`). Dark
+    `navInactive` lifted `#8A91A8` -> `#A3AABF` for the same reason. The blob
+    gains a 1 dp `panelHighlight` edge; it stays an opaque gradient, so the
+    selected icon / label on it keep their contrast whatever is behind. No
+    backdrop blur (none in the project, see `GlassPanel`). Floating pill
+    shape, blob spring (snaps under reduced motion), insets, layout and
+    TalkBack semantics unchanged; MainShell untouched. Content does not
+    scroll under the bar (Scaffold padding), so the glass shows the aurora.
+  - **"View all"** (`VehicleCardFooter`, home card and Vehicles-tab cards —
+    one shared footer, so both): new `GlassStackedPillButton` in
+    `GlassMenu.kt` — "View" over "all ›" (de "Alles" / "anzeigen ›";
+    `card_view_all_line1/2`), labelLarge at 1.15 em line height, 14 dp
+    rounded rect, min 48 x 48 dp, same pill fill / border / sheen / ripple;
+    TalkBack reads `card_view_all` once. Outer padding 8 -> 4 dp, the Quick
+    info bubble's side padding 10 -> 4 dp (still >= 48 dp), its label
+    `softWrap = false`, mileage `maxLines = 1`, so mileage and "Quick info" /
+    "Kurzinfo" each fit one line at 1.3x on a 360 dp phone (estimated, not
+    screenshot-verified). Home card's Confirm haptic is in the caller,
+    unchanged.

@@ -819,6 +819,9 @@
     <!-- Home card round (D-A31). -->
     <string name="card_quick_info">Kurzinfo</string>
     <string name="card_view_all">Alles anzeigen</string>
+    <!-- "View all" pill split over two lines (D-A36); the chevron follows line 2. -->
+    <string name="card_view_all_line1">Alles</string>
+    <string name="card_view_all_line2">anzeigen</string>
     <string name="fab_quick_log">Schnell erfassen</string>
     <string name="fab_log_expense">Ausgabe erfassen</string>
     <!-- UX-Runde 3 (D-A32): kurze sichtbare Beschriftungen der Fächer-Knöpfe. -->

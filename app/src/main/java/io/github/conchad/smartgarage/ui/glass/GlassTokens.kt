@@ -62,7 +62,11 @@ data class GlassTokens(
     val shineBlend: BlendMode,
     val textHalo: Color,
 
-    /** Bottom bar: pill surface, soft border, blob gradient and its glow (`--c09`). */
+    /**
+     * Bottom bar: pill surface, soft border, blob gradient and its glow (`--c09`). Since D-A36 the surface is the
+     * cards' glass — the panel tint, a little denser (~72 %) so the inactive icons keep ≥ 3:1 over a bright aurora
+     * or a pale car's glow — and the border is the panel's 1 dp edge.
+     */
     val navSurface: Color,
     val navBorder: Color,
     val navBlobStart: Color,
@@ -119,12 +123,12 @@ val DarkGlassTokens = GlassTokens(
     shine = Color(0x47FFFFFF),
     shineBlend = BlendMode.Screen,
     textHalo = Color(0xB308090D),
-    navSurface = Color(0xFF1C2030),
-    navBorder = Color(0x12FFFFFF),
+    navSurface = Color(0xB8141622),
+    navBorder = Color(0x29FFFFFF),
     navBlobStart = Color(0xFFDA3E8C),
     navBlobEnd = Color(0xFFC0B459),
     navGlow = Color(0x80C0B459),
-    navInactive = Color(0xFF8A91A8),
+    navInactive = Color(0xFFA3AABF),
     onAccent = Color(0xFFFFFFFF),
     photoScrim = PhotoScrim,
     onPhoto = OnPhoto,
@@ -156,8 +160,8 @@ val LightGlassTokens = GlassTokens(
     shine = Color(0x8CFFFFFF),
     shineBlend = BlendMode.SrcOver,
     textHalo = Color(0xB3FFFFFF),
-    navSurface = Color(0xFFFFFFFF),
-    navBorder = Color(0x14000000),
+    navSurface = Color(0xB8FFFFFF),
+    navBorder = Color(0x24141826),
     navBlobStart = Color(0xFFCD277A),
     navBlobEnd = Color(0xFF776E2D),
     navGlow = Color(0x4D776E2D),

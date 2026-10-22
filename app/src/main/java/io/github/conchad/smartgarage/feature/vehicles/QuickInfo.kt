@@ -55,6 +55,7 @@ import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
 import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.glass.GlassPillButton
+import io.github.conchad.smartgarage.ui.glass.GlassStackedPillButton
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
@@ -76,6 +77,10 @@ class QuickInfoActions(
  * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list): the mileage on the
  * left, the "View all" pill exactly centred (both sides take an equal weight), the "Quick info" bubble on the right,
  * all centred on one line. [onViewAll] null leaves the centre empty.
+ *
+ * D-A36: "View all" is a two-line pill ("View" over "all ›", [GlassStackedPillButton]) so it takes about half the
+ * width; with the trimmed bubble padding, the mileage stays on one line and "Quick info" / "Kurzinfo" on one row
+ * up to 1.3× font scale on a 360 dp phone.
  */
 @Composable
 fun VehicleCardFooter(
@@ -90,14 +95,16 @@ fun VehicleCardFooter(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            MetallicText(mileage, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            MetallicText(mileage, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (onViewAll != null) {
-            GlassPillButton(
-                label = stringResource(R.string.card_view_all),
+            GlassStackedPillButton(
+                topLine = stringResource(R.string.card_view_all_line1),
+                bottomLine = stringResource(R.string.card_view_all_line2),
+                contentDescription = stringResource(R.string.card_view_all),
                 icon = Icons.Outlined.ChevronRight,
                 onClick = onViewAll,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -128,11 +135,11 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
             .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
             .semantics(mergeDescendants = true) { stateDescription = stateText }
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1)
+        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1, softWrap = false)
         Icon(
             Icons.Outlined.ExpandCircleDown,
             contentDescription = null,

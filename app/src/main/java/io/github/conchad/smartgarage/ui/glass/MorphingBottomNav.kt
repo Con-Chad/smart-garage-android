@@ -62,6 +62,10 @@ data class NavTab(val label: String, val icon: ImageVector, val selectedIcon: Im
  * Items are equal-width, so the blob's position is `index × item width`; the row's width is read once with
  * `onSizeChanged`, and the blob moves in the layout phase (`offset { }`) rather than recomposing per frame.
  * No idle auto-cycle: the snippet's demo loop is left out on purpose.
+ *
+ * D-A36: the pill is the cards' liquid glass rather than an opaque block — the same plate as [GlassPanel]
+ * (translucent [GlassTokens.navSurface], the aurora-tint plate glow, the inset top highlight and 1 dp top line) and
+ * the panel's 1 dp border. The blob carries the same 1 dp highlight edge so it stays distinct over a bright aurora.
  */
 @Composable
 fun MorphingBottomNav(
@@ -78,6 +82,7 @@ fun MorphingBottomNav(
     val position by animateFloatAsState(selectedIndex.coerceAtLeast(0).toFloat(), blobSpec, label = "blob")
     var rowWidth by remember { mutableIntStateOf(0) }
     val itemCount = tabs.size.coerceAtLeast(1)
+    val auroraGlow = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
 
     Box(
         modifier
@@ -90,7 +95,7 @@ fun MorphingBottomNav(
                 .fillMaxWidth()
                 .shadow(if (tokens.dark) 14.dp else 8.dp, pillShape, clip = false, ambientColor = tokens.shadow, spotColor = tokens.shadow)
                 .clip(pillShape)
-                .drawBehind { drawRect(tokens.navSurface) }
+                .glassPlate(tokens, glow = auroraGlow, fill = tokens.navSurface)
                 .border(1.dp, tokens.navBorder, pillShape)
                 .padding(8.dp)
                 .height(NAV_HEIGHT)
@@ -106,7 +111,8 @@ fun MorphingBottomNav(
                         .fillMaxHeight()
                         .shadow(10.dp, blobShape, clip = false, ambientColor = tokens.navGlow, spotColor = tokens.navGlow)
                         .clip(blobShape)
-                        .drawBehind { drawRect(Brush.linearGradient(listOf(tokens.navBlobStart, tokens.navBlobEnd))) },
+                        .drawBehind { drawRect(Brush.linearGradient(listOf(tokens.navBlobStart, tokens.navBlobEnd))) }
+                        .border(1.dp, tokens.panelHighlight, blobShape),
                 )
             }
             Row(Modifier.fillMaxWidth().fillMaxHeight().selectableGroup(), verticalAlignment = Alignment.CenterVertically) {

@@ -96,8 +96,11 @@ fun GlassPanel(
     }
 }
 
-/** The panel's fill, inset top highlight and (when [glow] is specified) the plate glow; brushes cached per size. */
-private fun Modifier.glassPlate(tokens: GlassTokens, glow: Color): Modifier = drawWithCache {
+/**
+ * The panel's fill, inset top highlight and (when [glow] is specified) the plate glow; brushes cached per size.
+ * [fill] defaults to the panel's; the bottom bar passes its denser [GlassTokens.navSurface] (D-A36).
+ */
+internal fun Modifier.glassPlate(tokens: GlassTokens, glow: Color, fill: Color = tokens.panel): Modifier = drawWithCache {
     val highlightH = 24.dp.toPx()
     val highlight = Brush.verticalGradient(
         0f to tokens.panelHighlight,
@@ -119,7 +122,7 @@ private fun Modifier.glassPlate(tokens: GlassTokens, glow: Color): Modifier = dr
         null
     }
     onDrawBehind {
-        drawRect(tokens.panel)
+        drawRect(fill)
         if (glowBrush != null) drawRect(glowBrush)
         drawRect(highlight, size = highlightSize)
         drawLine(tokens.panelHighlight, Offset(0f, lineY), Offset(size.width, lineY), strokeWidth = lineWidth)
