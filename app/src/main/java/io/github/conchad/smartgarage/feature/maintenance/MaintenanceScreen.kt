@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +46,7 @@ import io.github.conchad.smartgarage.ui.components.RecordSheet
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
+import io.github.conchad.smartgarage.ui.components.SearchField
 import io.github.conchad.smartgarage.ui.components.SheetTarget
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
@@ -59,6 +61,7 @@ fun MaintenanceScreen(
     onAddSchedule: (vehicleId: String?) -> Unit,
     onEditSchedule: (scheduleId: String) -> Unit,
     onEditScheduleDefaults: (scheduleId: String) -> Unit,
+    onAttachReceipt: (vehicleId: String, recordId: String) -> Unit,
     viewModel: MaintenanceViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -99,6 +102,11 @@ fun MaintenanceScreen(
                 viewModel::selectVehicle,
                 Modifier.padding(top = 12.dp),
             )
+            // The web's history search (name, vendor, notes, parts); filtered in the ViewModel (D-A23).
+            if (tab == 1 && state.loaded && (state.unfilteredRecords > 0 || state.query.isNotEmpty())) {
+                SearchField(state.query, viewModel::search, stringResource(R.string.search_history_hint), Modifier.padding(top = 8.dp, bottom = 4.dp))
+            }
+            val searching = state.query.isNotBlank() && state.unfilteredRecords > 0
             RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                     when {
@@ -114,9 +122,9 @@ fun MaintenanceScreen(
                         )
                         tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
                         state.records.isEmpty() -> EmptyState(
-                            icon = Icons.Outlined.History,
-                            title = stringResource(R.string.maintenance_no_records_title),
-                            body = stringResource(R.string.maintenance_no_records_body),
+                            icon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
+                            title = stringResource(if (searching) R.string.search_no_matches_title else R.string.maintenance_no_records_title),
+                            body = stringResource(if (searching) R.string.search_no_matches_body else R.string.maintenance_no_records_body),
                         )
                         else -> History(state, pendingIds, onOpen = { open = SheetTarget.Record(it) })
                     }
@@ -165,6 +173,10 @@ fun MaintenanceScreen(
                 onDelete = {
                     open = null
                     viewModel.deleteRecord(record.id)
+                },
+                onAttachReceipt = {
+                    open = null
+                    onAttachReceipt(record.vehicleId, record.id)
                 },
             )
         }

@@ -64,8 +64,11 @@ import kotlinx.serialization.Serializable
 /** An insurance policy for [vehicleId]; [policyId] edits the existing one. */
 @Serializable data class InsuranceFormRoute(val vehicleId: String, val policyId: String? = null)
 
-/** Upload a document; [vehicleId] preselects the vehicle. */
-@Serializable data class DocumentFormRoute(val vehicleId: String? = null)
+/**
+ * Upload a document; [vehicleId] preselects the vehicle. With [maintenanceRecordId] the file is a receipt filed
+ * under that record (vehicle fixed); [capture] opens the camera straight away (D-A23).
+ */
+@Serializable data class DocumentFormRoute(val vehicleId: String? = null, val maintenanceRecordId: String? = null, val capture: Boolean = false)
 
 /** A section reached from More that has no screen yet; replaced one by one in CP10. */
 @Serializable data class SectionRoute(val section: Section)

@@ -273,3 +273,47 @@ App decisions use the `D-A` prefix.
   - Sharing stops five seconds after the last subscriber leaves (the same
     timeout as the ViewModels' `stateIn`) and the replay is dropped then,
     so a screen opened later never shows a stale list before the fresh one.
+- **D-A23: Parity gap-fill: charts drawn in-house, search in the ViewModel,
+  camera capture downscaled, custom fields and modifications read-only.**
+  - Charts are a `Canvas` line chart and bar chart in
+    `ui/components/charts/` (no charting dependency). Series come from
+    `ChartMath` (pure Kotlin, unit-tested) in stored units and are converted
+    for display through `Formatter`, the same way the rows are, so a chart
+    never disagrees with the list under it. Theme colors, sp text; TalkBack
+    reads one spoken summary (span, latest, lowest, highest) in place of the
+    drawing. Fuel shows the web's consumption and price-per-unit trends in a
+    collapsible "Trends" group above the log; Odometer shows readings over
+    time; Expenses shows the web's cost overview (last 12 months, by
+    category). The fuel and odometer charts are per vehicle and only drawn
+    when one vehicle is in view; under "All vehicles" the card says to pick
+    one, since lines of different cars mean nothing together.
+  - Search (Service → History, the History section, Notes) is a plain
+    outlined field with a clear button; the matching is `SearchMatch` in the
+    ViewModel (words ANDed, case- and accent-folded), never in composition.
+    Records match on name, vendor, notes and parts; notes on title, content
+    and tags, with a tag chip row (one tag at a time) and Pin/Unpin as the
+    note sheet's secondary action (`NotePatch(isPinned)` only). "No matches"
+    is told apart from "nothing yet".
+  - Camera capture uses `ActivityResultContracts.TakePicture` into
+    `cache/captures/` through the existing FileProvider (`captures` path
+    added); no CAMERA permission, no Google libraries. The photo is
+    re-encoded in place before anything is queued: long edge ≤ 1600 px, JPEG
+    80 %, EXIF rotation applied and EXIF dropped (`ImageMath` sizing is
+    unit-tested), then it is a `PickedFile` like any other and goes through
+    `FileRules` → `addDocument`. "Take photo" sits next to "Choose file" in
+    the document form; a service record's sheet has "Attach receipt", which
+    opens the form with the record pre-linked (vehicle fixed, category
+    Invoice) and the camera already open. Captures older than a day are
+    swept when the form opens; the one uploaded is deleted once queued.
+  - `customFields`, `customFieldValues` and `modifications` are in `/sync`
+    (`resources.ts`) and were already cached, so typed models were added
+    (`CustomField`, `CustomFieldValue`, `Modification`; all fields optional)
+    and `GarageRepository` exposes them. The vehicle detail shows custom
+    fields as rows at the end of Details (before Notes, the web's order;
+    only fields with a value) formatted like the web's
+    `formatCustomFieldValue`, and a read-only Modifications group. Writing
+    either stays out of scope (D-A16).
+  - `PhotoLoader` remembers resolved files per document id and
+    `VehiclePhoto` starts from that, so a card scrolled back into view no
+    longer flashes the placeholder.
+

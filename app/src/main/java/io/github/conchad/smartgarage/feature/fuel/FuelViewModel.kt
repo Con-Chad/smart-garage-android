@@ -7,6 +7,8 @@ import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.ChartMath
+import io.github.conchad.smartgarage.core.model.ChartPoint
 import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.FuelSegment
 import io.github.conchad.smartgarage.core.model.GarageMath
@@ -31,6 +33,12 @@ data class FuelSummary(
     val fillUps: Int,
 )
 
+/**
+ * The charts above the log (D-A23), for one vehicle: consumption per fill-up (stored L/100 km) and the price per
+ * liter (cents), oldest first. Null while more than one vehicle is in view: their lines would mean nothing together.
+ */
+data class FuelTrends(val consumption: List<ChartPoint>, val price: List<ChartPoint>)
+
 data class FuelMonth(val month: YearMonth, val entries: List<FuelEntry>) {
     val totalCents: Long get() = entries.sumOf { it.totalCostCents }
 }
@@ -41,6 +49,7 @@ data class FuelUiState(
     val months: List<FuelMonth> = emptyList(),
     val segments: Map<String, FuelSegment> = emptyMap(),
     val summary: FuelSummary? = null,
+    val trends: FuelTrends? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
 ) {
@@ -81,6 +90,7 @@ class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncC
                 liters = thisYear.sumOf { it.liters ?: 0.0 },
                 fillUps = thisYear.size,
             ),
+            trends = if (filter != null || vehicles.size == 1) FuelTrends(ChartMath.consumptionSeries(entries), ChartMath.priceSeries(entries)) else null,
             formatter = fmt,
             loaded = true,
         )

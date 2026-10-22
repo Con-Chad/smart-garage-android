@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.core.data
 import io.github.conchad.smartgarage.core.cache.CacheProvider
 import io.github.conchad.smartgarage.core.cache.CachedRow
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.CustomField
+import io.github.conchad.smartgarage.core.model.CustomFieldValue
 import io.github.conchad.smartgarage.core.model.Document
 import io.github.conchad.smartgarage.core.model.Expense
 import io.github.conchad.smartgarage.core.model.FuelEntry
@@ -10,6 +12,7 @@ import io.github.conchad.smartgarage.core.model.Inspection
 import io.github.conchad.smartgarage.core.model.InsurancePolicy
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.MaintenanceTemplate
+import io.github.conchad.smartgarage.core.model.Modification
 import io.github.conchad.smartgarage.core.model.Note
 import io.github.conchad.smartgarage.core.model.OdometerLog
 import io.github.conchad.smartgarage.core.model.Schedule
@@ -68,6 +71,9 @@ class GarageRepository @Inject constructor(
     val documents: Flow<List<Document>> = observe("documents", Document.serializer())
     val notes: Flow<List<Note>> = observe("notes", Note.serializer())
     val wishlist: Flow<List<WishlistItem>> = observe("wishlistItems", WishlistItem.serializer())
+    val modifications: Flow<List<Modification>> = observe("modifications", Modification.serializer())
+    val customFields: Flow<List<CustomField>> = observe("customFields", CustomField.serializer())
+    val customFieldValues: Flow<List<CustomFieldValue>> = observe("customFieldValues", CustomFieldValue.serializer())
 
     /** Formats values with the active server's unit, currency and time zone preferences. */
     val formatter: Flow<Formatter> = profiles.state.map { it.active?.preferences }.distinctUntilChanged().map { Formatter(it) }

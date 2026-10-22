@@ -9,15 +9,21 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
+import io.github.conchad.smartgarage.core.data.NotePatch
 import io.github.conchad.smartgarage.core.data.PhotoStore
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.CategoryTotal
+import io.github.conchad.smartgarage.core.model.ChartMath
+import io.github.conchad.smartgarage.core.model.ChartPoint
 import io.github.conchad.smartgarage.core.model.Document
 import io.github.conchad.smartgarage.core.model.Expense
 import io.github.conchad.smartgarage.core.model.FuelSegment
 import io.github.conchad.smartgarage.core.model.GarageMath
+import io.github.conchad.smartgarage.core.model.MonthTotal
 import io.github.conchad.smartgarage.core.model.Note
 import io.github.conchad.smartgarage.core.model.OdometerLog
 import io.github.conchad.smartgarage.core.model.Reminder
+import io.github.conchad.smartgarage.core.model.SearchMatch
 import io.github.conchad.smartgarage.core.model.SectionMath
 import io.github.conchad.smartgarage.core.model.TimelineEvent
 import io.github.conchad.smartgarage.core.model.Vehicle
@@ -46,6 +52,8 @@ data class SectionUiState<T>(
     val data: T,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
+    /** The search text as typed; the data is already filtered by it. */
+    val query: String = "",
 ) {
     val vehicleById: Map<String, Vehicle> = vehicles.associateBy { it.id }
 
@@ -65,20 +73,28 @@ abstract class SectionViewModel<T>(
     writer: GarageWriter,
 ) : WritingViewModel(control, writer) {
     private val selected = MutableStateFlow<String?>(null)
+    private val query = MutableStateFlow("")
 
-    protected abstract fun content(): Flow<(Set<String>, String?) -> T>
+    /** What the section shows for (vehicle ids in view, vehicle filter, search terms). Sections without a search ignore the terms. */
+    protected abstract fun content(): Flow<(Set<String>, String?, List<String>) -> T>
 
     val state: StateFlow<SectionUiState<T>> by lazy {
-        combine(garage.vehicles, garage.formatter, selected, content()) { all, fmt, vehicleId, build ->
+        combine(garage.vehicles, garage.formatter, selected, query, content()) { all, fmt, vehicleId, text, build ->
             val vehicles = all.sortedWith(GarageMath.vehicleOrder)
             // A vehicle that disappeared (deleted or unshared) drops the filter rather than showing nothing.
             val filter = vehicleId?.takeIf { id -> vehicles.any { it.id == id } }
-            SectionUiState(vehicles, filter, build(vehicles.mapTo(HashSet()) { it.id }, filter), fmt, loaded = true)
+            val data = build(vehicles.mapTo(HashSet()) { it.id }, filter, SearchMatch.terms(text))
+            SectionUiState(vehicles, filter, data, fmt, loaded = true, query = text)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SectionUiState(data = initial))
     }
 
     fun selectVehicle(id: String?) {
         selected.value = id
+    }
+
+    /** Search text; the filtering runs here (D-A23), so the list only ever receives what matches. */
+    fun search(text: String) {
+        query.value = text
     }
 
     protected fun String?.inView(ids: Set<String>, filter: String?): Boolean =
@@ -92,7 +108,7 @@ class RemindersViewModel @Inject constructor(garage: GarageRepository, control: 
     SectionViewModel<List<Reminder>>(garage, emptyList(), control, writer) {
     private val source = combine(garage.vehicles, garage.schedules, garage.templates, garage.inspections, garage.insurancePolicies) {
             vehicles, schedules, templates, inspections, policies ->
-        { ids: Set<String>, filter: String? ->
+        { ids: Set<String>, filter: String?, _: List<String> ->
             val inView = vehicles.filter { it.id.inView(ids, filter) }
             SectionMath.reminders(GarageMath.dueItems(schedules, inView, templates, german), inspections, policies, inView)
         }
@@ -108,6 +124,8 @@ data class HistoryData(
     val events: List<TimelineEvent> = emptyList(),
     val recordNames: Map<String, String> = emptyMap(),
     val segments: Map<String, FuelSegment> = emptyMap(),
+    /** Events in view before the search narrowed them; tells "nothing matches" from "nothing happened". */
+    val unfiltered: Int = 0,
 )
 
 @HiltViewModel
@@ -120,11 +138,20 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository, control: Sy
     }
     private val source = combine(garage.records, garage.fuelEntries, garage.expenses, garage.odometerLogs, names) {
             records, fuel, expenses, logs, recordNames ->
-        { ids: Set<String>, filter: String? ->
+        { ids: Set<String>, filter: String?, terms: List<String> ->
+            val inView = SectionMath.timeline(records, fuel, expenses, logs).filter { it.vehicleId.inView(ids, filter) }
             HistoryData(
-                events = SectionMath.timeline(records, fuel, expenses, logs).filter { it.vehicleId.inView(ids, filter) },
+                events = inView.filter { event ->
+                    when (event) {
+                        is TimelineEvent.Service -> SearchMatch.record(event.record, recordNames[event.record.id], terms)
+                        is TimelineEvent.Fuel -> SearchMatch.fuel(event.entry, terms)
+                        is TimelineEvent.Cost -> SearchMatch.expense(event.expense, terms)
+                        is TimelineEvent.Odometer -> SearchMatch.odometer(event.log, terms)
+                    }
+                },
                 recordNames = recordNames,
                 segments = GarageMath.fuelSegments(fuel),
+                unfiltered = inView.size,
             )
         }
     }
@@ -132,17 +159,24 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository, control: Sy
     override fun content() = source
 }
 
-data class OdometerData(val logs: List<OdometerLog> = emptyList(), val deltas: Map<String, Int> = emptyMap())
+data class OdometerData(
+    val logs: List<OdometerLog> = emptyList(),
+    val deltas: Map<String, Int> = emptyMap(),
+    /** Readings of the one vehicle in view, oldest first, for the chart (D-A23); null with several vehicles in view. */
+    val series: List<ChartPoint>? = null,
+)
 
 @HiltViewModel
 class OdometerViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
     SectionViewModel<OdometerData>(garage, OdometerData(), control, writer) {
     private val source = garage.odometerLogs.map { logs ->
         val deltas = SectionMath.odometerDeltas(logs)
-        val build = { ids: Set<String>, filter: String? ->
+        val build = { ids: Set<String>, filter: String?, _: List<String> ->
+            val inView = logs.filter { it.vehicleId.inView(ids, filter) }
             OdometerData(
-                logs.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.recordedAt.toInstantOrNull() ?: Instant.MIN },
+                inView.sortedByDescending { it.recordedAt.toInstantOrNull() ?: Instant.MIN },
                 deltas,
+                series = if (filter != null || ids.size == 1) ChartMath.odometerSeries(inView) else null,
             )
         }
         build
@@ -151,12 +185,30 @@ class OdometerViewModel @Inject constructor(garage: GarageRepository, control: S
     override fun content() = source
 }
 
+/** The expenses in view plus the web's cost overview for them: the last twelve months and the split by category. */
+data class ExpensesData(
+    val expenses: List<Expense> = emptyList(),
+    val months: List<MonthTotal> = emptyList(),
+    val categories: List<CategoryTotal> = emptyList(),
+    /** The currency most of the expenses in the window use; the totals are shown in it. */
+    val currency: String? = null,
+) {
+    val isEmpty: Boolean get() = expenses.isEmpty()
+}
+
 @HiltViewModel
 class ExpensesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
-    SectionViewModel<List<Expense>>(garage, emptyList(), control, writer) {
-    private val source = garage.expenses.map { expenses ->
-        val build = { ids: Set<String>, filter: String? ->
-            expenses.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.occurredAt.toInstantOrNull() ?: Instant.MIN }
+    SectionViewModel<ExpensesData>(garage, ExpensesData(), control, writer) {
+    private val source = combine(garage.expenses, garage.formatter) { expenses, fmt ->
+        val build = { ids: Set<String>, filter: String?, _: List<String> ->
+            val inView = expenses.filter { it.vehicleId.inView(ids, filter) }
+            val now = Instant.now()
+            ExpensesData(
+                expenses = inView.sortedByDescending { it.occurredAt.toInstantOrNull() ?: Instant.MIN },
+                months = ChartMath.monthlyTotals(inView, fmt.zone, now),
+                categories = ChartMath.categoryTotals(inView, fmt.zone, now),
+                currency = inView.groupingBy { it.currency }.eachCount().maxByOrNull { it.value }?.key,
+            )
         }
         build
     }
@@ -184,7 +236,7 @@ class DocumentsViewModel @Inject constructor(
     writer: GarageWriter,
 ) : SectionViewModel<List<Document>>(garage, emptyList(), control, writer) {
     private val source = garage.documents.map { documents ->
-        val build = { ids: Set<String>, filter: String? ->
+        val build = { ids: Set<String>, filter: String?, _: List<String> ->
             documents.filter { it.vehicleId.inView(ids, filter) }.sortedByDescending { it.createdAt }
         }
         build
@@ -229,19 +281,49 @@ class DocumentsViewModel @Inject constructor(
     }
 }
 
+/** Notes in view, pinned first; [tags] are every tag on the notes in view (before the tag filter), for the chip row. */
+data class NotesData(
+    val notes: List<Note> = emptyList(),
+    val tags: List<String> = emptyList(),
+    val selectedTag: String? = null,
+    /** Notes in view before search and tag filter narrowed them. */
+    val unfiltered: Int = 0,
+) {
+    val isEmpty: Boolean get() = notes.isEmpty()
+}
+
 @HiltViewModel
 class NotesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
-    SectionViewModel<List<Note>>(garage, emptyList(), control, writer) {
-    private val source = garage.notes.map { notes ->
-        val build = { ids: Set<String>, filter: String? ->
+    SectionViewModel<NotesData>(garage, NotesData(), control, writer) {
+    private val tag = MutableStateFlow<String?>(null)
+
+    private val source = combine(garage.notes, tag) { notes, selectedTag ->
+        val build = { ids: Set<String>, filter: String?, terms: List<String> ->
             // Notes without a vehicle are general notes: shown under "All vehicles" only.
-            notes.filter { it.vehicleId.inView(ids, filter) }
-                .sortedWith(compareByDescending<Note> { it.isPinned }.thenByDescending { it.updatedAt })
+            val inView = notes.filter { it.vehicleId.inView(ids, filter) }
+            val tags = inView.flatMap { it.tags }.distinct().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+            // A tag that no longer exists on any note in view drops the filter rather than showing nothing.
+            val activeTag = selectedTag?.takeIf { it in tags }
+            NotesData(
+                notes = inView
+                    .filter { (activeTag == null || activeTag in it.tags) && SearchMatch.note(it, terms) }
+                    .sortedWith(compareByDescending<Note> { it.isPinned }.thenByDescending { it.updatedAt }),
+                tags = tags,
+                selectedTag = activeTag,
+                unfiltered = inView.size,
+            )
         }
         build
     }
 
     override fun content() = source
+
+    fun selectTag(value: String?) {
+        tag.value = value
+    }
+
+    /** The pin toggle from the note's sheet; only `isPinned` goes in the patch, so nothing else is touched. */
+    fun setPinned(note: Note, pinned: Boolean) = perform { updateNote(note.id, NotePatch(isPinned = pinned)) }
 
     fun deleteNote(id: String) = perform { deleteNote(id) }
 }
@@ -250,7 +332,7 @@ class NotesViewModel @Inject constructor(garage: GarageRepository, control: Sync
 class WishlistViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) :
     SectionViewModel<List<WishlistItem>>(garage, emptyList(), control, writer) {
     private val source = garage.wishlist.map { items ->
-        val build = { ids: Set<String>, filter: String? ->
+        val build = { ids: Set<String>, filter: String?, _: List<String> ->
             items.filter { it.vehicleId.inView(ids, filter) }
                 .sortedWith(compareByDescending<WishlistItem> { it.priority }.thenByDescending { it.createdAt })
         }

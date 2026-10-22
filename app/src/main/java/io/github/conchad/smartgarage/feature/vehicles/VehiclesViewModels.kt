@@ -10,8 +10,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.CustomField
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
+import io.github.conchad.smartgarage.core.model.Modification
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.files.FileProblem
@@ -58,6 +60,10 @@ data class VehicleDetailUiState(
     val formatter: Formatter = Formatter(null),
     /** Display names of the vehicle's service records, by record id. */
     val recordNames: Map<String, String> = emptyMap(),
+    /** The owner's custom fields that have a value on this vehicle, in the owner's order (D-A23). */
+    val customFields: List<Pair<CustomField, String>> = emptyList(),
+    /** Fitted modifications, most recently installed first. */
+    val modifications: List<Modification> = emptyList(),
     val loaded: Boolean = false,
 ) {
     fun recordName(record: MaintenanceRecord): String? = recordNames[record.id]
@@ -86,11 +92,13 @@ class VehicleDetailViewModel @Inject constructor(
 
     private val history = combine(garage.records, garage.fuelEntries, garage.expenses, ::Triple)
     private val papers = combine(garage.inspections, garage.insurancePolicies, ::Pair)
+    private val extras = combine(garage.customFields, garage.customFieldValues, garage.modifications, ::Triple)
 
-    val state: StateFlow<VehicleDetailUiState> = combine(due, history, papers, garage.formatter) { dueData, historyData, paperData, fmt ->
+    val state: StateFlow<VehicleDetailUiState> = combine(due, history, papers, extras, garage.formatter) { dueData, historyData, paperData, extraData, fmt ->
         val (vehicles, dueItems, templatesAndSchedules) = dueData
         val (records, fuel, expenses) = historyData
         val (inspections, policies) = paperData
+        val (fields, values, modifications) = extraData
         val vehicle = vehicles.firstOrNull { it.id == vehicleId }
             ?: return@combine VehicleDetailUiState(formatter = fmt, loaded = true)
         val yearStart = LocalDate.now(fmt.zone).withDayOfYear(1).atStartOfDay(fmt.zone).toInstant()
@@ -101,7 +109,14 @@ class VehicleDetailViewModel @Inject constructor(
         val names = detail.records.mapNotNull { record ->
             GarageMath.recordName(record, scheduleById, templateById, german)?.let { record.id to it }
         }.toMap()
-        VehicleDetailUiState(detail, fmt, names, loaded = true)
+        // The web's order: the owner's field positions; only fields with a value on this vehicle are rows.
+        val valueByField = values.filter { it.vehicleId == vehicleId }.associateBy { it.fieldId }
+        val customFields = fields
+            .sortedWith(compareBy<CustomField> { it.position }.thenBy { it.createdAt })
+            .mapNotNull { field -> valueByField[field.id]?.value?.takeIf { it.isNotBlank() }?.let { field to it } }
+        val fitted = modifications.filter { it.vehicleId == vehicleId }
+            .sortedWith(compareByDescending<Modification> { it.installedAt ?: "" }.thenByDescending { it.createdAt })
+        VehicleDetailUiState(detail, fmt, names, customFields, fitted, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehicleDetailUiState())
 
     private val closedState = MutableStateFlow(false)

@@ -25,10 +25,23 @@ import coil3.compose.AsyncImage
 import io.github.conchad.smartgarage.core.data.PhotoStore
 import io.github.conchad.smartgarage.core.model.Vehicle
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
-/** Resolves a document id to a local file for the active profile; provided by the main shell. */
+/**
+ * Resolves a document id to a local file for the active profile; provided by the main shell. Files already resolved
+ * are remembered, so a card scrolled back into view starts with its photo instead of the placeholder glyph (D-A23).
+ * One loader lives per profile, and a vehicle's photo id changes when the photo does, so the map never goes stale.
+ */
 class PhotoLoader(private val profileId: String, private val store: PhotoStore) {
-    suspend fun file(documentId: String): File? = store.file(profileId, documentId)
+    private val resolved = ConcurrentHashMap<String, File>()
+
+    /** The file if it was resolved before, without touching the disk. */
+    fun cached(documentId: String): File? = resolved[documentId]
+
+    suspend fun file(documentId: String): File? {
+        resolved[documentId]?.let { if (it.exists()) return it else resolved.remove(documentId) }
+        return store.file(profileId, documentId)?.also { resolved[documentId] = it }
+    }
 }
 
 val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { null }
@@ -40,8 +53,9 @@ val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { null }
 @Composable
 fun VehiclePhoto(vehicle: Vehicle, modifier: Modifier = Modifier, shape: Shape = RectangleShape, iconSize: Dp = 40.dp) {
     val loader = LocalPhotoLoader.current
-    val file by produceState<File?>(null, vehicle.imageDocumentId, loader) {
-        value = vehicle.imageDocumentId?.let { id -> loader?.file(id) }
+    val documentId = vehicle.imageDocumentId
+    val file by produceState(documentId?.let { loader?.cached(it) }, documentId, loader) {
+        value = documentId?.let { id -> loader?.file(id) }
     }
     val colors = MaterialTheme.colorScheme
     Box(

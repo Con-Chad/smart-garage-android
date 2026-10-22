@@ -208,6 +208,8 @@ fun RecordSheet(
     pending: Boolean = false,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    /** Opens the camera for a receipt that is filed under this record (D-A23). */
+    onAttachReceipt: (() -> Unit)? = null,
 ) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(
@@ -225,8 +227,13 @@ fun RecordSheet(
             record.items.forEach { ItemRow(it, fmt, record.currency) }
         }
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        if (onEdit != null || onDelete != null) {
-            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } })
+        if (onEdit != null || onDelete != null || onAttachReceipt != null) {
+            SheetActions(
+                vehicle,
+                secondary = onAttachReceipt?.let { stringResource(R.string.action_attach_receipt) to it },
+                onEdit = onEdit,
+                onDelete = onDelete?.let { { confirmDelete = true } },
+            )
         }
     }
     if (confirmDelete && onDelete != null) {

@@ -646,4 +646,72 @@
     <string name="maint_category_inspection">Inspektion</string>
     <string name="maint_category_additive">Additiv</string>
     <string name="maint_category_other">Sonstiges</string>
+
+    <!-- Diagramme (D-A23): in der App gezeichnet; TalkBack liest stattdessen die Zusammenfassung. -->
+    <string name="fuel_trends">Verlauf</string>
+    <string name="fuel_chart_consumption">Verbrauch (%1$s)</string>
+    <string name="fuel_chart_price">Preis pro %1$s</string>
+    <string name="odometer_chart_readings">Kilometerstand im Zeitverlauf</string>
+    <string name="expenses_overview">Überblick</string>
+    <string name="expenses_chart_monthly">Monatliche Ausgaben</string>
+    <plurals name="expenses_last_months">
+        <item quantity="one">Letzter Monat</item>
+        <item quantity="other">Letzte %1$d Monate</item>
+    </plurals>
+    <plurals name="chart_points">
+        <item quantity="one">%1$d Punkt</item>
+        <item quantity="other">%1$d Punkte</item>
+    </plurals>
+    <plurals name="chart_months">
+        <item quantity="one">%1$d Monat</item>
+        <item quantity="other">%1$d Monate</item>
+    </plurals>
+    <string name="expenses_by_category">Nach Kategorie</string>
+    <string name="chart_pick_vehicle">Wähle oben ein Fahrzeug, um seinen Verlauf zu sehen.</string>
+    <string name="chart_needs_fill_ups">Für einen Verlauf braucht es zwei Tankfüllungen mit Menge und Preis.</string>
+    <string name="chart_needs_segments">Für einen Verbrauchsverlauf braucht es zwei Tankfüllungen mit Kilometerstand.</string>
+    <string name="chart_needs_readings">Für ein Diagramm braucht es zwei Kilometerstände.</string>
+    <string name="chart_needs_expenses">Keine Ausgaben in diesem Zeitraum.</string>
+    <string name="chart_summary_line">%1$s: %2$s von %3$s bis %4$s. Zuletzt %5$s, niedrigster Wert %6$s, höchster Wert %7$s.</string>
+    <string name="chart_summary_bars">%1$s: %2$s von %3$s bis %4$s. Gesamt %5$s; am meisten %6$s im %7$s.</string>
+
+    <!-- Suche und Filter (D-A23). Platzhalter wie im Web. -->
+    <string name="search_clear">Suche löschen</string>
+    <string name="search_history_hint">Teile, Öl, Filter, Notizen suchen…</string>
+    <string name="search_notes_hint">Notizen durchsuchen…</string>
+    <string name="search_no_matches_title">Keine Treffer</string>
+    <string name="search_no_matches_body">Versuche andere Wörter oder lösche die Suche und die Filter.</string>
+    <string name="note_pin_action">Anheften</string>
+    <string name="note_unpin">Lösen</string>
+
+    <!-- Kameraaufnahme (D-A23). -->
+    <string name="action_attach_receipt">Beleg anhängen</string>
+    <string name="file_take_photo">Foto aufnehmen</string>
+    <string name="capture_processing">Foto wird vorbereitet…</string>
+    <string name="camera_unavailable">Auf diesem Telefon ist keine Kamera-App verfügbar.</string>
+    <string name="document_form_receipt_title">Beleg anhängen</string>
+    <string name="document_form_receipt_for">Beleg für %1$s</string>
+
+    <!-- Fahrzeugdetails: Modifikationen (nur lesen) und eigene Felder (D-A23). Gleiche Bezeichnungen wie im Web. -->
+    <string name="vehicle_modifications">Modifikationen</string>
+    <string name="vehicle_no_modifications">Noch keine Modifikationen erfasst.</string>
+    <string name="modification_installed">Eingebaut am %1$s</string>
+    <string name="mod_category_stage_1">Stufe 1</string>
+    <string name="mod_category_stage_2">Stufe 2</string>
+    <string name="mod_category_stage_3">Stufe 3</string>
+    <string name="mod_category_stage_4">Stufe 4</string>
+    <string name="mod_category_intake">Ansaugung</string>
+    <string name="mod_category_intercooler">Ladeluftkühler</string>
+    <string name="mod_category_downpipe">Downpipe</string>
+    <string name="mod_category_exhaust">Abgasanlage</string>
+    <string name="mod_category_turbocharger">Turbolader</string>
+    <string name="mod_category_fuel_pump_hp">Hochdruck-Kraftstoffpumpe</string>
+    <string name="mod_category_fuel_pump_lp">Niederdruck-Kraftstoffpumpe</string>
+    <string name="mod_category_injectors">Injektoren</string>
+    <string name="mod_category_suspension">Fahrwerk</string>
+    <string name="mod_category_brakes">Bremsen</string>
+    <string name="mod_category_wheels">Felgen</string>
+    <string name="mod_category_ecu_tune">ECU-Tuning</string>
+    <string name="mod_category_transmission_tune">Getriebe-Tuning</string>
+    <string name="mod_category_custom">Individuell</string>
 </resources>

@@ -139,6 +139,9 @@ private fun Shell(profile: ServerProfile, account: Account) {
                         onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
                         onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
                         onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                        onAttachReceipt = { vehicleId, recordId ->
+                            navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                        },
                         onEditVehicle = { navController.navigate(VehicleFormRoute(vehicleId = it)) },
                         onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
                         onEditInspection = { vehicleId, id -> navController.navigate(InspectionFormRoute(vehicleId = vehicleId, inspectionId = id)) },
@@ -155,6 +158,9 @@ private fun Shell(profile: ServerProfile, account: Account) {
                     onAddSchedule = { navController.navigate(ScheduleFormRoute(vehicleId = it)) },
                     onEditSchedule = { navController.navigate(ScheduleFormRoute(scheduleId = it)) },
                     onEditScheduleDefaults = { navController.navigate(ScheduleDefaultsRoute(scheduleId = it)) },
+                    onAttachReceipt = { vehicleId, recordId ->
+                        navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                    },
                 )
             }
             composable<FuelRoute> {
@@ -187,6 +193,9 @@ private fun Shell(profile: ServerProfile, account: Account) {
                         onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
                         onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
                         onAddDocument = { navController.navigate(DocumentFormRoute(vehicleId = it)) },
+                        onAttachReceipt = { vehicleId, recordId ->
+                            navController.navigate(DocumentFormRoute(vehicleId = vehicleId, maintenanceRecordId = recordId, capture = true))
+                        },
                         onNewNote = { navController.navigate(NoteFormRoute(vehicleId = it)) },
                         onEditNote = { navController.navigate(NoteFormRoute(noteId = it)) },
                         onAddWishlistItem = { navController.navigate(WishlistFormRoute(vehicleId = it)) },

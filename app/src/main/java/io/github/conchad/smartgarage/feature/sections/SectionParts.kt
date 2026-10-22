@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.feature.sections
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,7 +45,8 @@ import java.util.Locale
  * Frame shared by the sections under More: back arrow, write-queue banner, vehicle filter, then (inside
  * pull-to-refresh) loading, can't-reach, an empty state or the list. [viewModel] feeds the banner, the denied
  * snackbar and the pending marks; [floatingActionButton] is the section's one "Add" verb (D-A20), and the list
- * leaves room under its last row for it. [emptyAction] repeats that verb inside the empty state.
+ * leaves room under its last row for it. [emptyAction] repeats that verb inside the empty state. [isEmpty] with a
+ * search going is the "nothing matches" case, which the section words itself.
  */
 @Composable
 fun SectionScaffold(
@@ -65,6 +67,8 @@ fun SectionScaffold(
     actions: @Composable () -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     emptyAction: (@Composable () -> Unit)? = null,
+    /** Search and other filters, under the vehicle chips and above the list, so they stay put while it scrolls. */
+    filters: @Composable ColumnScope.() -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     DeniedSnackbar(viewModel, snackbar)
@@ -78,6 +82,7 @@ fun SectionScaffold(
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
             WriteQueueBanner(sync, viewModel)
             VehicleFilterRow(vehicles, selectedVehicleId, onSelectVehicle, Modifier.padding(bottom = 4.dp))
+            filters()
             RefreshBox(sync, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh) {
                     if (isEmpty) {

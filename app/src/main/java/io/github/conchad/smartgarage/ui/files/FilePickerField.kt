@@ -12,8 +12,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -30,8 +32,9 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.IconBadge
 
 /**
- * The file slot of an upload form (D-A21): a "Choose file" button, then the chosen file's name, type and size with
- * a "Change" button; an error line below says why the file can't be sent. [onPick] opens the system picker.
+ * The file slot of an upload form (D-A21): a "Choose file" button (and "Take photo" when [onCapture] is given,
+ * D-A23), then the chosen file's name, type and size with a "Change" button; an error line below says why the file
+ * can't be sent. [onPick] opens the system picker; [busy] shows while a photo is being prepared.
  */
 @Composable
 fun FilePickerField(
@@ -40,13 +43,30 @@ fun FilePickerField(
     onPick: () -> Unit,
     modifier: Modifier = Modifier,
     error: String? = null,
+    onCapture: (() -> Unit)? = null,
+    busy: Boolean = false,
 ) {
     val context = LocalContext.current
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (file == null) {
-            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(stringResource(R.string.file_choose), modifier = Modifier.padding(start = 8.dp))
+        if (busy) {
+            Text(
+                stringResource(R.string.capture_processing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        } else if (file == null) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onPick, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                    Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.file_choose), modifier = Modifier.padding(start = 8.dp), maxLines = 2)
+                }
+                if (onCapture != null) {
+                    OutlinedButton(onClick = onCapture, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                        Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.file_take_photo), modifier = Modifier.padding(start = 8.dp), maxLines = 2)
+                    }
+                }
             }
         } else {
             Surface(
@@ -71,6 +91,11 @@ fun FilePickerField(
                         )
                     }
                     OutlinedButton(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.action_change)) }
+                    if (onCapture != null) {
+                        IconButton(onClick = onCapture, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Outlined.PhotoCamera, contentDescription = stringResource(R.string.file_take_photo))
+                        }
+                    }
                 }
             }
         }

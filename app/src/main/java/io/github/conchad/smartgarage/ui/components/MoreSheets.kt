@@ -230,6 +230,8 @@ fun NoteSheet(
     fmt: Formatter,
     onDismiss: () -> Unit,
     pending: Boolean = false,
+    /** Pins or unpins (D-A23): pinned notes lead the list, so the toggle is the sheet's primary verb. */
+    onTogglePin: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
@@ -253,8 +255,13 @@ fun NoteSheet(
             Text(note.content, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(16.dp))
         }
         if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        if (onEdit != null || onDelete != null) {
-            SheetActions(null, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } })
+        if (onTogglePin != null || onEdit != null || onDelete != null) {
+            SheetActions(
+                null,
+                secondary = onTogglePin?.let { stringResource(if (note.isPinned) R.string.note_unpin else R.string.note_pin_action) to it },
+                onEdit = onEdit,
+                onDelete = onDelete?.let { { confirmDelete = true } },
+            )
         }
     }
     if (confirmDelete && onDelete != null) {

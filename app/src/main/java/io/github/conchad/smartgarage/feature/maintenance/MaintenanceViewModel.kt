@@ -12,6 +12,7 @@ import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.MaintenanceTemplate
 import io.github.conchad.smartgarage.core.model.Schedule
+import io.github.conchad.smartgarage.core.model.SearchMatch
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,10 @@ data class MaintenanceUiState(
     val recordNames: Map<String, String> = emptyMap(),
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
+    /** The History tab's search text; [records] are already narrowed by it. */
+    val query: String = "",
+    /** Records in view before the search narrowed them. */
+    val unfilteredRecords: Int = 0,
 ) {
     val vehicleById: Map<String, Vehicle> = vehicles.associateBy { it.id }
 
@@ -47,34 +52,45 @@ data class MaintenanceUiState(
 class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) : WritingViewModel(control, writer) {
     private val german = Locale.getDefault().language == "de"
     private val selected = MutableStateFlow<String?>(null)
+    private val query = MutableStateFlow("")
 
     private val base = combine(garage.vehicles, garage.schedules, garage.templates, garage.records, ::Base)
 
-    val state: StateFlow<MaintenanceUiState> = combine(base, garage.formatter, selected) { data, fmt, vehicleId ->
+    val state: StateFlow<MaintenanceUiState> = combine(base, garage.formatter, selected, query) { data, fmt, vehicleId, text ->
         val vehicles = data.vehicles.sortedWith(GarageMath.vehicleOrder)
         // A vehicle that disappeared (deleted or unshared) drops the filter rather than showing nothing.
         val filter = vehicleId?.takeIf { id -> vehicles.any { it.id == id } }
         val vehicleIds = vehicles.mapTo(HashSet()) { it.id }
         val due = GarageMath.dueItems(data.schedules, vehicles, data.templates, german)
             .filter { filter == null || it.vehicle.id == filter }
-        val records = data.records
+        val inView = data.records
             .filter { (filter == null || it.vehicleId == filter) && it.vehicleId in vehicleIds }
             .sortedByDescending { it.performedAt.toInstantOrNull() ?: Instant.MIN }
         val schedules = data.schedules.associateBy { it.id }
         val templates = data.templates.associateBy { it.id }
+        val names = inView.mapNotNull { r -> GarageMath.recordName(r, schedules, templates, german)?.let { r.id to it } }.toMap()
+        // The search runs here, not in composition (D-A23): name, vendor, notes and parts.
+        val terms = SearchMatch.terms(text)
+        val records = inView.filter { SearchMatch.record(it, names[it.id], terms) }
         MaintenanceUiState(
             vehicles = vehicles,
             selectedVehicleId = filter,
             due = due,
             records = records,
-            recordNames = records.mapNotNull { r -> GarageMath.recordName(r, schedules, templates, german)?.let { r.id to it } }.toMap(),
+            recordNames = names,
             formatter = fmt,
             loaded = true,
+            query = text,
+            unfilteredRecords = inView.size,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MaintenanceUiState())
 
     fun selectVehicle(id: String?) {
         selected.value = id
+    }
+
+    fun search(text: String) {
+        query.value = text
     }
 
     fun deleteRecord(id: String) = perform { deleteRecord(id) }

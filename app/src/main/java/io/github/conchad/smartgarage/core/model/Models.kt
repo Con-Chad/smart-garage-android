@@ -247,5 +247,47 @@ data class WishlistItem(
     val createdAt: String,
 )
 
+/** A tuning part or upgrade fitted to a vehicle (`modifications` in `/sync`); read-only in the app (D-A16). */
+@Serializable
+data class Modification(
+    val id: String,
+    val vehicleId: String,
+    /** A `ModificationCategory` name, e.g. `STAGE_1`, `EXHAUST`, `CUSTOM`. */
+    val category: String = "CUSTOM",
+    val name: String = "",
+    val description: String? = null,
+    val installedAt: String? = null,
+    val costCents: Long? = null,
+    val currency: String? = null,
+    val addedPowerKw: Int? = null,
+    val addedPowerPs: Int? = null,
+    val addedTorqueNm: Int? = null,
+    val notes: String? = null,
+    val isCustom: Boolean = false,
+    val createdAt: String = "",
+)
+
+/** A field the user defined for every vehicle (`customFields` in `/sync`); its values are [CustomFieldValue]s. */
+@Serializable
+data class CustomField(
+    val id: String,
+    val userId: String = "",
+    val label: String = "",
+    /** TEXT, NUMBER, DATE or BOOLEAN. */
+    val fieldType: String = "TEXT",
+    val unit: String? = null,
+    val position: Int = 0,
+    val createdAt: String = "",
+)
+
+/** One vehicle's value for a [CustomField]; stored as text whatever the field's type. */
+@Serializable
+data class CustomFieldValue(
+    val id: String,
+    val fieldId: String,
+    val vehicleId: String,
+    val value: String = "",
+)
+
 /** Parses the server's ISO timestamps; null for missing or malformed values. */
 fun String?.toInstantOrNull(): Instant? = this?.let { runCatching { Instant.parse(it) }.getOrNull() }

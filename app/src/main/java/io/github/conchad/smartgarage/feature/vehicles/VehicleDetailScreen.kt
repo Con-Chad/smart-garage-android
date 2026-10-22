@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.AddAPhoto
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Edit
@@ -61,7 +62,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.CustomField
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
+import io.github.conchad.smartgarage.core.model.Modification
 import io.github.conchad.smartgarage.core.model.Specs
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.VehicleDetail
@@ -98,6 +101,7 @@ import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.enumLabel
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.components.modificationCategoryLabel
 import io.github.conchad.smartgarage.ui.files.UploadKind
 import io.github.conchad.smartgarage.ui.files.fileProblemText
 
@@ -111,6 +115,8 @@ class VehicleActions(
     val onEditScheduleDefaults: (scheduleId: String) -> Unit,
     val onAddExpense: (vehicleId: String) -> Unit,
     val onAddDocument: (vehicleId: String) -> Unit,
+    /** The camera, pre-linked to a service record (D-A23). */
+    val onAttachReceipt: (vehicleId: String, recordId: String) -> Unit,
     val onEditVehicle: (vehicleId: String) -> Unit,
     val onAddInspection: (vehicleId: String) -> Unit,
     val onEditInspection: (vehicleId: String, inspectionId: String) -> Unit,
@@ -403,7 +409,8 @@ private fun VehicleDetailContent(
             }
         }
 
-        specs(vehicle, fmt)
+        specs(vehicle, state.customFields, fmt)
+        modifications(state.modifications, fmt)
     }
 
     when (val target = open) {
@@ -447,6 +454,10 @@ private fun VehicleDetailContent(
                     open = null
                     viewModel.deleteRecord(record.id)
                 },
+                onAttachReceipt = {
+                    open = null
+                    actions.onAttachReceipt(vehicle.id, record.id)
+                }.takeIf { canEdit },
             )
         }
         is SheetTarget.Fuel -> detail.fuel.firstOrNull { it.id == target.id }?.let { entry ->
@@ -614,7 +625,7 @@ private fun EmptyGroup(text: String) {
     }
 }
 
-private fun LazyListScope.specs(vehicle: Vehicle, fmt: Formatter) {
+private fun LazyListScope.specs(vehicle: Vehicle, customFields: List<Pair<CustomField, String>>, fmt: Formatter) {
     item { GroupHeader(stringResource(R.string.vehicle_details)) }
     item {
         GroupCard(Modifier.padding(bottom = 8.dp)) {
@@ -637,7 +648,67 @@ private fun LazyListScope.specs(vehicle: Vehicle, fmt: Formatter) {
             DetailRow(stringResource(R.string.field_color), vehicle.color)
             DetailRow(stringResource(R.string.field_purchased), vehicle.purchaseDate.toInstantOrNull()?.let(fmt::date))
             DetailRow(stringResource(R.string.field_purchase_price), vehicle.purchasePriceCents?.let { fmt.money(it, vehicle.purchaseCurrency) })
+            // The owner's own fields follow the built-in ones and come before the notes, as on the web (D-A23).
+            val yes = stringResource(R.string.yes)
+            val no = stringResource(R.string.no)
+            customFields.forEach { (field, value) ->
+                DetailRow(field.label, fmt.customFieldValue(field.fieldType, field.unit, value, yes, no))
+            }
             DetailRow(stringResource(R.string.field_notes), vehicle.notes)
+        }
+    }
+}
+
+/** The web's modifications card: read-only here (D-A16); each row is one TalkBack item. */
+private fun LazyListScope.modifications(modifications: List<Modification>, fmt: Formatter) {
+    item { GroupHeader(stringResource(R.string.vehicle_modifications)) }
+    item {
+        if (modifications.isEmpty()) {
+            EmptyGroup(stringResource(R.string.vehicle_no_modifications))
+        } else {
+            GroupCard(Modifier.padding(bottom = 8.dp)) {
+                modifications.forEachIndexed { index, mod ->
+                    if (index > 0) RowDivider()
+                    ModificationRow(mod, fmt)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModificationRow(mod: Modification, fmt: Formatter) {
+    Row(
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconBadge(Icons.Outlined.Build)
+        Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(mod.name.ifBlank { modificationCategoryLabel(mod.category) }, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(
+                    modificationCategoryLabel(mod.category),
+                    mod.installedAt.toInstantOrNull()?.let { stringResource(R.string.modification_installed, fmt.date(it)) },
+                    mod.costCents?.let { fmt.money(it, mod.currency) },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            mod.description?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        val gains = listOfNotNull(
+            mod.addedPowerPs?.let { "+$it ${stringResource(R.string.unit_ps)}" },
+            mod.addedPowerKw?.let { "+$it kW" },
+            mod.addedTorqueNm?.let { "+$it Nm" },
+        )
+        if (gains.isNotEmpty()) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
+                gains.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
         }
     }
 }

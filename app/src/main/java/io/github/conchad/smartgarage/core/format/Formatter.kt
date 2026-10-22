@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.core.format
 
 import io.github.conchad.smartgarage.core.data.DisplayPreferences
+import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -45,6 +46,26 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
     fun distanceValue(km: Number): Double = if (miles) km.toDouble() / KM_PER_MILE else km.toDouble()
 
     fun distance(km: Number): String = "${integer.format(distanceValue(km).roundToInt())} $distanceUnit"
+
+    /** A distance already in the display unit (a chart axis), with grouping and the unit. */
+    fun displayDistance(value: Double): String = "${integer.format(value.roundToInt())} $distanceUnit"
+
+    /**
+     * A custom field's stored text the way the web's `formatCustomFieldValue` shows it: yes/no for BOOLEAN, the
+     * locale's date for DATE (an ISO instant or a plain `yyyy-MM-dd`), a grouped number plus unit for NUMBER, and
+     * the text plus unit otherwise. Anything that doesn't parse is shown as typed.
+     */
+    fun customFieldValue(fieldType: String, unit: String?, value: String, yes: String, no: String): String {
+        val text = when (fieldType) {
+            "BOOLEAN" -> return if (value == "true") yes else no
+            "DATE" -> value.toInstantOrNull()?.let(::date)
+                ?: runCatching { LocalDate.parse(value.take(10)) }.getOrNull()?.let { mediumDate.format(it) }
+                ?: value
+            "NUMBER" -> parseNumber(value)?.let { NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 3 }.format(it) } ?: value
+            else -> value
+        }
+        return if (unit.isNullOrBlank()) text else "$text $unit"
+    }
 
     fun volume(liters: Double): String =
         "${oneDecimal.format(if (gallons) liters / LITERS_PER_GALLON else liters)} $volumeUnit"
@@ -136,6 +157,9 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
 
     /** An amount typed in the currency's major unit, as integer cents. */
     fun centsFromDisplay(value: Double): Long = (value * 100).roundToLong()
+
+    /** Stored cents per liter as the price per display volume unit (a chart point), e.g. 175.3 c/L → 6.64 $/gal. */
+    fun displayUnitPrice(centsPerLiter: Double): Double = centsPerLiter / 100.0 * (if (gallons) LITERS_PER_GALLON else 1.0)
 
     /** Price per display volume unit as a number (the form's "price per gal" field), or null without a volume. */
     fun unitPriceValue(totalCents: Long, liters: Double): Double? {

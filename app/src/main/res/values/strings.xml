@@ -659,4 +659,72 @@
     <string name="maint_category_inspection">Inspection</string>
     <string name="maint_category_additive">Additive</string>
     <string name="maint_category_other">Other</string>
+
+    <!-- Charts (D-A23): drawn in the app; TalkBack reads the summary lines instead. -->
+    <string name="fuel_trends">Trends</string>
+    <string name="fuel_chart_consumption">Consumption (%1$s)</string>
+    <string name="fuel_chart_price">Price per %1$s</string>
+    <string name="odometer_chart_readings">Odometer over time</string>
+    <string name="expenses_overview">Overview</string>
+    <string name="expenses_chart_monthly">Monthly spending</string>
+    <plurals name="expenses_last_months">
+        <item quantity="one">Last month</item>
+        <item quantity="other">Last %1$d months</item>
+    </plurals>
+    <plurals name="chart_points">
+        <item quantity="one">%1$d point</item>
+        <item quantity="other">%1$d points</item>
+    </plurals>
+    <plurals name="chart_months">
+        <item quantity="one">%1$d month</item>
+        <item quantity="other">%1$d months</item>
+    </plurals>
+    <string name="expenses_by_category">By category</string>
+    <string name="chart_pick_vehicle">Pick a vehicle above to see its trends.</string>
+    <string name="chart_needs_fill_ups">Two fill-ups with a volume and a price are needed for a trend.</string>
+    <string name="chart_needs_segments">Two fill-ups with odometer readings are needed for a consumption trend.</string>
+    <string name="chart_needs_readings">Two odometer readings are needed for a chart.</string>
+    <string name="chart_needs_expenses">No expenses in this period.</string>
+    <string name="chart_summary_line">%1$s: %2$s from %3$s to %4$s. Latest %5$s, lowest %6$s, highest %7$s.</string>
+    <string name="chart_summary_bars">%1$s: %2$s from %3$s to %4$s. Total %5$s; highest %6$s in %7$s.</string>
+
+    <!-- Search and filters (D-A23). Placeholders match the web. -->
+    <string name="search_clear">Clear search</string>
+    <string name="search_history_hint">Search parts, oil, filters, notes…</string>
+    <string name="search_notes_hint">Search notes…</string>
+    <string name="search_no_matches_title">No matches</string>
+    <string name="search_no_matches_body">Try different words, or clear the search and the filters.</string>
+    <string name="note_pin_action">Pin</string>
+    <string name="note_unpin">Unpin</string>
+
+    <!-- Camera capture (D-A23). -->
+    <string name="action_attach_receipt">Attach receipt</string>
+    <string name="file_take_photo">Take photo</string>
+    <string name="capture_processing">Preparing the photo…</string>
+    <string name="camera_unavailable">No camera app is available on this phone.</string>
+    <string name="document_form_receipt_title">Attach receipt</string>
+    <string name="document_form_receipt_for">Receipt for %1$s</string>
+
+    <!-- Vehicle detail: modifications (read-only) and custom fields (D-A23). Same labels as the web (vehicles.modificationCategories). -->
+    <string name="vehicle_modifications">Modifications</string>
+    <string name="vehicle_no_modifications">No modifications recorded yet.</string>
+    <string name="modification_installed">Installed %1$s</string>
+    <string name="mod_category_stage_1">Stage 1</string>
+    <string name="mod_category_stage_2">Stage 2</string>
+    <string name="mod_category_stage_3">Stage 3</string>
+    <string name="mod_category_stage_4">Stage 4</string>
+    <string name="mod_category_intake">Intake</string>
+    <string name="mod_category_intercooler">Intercooler</string>
+    <string name="mod_category_downpipe">Downpipe</string>
+    <string name="mod_category_exhaust">Exhaust system</string>
+    <string name="mod_category_turbocharger">Turbocharger</string>
+    <string name="mod_category_fuel_pump_hp">High pressure fuel pump</string>
+    <string name="mod_category_fuel_pump_lp">Low pressure fuel pump</string>
+    <string name="mod_category_injectors">Injectors</string>
+    <string name="mod_category_suspension">Suspension</string>
+    <string name="mod_category_brakes">Brakes</string>
+    <string name="mod_category_wheels">Wheels</string>
+    <string name="mod_category_ecu_tune">ECU tune</string>
+    <string name="mod_category_transmission_tune">Transmission tune</string>
+    <string name="mod_category_custom">Custom</string>
 </resources>
