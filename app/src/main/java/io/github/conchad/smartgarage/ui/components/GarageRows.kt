@@ -44,6 +44,7 @@ import io.github.conchad.smartgarage.core.model.DueStatus
 import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.components.forms.PendingMark
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -149,7 +150,7 @@ fun DueRow(item: DueItem, fmt: Formatter, onClick: () -> Unit, showVehicle: Bool
  * formatted consumption since the previous fill-up, when known.
  */
 @Composable
-fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> Unit, economy: String? = null) {
+fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> Unit, economy: String? = null, pending: Boolean = false) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -172,6 +173,7 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (pending) PendingMark(Modifier.padding(top = 2.dp))
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(fmt.money(entry.totalCostCents, entry.currency), style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.End)

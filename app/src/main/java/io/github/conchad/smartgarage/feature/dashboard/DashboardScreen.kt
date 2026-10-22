@@ -30,6 +30,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +57,7 @@ import io.github.conchad.smartgarage.core.model.Dashboard
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.FuelRow
@@ -67,8 +70,8 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
-import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
@@ -86,11 +89,15 @@ fun DashboardScreen(
     onOpenVehicle: (String) -> Unit,
     onOpenMaintenance: () -> Unit,
     onOpenFuel: () -> Unit,
+    onLogService: (scheduleId: String) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val greeting = stringResource(greetingFor(remember { LocalTime.now() }), account.greetingName)
     val settingsLabel = stringResource(R.string.nav_settings)
+    val snackbar = remember { SnackbarHostState() }
+    DeniedSnackbar(viewModel, snackbar)
 
     AppScaffold(
         title = {
@@ -110,9 +117,10 @@ fun DashboardScreen(
                 Avatar(account.greetingName)
             }
         },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            SyncBanner(state.sync, onRetry = viewModel::refresh)
+            WriteQueueBanner(state.sync, viewModel)
             RefreshBox(state.sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = state.dashboard != null, sync = state.sync, onRetry = viewModel::refresh) {
                     val dashboard = state.dashboard ?: return@LoadedContent
@@ -126,9 +134,12 @@ fun DashboardScreen(
                         DashboardContent(
                             dashboard = dashboard,
                             fmt = state.formatter,
+                            pendingIds = pendingIds,
                             onOpenVehicle = onOpenVehicle,
                             onOpenMaintenance = onOpenMaintenance,
                             onOpenFuel = onOpenFuel,
+                            onLogService = onLogService,
+                            onDeleteFuel = viewModel::deleteFuelEntry,
                         )
                     }
                 }
@@ -141,9 +152,12 @@ fun DashboardScreen(
 private fun DashboardContent(
     dashboard: Dashboard,
     fmt: Formatter,
+    pendingIds: Set<String>,
     onOpenVehicle: (String) -> Unit,
     onOpenMaintenance: () -> Unit,
     onOpenFuel: () -> Unit,
+    onLogService: (String) -> Unit,
+    onDeleteFuel: (String) -> Unit,
 ) {
     var open by rememberSheetTarget()
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
@@ -215,7 +229,7 @@ private fun DashboardContent(
                 GroupCard {
                     dashboard.recentFuel.forEachIndexed { index, (entry, vehicle) ->
                         if (index > 0) RowDivider()
-                        FuelRow(entry, vehicle, fmt, onClick = { open = SheetTarget.Fuel(entry.id) })
+                        FuelRow(entry, vehicle, fmt, onClick = { open = SheetTarget.Fuel(entry.id) }, pending = entry.id in pendingIds)
                     }
                 }
             }
@@ -223,9 +237,30 @@ private fun DashboardContent(
     }
 
     when (val target = open) {
-        is SheetTarget.Schedule -> dashboard.attention.firstOrNull { it.schedule.id == target.id }?.let { ScheduleSheet(it, fmt) { open = null } }
+        is SheetTarget.Schedule -> dashboard.attention.firstOrNull { it.schedule.id == target.id }?.let { item ->
+            ScheduleSheet(
+                item,
+                fmt,
+                onDismiss = { open = null },
+                onLogService = {
+                    open = null
+                    onLogService(item.schedule.id)
+                },
+            )
+        }
         is SheetTarget.Fuel -> dashboard.recentFuel.firstOrNull { it.item.id == target.id }?.let { (entry, vehicle) ->
-            FuelSheet(entry, vehicle, dashboard.fuelSegments[entry.id], fmt) { open = null }
+            FuelSheet(
+                entry,
+                vehicle,
+                dashboard.fuelSegments[entry.id],
+                fmt,
+                onDismiss = { open = null },
+                pending = entry.id in pendingIds,
+                onDelete = {
+                    open = null
+                    onDeleteFuel(entry.id)
+                },
+            )
         }
         else -> Unit
     }

@@ -3,8 +3,9 @@ package io.github.conchad.smartgarage.feature.maintenance
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.ui.sync.SyncControl
-import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
+import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.DueItem
 import io.github.conchad.smartgarage.core.model.GarageMath
@@ -34,10 +35,13 @@ data class MaintenanceUiState(
     val loaded: Boolean = false,
 ) {
     val vehicleById: Map<String, Vehicle> = vehicles.associateBy { it.id }
+
+    /** A schedule on an editable vehicle exists: the FAB hides otherwise, since a record needs a schedule. */
+    val canAdd: Boolean get() = due.any { it.vehicle.access.canEdit }
 }
 
 @HiltViewModel
-class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
+class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) : WritingViewModel(control, writer) {
     private val german = Locale.getDefault().language == "de"
     private val selected = MutableStateFlow<String?>(null)
 
@@ -69,6 +73,8 @@ class MaintenanceViewModel @Inject constructor(garage: GarageRepository, control
     fun selectVehicle(id: String?) {
         selected.value = id
     }
+
+    fun deleteRecord(id: String) = perform { deleteRecord(id) }
 
     private data class Base(
         val vehicles: List<Vehicle>,

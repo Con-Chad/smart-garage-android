@@ -51,6 +51,7 @@ fun AppScaffold(
     onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
     content: @Composable (PaddingValues) -> Unit,
 ) = AppScaffold(
@@ -59,6 +60,7 @@ fun AppScaffold(
     onBack = onBack,
     actions = actions,
     floatingActionButton = floatingActionButton,
+    snackbarHost = snackbarHost,
     scrollBehavior = scrollBehavior,
     content = content,
 )
@@ -71,6 +73,7 @@ fun AppScaffold(
     onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -91,6 +94,7 @@ fun AppScaffold(
             )
         },
         floatingActionButton = floatingActionButton,
+        snackbarHost = snackbarHost,
         content = content,
     )
 }

@@ -18,8 +18,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +52,7 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DetailRow
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
@@ -62,7 +67,10 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
-import io.github.conchad.smartgarage.ui.components.SyncBanner
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
+import io.github.conchad.smartgarage.ui.components.forms.ActionButton
+import io.github.conchad.smartgarage.ui.components.forms.PendingMark
+import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
@@ -73,21 +81,49 @@ import io.github.conchad.smartgarage.ui.components.enumLabel
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
 
+/** What the detail screen can start: the fill-up form, the odometer sheet, logging or editing a service. */
+class VehicleActions(
+    val onLogFillUp: (vehicleId: String) -> Unit,
+    val onLogService: (scheduleId: String) -> Unit,
+    val onEditRecord: (recordId: String) -> Unit,
+)
+
 @Composable
-fun VehicleDetailScreen(onBack: () -> Unit, viewModel: VehicleDetailViewModel = hiltViewModel()) {
+fun VehicleDetailScreen(
+    onBack: () -> Unit,
+    onLogFillUp: (vehicleId: String) -> Unit,
+    onLogService: (scheduleId: String) -> Unit,
+    onEditRecord: (recordId: String) -> Unit,
+    viewModel: VehicleDetailViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val detail = state.detail
     val listState = rememberLazyListState()
+    val snackbar = remember { SnackbarHostState() }
+    DeniedSnackbar(viewModel, snackbar)
+    val actions = remember(onLogFillUp, onLogService, onEditRecord) { VehicleActions(onLogFillUp, onLogService, onEditRecord) }
     // The heading below the photo names the vehicle; the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 2 } }
-    AppScaffold(title = if (headingGone) detail?.vehicle?.displayName.orEmpty() else "", onBack = onBack) { padding ->
+    AppScaffold(
+        title = if (headingGone) detail?.vehicle?.displayName.orEmpty() else "",
+        onBack = onBack,
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            SyncBanner(sync, onRetry = viewModel::refresh)
+            WriteQueueBanner(sync, viewModel)
             RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                     if (detail != null) {
-                        VehicleDetailContent(detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp))
+                        VehicleDetailContent(
+                            detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+                            pendingIds = pendingIds,
+                            actions = actions,
+                            snackbar = snackbar,
+                            onDeleteFuel = viewModel::deleteFuelEntry,
+                            onDeleteRecord = viewModel::deleteRecord,
+                        )
                     } else {
                         EmptyState(
                             icon = Icons.Outlined.DirectionsCar,
@@ -107,12 +143,18 @@ private fun VehicleDetailContent(
     state: VehicleDetailUiState,
     listState: LazyListState,
     contentPadding: PaddingValues,
+    pendingIds: Set<String>,
+    actions: VehicleActions,
+    snackbar: SnackbarHostState,
+    onDeleteFuel: (String) -> Unit,
+    onDeleteRecord: (String) -> Unit,
 ) {
     val fmt = state.formatter
     val vehicle = detail.vehicle
     var open by rememberSheetTarget()
     var allFuel by rememberSaveable { mutableStateOf(false) }
     var allRecords by rememberSaveable { mutableStateOf(false) }
+    var odometerOpen by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         item {
@@ -125,6 +167,23 @@ private fun VehicleDetailContent(
         }
         item { Heading(vehicle, detail, fmt) }
         item { Stats(detail, fmt) }
+        item {
+            // The two things done at the car: a fill-up and a reading. Viewers see why there is nothing to tap.
+            if (vehicle.access.canEdit) {
+                Row(
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
+                    ActionButton(stringResource(R.string.action_update_odometer), Icons.Outlined.Speed, onClick = { odometerOpen = true }, modifier = Modifier.weight(1f))
+                }
+            } else {
+                ViewOnlyNote(vehicle.owner?.name, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
+            }
+        }
+        if (vehicle.id in pendingIds) {
+            item { PendingMark(Modifier.padding(start = 16.dp, top = 8.dp)) }
+        }
 
         item { GroupHeader(stringResource(R.string.vehicle_service)) }
         item {
@@ -188,6 +247,7 @@ private fun VehicleDetailContent(
                             fmt = fmt,
                             onClick = { open = SheetTarget.Fuel(entry.id) },
                             economy = detail.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+                            pending = entry.id in pendingIds,
                         )
                     }
                 }
@@ -208,7 +268,7 @@ private fun VehicleDetailContent(
                 GroupCard {
                     detail.records.take(if (allRecords) Int.MAX_VALUE else PREVIEW).forEachIndexed { index, record ->
                         if (index > 0) RowDivider()
-                        RecordRow(record, state.recordName(record), vehicle = null, fmt) { open = SheetTarget.Record(record.id) }
+                        RecordRow(record, state.recordName(record), vehicle = null, fmt, pending = record.id in pendingIds) { open = SheetTarget.Record(record.id) }
                     }
                 }
             }
@@ -218,14 +278,58 @@ private fun VehicleDetailContent(
     }
 
     when (val target = open) {
-        is SheetTarget.Schedule -> detail.due.firstOrNull { it.schedule.id == target.id }?.let { ScheduleSheet(it, fmt) { open = null } }
-        is SheetTarget.Record -> detail.records.firstOrNull { it.id == target.id }?.let {
-            RecordSheet(it, state.recordName(it) ?: stringResource(R.string.record_untitled), vehicle, fmt) { open = null }
+        is SheetTarget.Schedule -> detail.due.firstOrNull { it.schedule.id == target.id }?.let { item ->
+            ScheduleSheet(
+                item,
+                fmt,
+                onDismiss = { open = null },
+                onLogService = {
+                    open = null
+                    actions.onLogService(item.schedule.id)
+                },
+            )
         }
-        is SheetTarget.Fuel -> detail.fuel.firstOrNull { it.id == target.id }?.let {
-            FuelSheet(it, vehicle, detail.segments[it.id], fmt) { open = null }
+        is SheetTarget.Record -> detail.records.firstOrNull { it.id == target.id }?.let { record ->
+            RecordSheet(
+                record,
+                state.recordName(record) ?: stringResource(R.string.record_untitled),
+                vehicle,
+                fmt,
+                onDismiss = { open = null },
+                pending = record.id in pendingIds,
+                onEdit = {
+                    open = null
+                    actions.onEditRecord(record.id)
+                },
+                onDelete = {
+                    open = null
+                    onDeleteRecord(record.id)
+                },
+            )
+        }
+        is SheetTarget.Fuel -> detail.fuel.firstOrNull { it.id == target.id }?.let { entry ->
+            FuelSheet(
+                entry,
+                vehicle,
+                detail.segments[entry.id],
+                fmt,
+                onDismiss = { open = null },
+                pending = entry.id in pendingIds,
+                onDelete = {
+                    open = null
+                    onDeleteFuel(entry.id)
+                },
+            )
         }
         null -> Unit
+    }
+
+    if (odometerOpen) {
+        OdometerSheet(
+            vehicleId = vehicle.id,
+            onDismiss = { odometerOpen = false },
+            snackbar = snackbar,
+        )
     }
 }
 
@@ -291,7 +395,7 @@ private fun PaperRow(icon: ImageVector, title: String, subtitle: String) {
 
 /** A past service: name, then date, vehicle and odometer; cost on the right. */
 @Composable
-fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: Formatter, onClick: () -> Unit) {
+fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: Formatter, pending: Boolean = false, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -314,6 +418,7 @@ fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: 
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (pending) PendingMark(Modifier.padding(top = 2.dp))
         }
         Text(fmt.money(record.costCents, record.currency), style = MaterialTheme.typography.titleSmall)
     }

@@ -36,8 +36,10 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
+import io.github.conchad.smartgarage.feature.fuel.FuelEntryScreen
 import io.github.conchad.smartgarage.feature.fuel.FuelScreen
 import io.github.conchad.smartgarage.feature.maintenance.MaintenanceScreen
+import io.github.conchad.smartgarage.feature.maintenance.RecordFormScreen
 import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailScreen
 import io.github.conchad.smartgarage.feature.vehicles.VehiclesScreen
 import io.github.conchad.smartgarage.feature.more.MoreScreen
@@ -106,16 +108,31 @@ private fun Shell(profile: ServerProfile, account: Account) {
                     onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
                     onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
                     onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
+                    onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
                 )
             }
             composable<VehiclesRoute> {
                 VehiclesScreen(onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) })
             }
             composable<VehicleDetailRoute> {
-                VehicleDetailScreen(onBack = navController::popBackStack)
+                VehicleDetailScreen(
+                    onBack = navController::popBackStack,
+                    onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
+                    onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
+                    onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                )
             }
-            composable<MaintenanceRoute> { MaintenanceScreen() }
-            composable<FuelRoute> { FuelScreen() }
+            composable<MaintenanceRoute> {
+                MaintenanceScreen(
+                    onLogService = { scheduleId, vehicleId -> navController.navigate(RecordFormRoute(scheduleId = scheduleId, vehicleId = vehicleId)) },
+                    onEditRecord = { navController.navigate(RecordFormRoute(recordId = it)) },
+                )
+            }
+            composable<FuelRoute> {
+                FuelScreen(onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) })
+            }
+            composable<FuelEntryRoute> { FuelEntryScreen(onClose = navController::popBackStack) }
+            composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
             composable<MoreRoute> {
                 MoreScreen(
                     onOpenSection = { navController.navigate(SectionRoute(it)) },

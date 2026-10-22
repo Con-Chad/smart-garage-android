@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -14,12 +15,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +47,9 @@ import io.github.conchad.smartgarage.core.model.MaintenanceItem
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
+import io.github.conchad.smartgarage.ui.components.forms.PendingMark
+import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import java.text.NumberFormat
 
 /** Bottom sheet frame: icon, title and subtitle, then scrollable content. */
@@ -67,8 +79,49 @@ fun DetailSheet(
     }
 }
 
+/**
+ * Rows of a detail sheet end with its actions (D-A20): the primary verb as a filled button, Edit outlined, Delete as
+ * a text button in the error color; or a [ViewOnlyNote] on a vehicle the user can't edit. Each is 48 dp tall.
+ */
 @Composable
-fun ScheduleSheet(item: DueItem, fmt: Formatter, onDismiss: () -> Unit) {
+fun SheetActions(
+    vehicle: Vehicle?,
+    primary: Pair<String, () -> Unit>? = null,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
+    val canEdit = vehicle?.access?.canEdit ?: true
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!canEdit) {
+            ViewOnlyNote(vehicle?.owner?.name, Modifier.padding(vertical = 8.dp))
+            return@Column
+        }
+        primary?.let { (label, action) ->
+            Button(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            onEdit?.let {
+                OutlinedButton(onClick = it, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.action_edit)) }
+            }
+            onDelete?.let {
+                TextButton(
+                    onClick = it,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.action_delete)) }
+            }
+        }
+    }
+}
+
+/** "Delete this fill-up?" before [onConfirm]; the row vanishes at once and the delete queues (D-A16). */
+@Composable
+fun DeleteConfirm(title: String, body: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ConfirmDialog(title, body, stringResource(R.string.action_delete), onConfirm, onDismiss, destructive = true)
+}
+
+@Composable
+fun ScheduleSheet(item: DueItem, fmt: Formatter, onDismiss: () -> Unit, onLogService: (() -> Unit)? = null) {
     val schedule = item.schedule
     DetailSheet(Icons.Outlined.Build, item.name, item.vehicle.displayName, onDismiss) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -96,11 +149,24 @@ fun ScheduleSheet(item: DueItem, fmt: Formatter, onDismiss: () -> Unit) {
             GroupHeader(stringResource(R.string.schedule_parts))
             schedule.itemDefaults.forEach { ItemRow(it, fmt, schedule.currency) }
         }
+        if (onLogService != null) {
+            SheetActions(item.vehicle, primary = stringResource(R.string.action_log_service) to onLogService)
+        }
     }
 }
 
 @Composable
-fun RecordSheet(record: MaintenanceRecord, name: String, vehicle: Vehicle?, fmt: Formatter, onDismiss: () -> Unit) {
+fun RecordSheet(
+    record: MaintenanceRecord,
+    name: String,
+    vehicle: Vehicle?,
+    fmt: Formatter,
+    onDismiss: () -> Unit,
+    pending: Boolean = false,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(
         Icons.Outlined.Build,
         name,
@@ -115,11 +181,35 @@ fun RecordSheet(record: MaintenanceRecord, name: String, vehicle: Vehicle?, fmt:
             GroupHeader(pluralStringResource(R.plurals.record_items, record.items.size, record.items.size))
             record.items.forEach { ItemRow(it, fmt, record.currency) }
         }
+        if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        if (onEdit != null || onDelete != null) {
+            SheetActions(vehicle, onEdit = onEdit, onDelete = onDelete?.let { { confirmDelete = true } })
+        }
+    }
+    if (confirmDelete && onDelete != null) {
+        DeleteConfirm(
+            title = stringResource(R.string.record_delete_title),
+            body = stringResource(R.string.record_delete_body),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false },
+        )
     }
 }
 
 @Composable
-fun FuelSheet(entry: FuelEntry, vehicle: Vehicle?, segment: FuelSegment?, fmt: Formatter, onDismiss: () -> Unit) {
+fun FuelSheet(
+    entry: FuelEntry,
+    vehicle: Vehicle?,
+    segment: FuelSegment?,
+    fmt: Formatter,
+    onDismiss: () -> Unit,
+    pending: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+) {
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     DetailSheet(
         Icons.Outlined.LocalGasStation,
         fmt.money(entry.totalCostCents, entry.currency),
@@ -133,6 +223,21 @@ fun FuelSheet(entry: FuelEntry, vehicle: Vehicle?, segment: FuelSegment?, fmt: F
         DetailRow(stringResource(R.string.fuel_distance), segment?.let { fmt.distance(it.distanceKm) })
         DetailRow(stringResource(R.string.fuel_economy), segment?.let { fmt.economy(it.litersPer100Km) })
         DetailRow(stringResource(R.string.field_notes), entry.note)
+        if (pending) PendingMark(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        if (onDelete != null) {
+            SheetActions(vehicle, onDelete = { confirmDelete = true })
+        }
+    }
+    if (confirmDelete && onDelete != null) {
+        DeleteConfirm(
+            title = stringResource(R.string.fuel_delete_title),
+            body = stringResource(R.string.fuel_delete_body),
+            onConfirm = {
+                confirmDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmDelete = false },
+        )
     }
 }
 
@@ -186,8 +291,9 @@ fun intervalText(km: Int?, months: Int?, fmt: Formatter): String? {
     }
 }
 
+/** Short label for a `MaintenanceItemUnit`. */
 @Composable
-private fun unitLabel(unit: String): String = when (unit) {
+fun unitLabel(unit: String): String = when (unit) {
     "LITERS" -> "L"
     "MILLILITERS" -> "ml"
     "QUARTS" -> "qt"

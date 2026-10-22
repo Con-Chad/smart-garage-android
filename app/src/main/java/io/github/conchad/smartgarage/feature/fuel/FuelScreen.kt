@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +30,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.feature.vehicles.StatStrip
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.FuelRow
 import io.github.conchad.smartgarage.ui.components.FuelSheet
@@ -37,24 +40,36 @@ import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.SheetTarget
-import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
+import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
+fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     var open by rememberSheetTarget()
     val fmt = state.formatter
     val monthFormat = remember { DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()) }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
+    val snackbar = remember { SnackbarHostState() }
+    DeniedSnackbar(viewModel, snackbar)
 
-    AppScaffold(title = stringResource(R.string.nav_fuel)) { padding ->
+    AppScaffold(
+        title = stringResource(R.string.nav_fuel),
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (state.loaded && state.canAdd) {
+                AddFab(stringResource(R.string.action_log_fill_up), onClick = { onLogFillUp(state.selectedVehicleId) }, icon = Icons.Outlined.LocalGasStation)
+            }
+        },
+    ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            SyncBanner(sync, onRetry = viewModel::refresh)
+            WriteQueueBanner(sync, viewModel)
             VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
             RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                 LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
@@ -65,7 +80,7 @@ fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
                             body = stringResource(R.string.fuel_empty_body),
                         )
                     } else {
-                        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
                             state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt) } }
                             state.months.forEach { month ->
                                 item(key = month.month.toString()) {
@@ -84,6 +99,7 @@ fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
                                                 fmt = fmt,
                                                 onClick = { open = SheetTarget.Fuel(entry.id) },
                                                 economy = state.segments[entry.id]?.let { fmt.economy(it.litersPer100Km) },
+                                                pending = entry.id in pendingIds,
                                             )
                                         }
                                     }
@@ -98,10 +114,24 @@ fun FuelScreen(viewModel: FuelViewModel = hiltViewModel()) {
 
     (open as? SheetTarget.Fuel)?.let { target ->
         state.entry(target.id)?.let { entry ->
-            FuelSheet(entry, state.vehicleById[entry.vehicleId], state.segments[entry.id], fmt) { open = null }
+            FuelSheet(
+                entry,
+                state.vehicleById[entry.vehicleId],
+                state.segments[entry.id],
+                fmt,
+                onDismiss = { open = null },
+                pending = entry.id in pendingIds,
+                onDelete = {
+                    open = null
+                    viewModel.deleteFuelEntry(entry.id)
+                },
+            )
         }
     }
 }
+
+/** Room under the last row for the extended FAB, so it never covers a row's cost. */
+val FAB_CLEARANCE = 96.dp
 
 @Composable
 private fun Summary(summary: FuelSummary, fmt: Formatter) {

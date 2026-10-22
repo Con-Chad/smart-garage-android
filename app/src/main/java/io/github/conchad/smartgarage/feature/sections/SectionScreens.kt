@@ -162,7 +162,7 @@ private fun RemindersScreen(onBack: () -> Unit, onOpenVehicle: (String) -> Unit,
     }
     openSchedule?.let { id ->
         state.data.filterIsInstance<Reminder.Service>().firstOrNull { it.item.schedule.id == id }?.let {
-            ScheduleSheet(it.item, fmt) { openSchedule = null }
+            ScheduleSheet(it.item, fmt, onDismiss = { openSchedule = null })
         }
     }
 }
@@ -240,8 +240,9 @@ private fun HistoryScreen(onBack: () -> Unit, viewModel: HistoryViewModel = hilt
                 state.data.recordNames[event.record.id] ?: stringResource(R.string.record_untitled),
                 state.vehicleById[event.vehicleId],
                 fmt,
-            ) { open = null }
-            is TimelineEvent.Fuel -> FuelSheet(event.entry, state.vehicleById[event.vehicleId], state.data.segments[event.entry.id], fmt) { open = null }
+                onDismiss = { open = null },
+            )
+            is TimelineEvent.Fuel -> FuelSheet(event.entry, state.vehicleById[event.vehicleId], state.data.segments[event.entry.id], fmt, onDismiss = { open = null })
             else -> Unit
         }
     }

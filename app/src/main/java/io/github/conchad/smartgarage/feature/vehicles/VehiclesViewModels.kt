@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
@@ -13,6 +14,7 @@ import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.navigation.VehicleDetailRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
+import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -56,7 +58,8 @@ class VehicleDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     garage: GarageRepository,
     control: SyncControl,
-) : SyncedViewModel(control) {
+    writer: GarageWriter,
+) : WritingViewModel(control, writer) {
     private val vehicleId = savedStateHandle.toRoute<VehicleDetailRoute>().vehicleId
     private val german = Locale.getDefault().language == "de"
 
@@ -83,4 +86,8 @@ class VehicleDetailViewModel @Inject constructor(
         }.toMap()
         VehicleDetailUiState(detail, fmt, names, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehicleDetailUiState())
+
+    fun deleteFuelEntry(id: String) = perform { deleteFuelEntry(id) }
+
+    fun deleteRecord(id: String) = perform { deleteRecord(id) }
 }

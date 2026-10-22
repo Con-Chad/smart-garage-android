@@ -9,11 +9,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,8 +28,10 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.DueItem
 import io.github.conchad.smartgarage.core.model.DueStatus
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 import io.github.conchad.smartgarage.feature.vehicles.RecordRow
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.GroupCard
@@ -37,22 +42,38 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
-import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
+import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.ZoneId
 
 @Composable
-fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
+fun MaintenanceScreen(
+    onLogService: (scheduleId: String?, vehicleId: String?) -> Unit,
+    onEditRecord: (recordId: String) -> Unit,
+    viewModel: MaintenanceViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
+    val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var open by rememberSheetTarget()
     val fmt = state.formatter
+    val snackbar = remember { SnackbarHostState() }
+    DeniedSnackbar(viewModel, snackbar)
 
-    AppScaffold(title = stringResource(R.string.tab_service)) { padding ->
+    AppScaffold(
+        title = stringResource(R.string.tab_service),
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (state.loaded && state.canAdd) {
+                AddFab(stringResource(R.string.action_log_service), onClick = { onLogService(null, state.selectedVehicleId) }, icon = Icons.Outlined.Build)
+            }
+        },
+    ) { padding ->
         Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            SyncBanner(sync, onRetry = viewModel::refresh)
+            WriteQueueBanner(sync, viewModel)
             PrimaryTabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.maintenance_upcoming)) })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.maintenance_history)) })
@@ -77,7 +98,7 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
                             title = stringResource(R.string.maintenance_no_records_title),
                             body = stringResource(R.string.maintenance_no_records_body),
                         )
-                        else -> History(state, onOpen = { open = SheetTarget.Record(it) })
+                        else -> History(state, pendingIds, onOpen = { open = SheetTarget.Record(it) })
                     }
                 }
             }
@@ -85,9 +106,34 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
     }
 
     when (val target = open) {
-        is SheetTarget.Schedule -> state.due.firstOrNull { it.schedule.id == target.id }?.let { ScheduleSheet(it, fmt) { open = null } }
-        is SheetTarget.Record -> state.records.firstOrNull { it.id == target.id }?.let {
-            RecordSheet(it, state.recordNames[it.id] ?: stringResource(R.string.record_untitled), state.vehicleById[it.vehicleId], fmt) { open = null }
+        is SheetTarget.Schedule -> state.due.firstOrNull { it.schedule.id == target.id }?.let { item ->
+            ScheduleSheet(
+                item,
+                fmt,
+                onDismiss = { open = null },
+                onLogService = {
+                    open = null
+                    onLogService(item.schedule.id, item.vehicle.id)
+                },
+            )
+        }
+        is SheetTarget.Record -> state.records.firstOrNull { it.id == target.id }?.let { record ->
+            RecordSheet(
+                record,
+                state.recordNames[record.id] ?: stringResource(R.string.record_untitled),
+                state.vehicleById[record.vehicleId],
+                fmt,
+                onDismiss = { open = null },
+                pending = record.id in pendingIds,
+                onEdit = {
+                    open = null
+                    onEditRecord(record.id)
+                },
+                onDelete = {
+                    open = null
+                    viewModel.deleteRecord(record.id)
+                },
+            )
         }
         else -> Unit
     }
@@ -97,7 +143,7 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
 private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (DueItem) -> Unit) {
     val groups = due.groupBy { it.status }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
         listOf(
             DueStatus.OVERDUE to R.string.status_overdue,
             DueStatus.DUE_SOON to R.string.status_due_soon,
@@ -120,12 +166,12 @@ private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (Due
 }
 
 @Composable
-private fun History(state: MaintenanceUiState, onOpen: (String) -> Unit) {
+private fun History(state: MaintenanceUiState, pendingIds: Set<String>, onOpen: (String) -> Unit) {
     val fmt = state.formatter
     val zone: ZoneId = fmt.zone
     val byYear = state.records.groupBy { it.performedAt.toInstantOrNull()?.atZone(zone)?.year }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
         byYear.forEach { (year, records) ->
             item(key = "y$year") {
                 val total = records.groupBy { it.currency }.map { (currency, list) -> fmt.money(list.sumOf { it.costCents }, currency) }
@@ -140,6 +186,7 @@ private fun History(state: MaintenanceUiState, onOpen: (String) -> Unit) {
                             state.recordNames[record.id],
                             vehicle = state.vehicleById[record.vehicleId].takeIf { showVehicle },
                             fmt = fmt,
+                            pending = record.id in pendingIds,
                             onClick = { onOpen(record.id) },
                         )
                     }

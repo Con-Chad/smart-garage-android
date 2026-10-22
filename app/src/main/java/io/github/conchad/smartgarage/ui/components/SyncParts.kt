@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +32,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -104,24 +107,37 @@ fun RefreshBox(sync: SyncInfo, onRefresh: () -> Unit, modifier: Modifier = Modif
 }
 
 /**
- * Slim banner under the top bar when the last sync failed after an earlier success, so the user knows what they see
- * may be out of date. Offline is neutral; a server error uses the error container. Text always carries the meaning;
- * the icon only decorates. Hidden otherwise, so screens show nothing extra in the normal case.
+ * Slim banner under the top bar, hidden in the normal case. It has three things to say, most urgent first:
+ * - "N changes couldn't be saved" while writes the server rejected wait to be retried or dismissed (error
+ *   container, [onShowFailed] opens the list); screens that can't show the list leave it null and the banner
+ *   stays with the sync states;
+ * - "Offline · N changes waiting to sync" when the last sync failed after an earlier success and there are queued
+ *   writes (neutral), else "Offline · last updated X";
+ * - "Sync failed · last updated X" when the server answered with an error (error container).
+ * Text always carries the meaning; the icon only decorates.
  */
 @Composable
-fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifier, onShowFailed: (() -> Unit)? = null) {
+    val showFailed = sync.hasFailed && onShowFailed != null
     AnimatedVisibility(
-        visible = sync.stale,
+        visible = sync.stale || showFailed,
         enter = expandVertically() + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
         modifier = modifier,
     ) {
         val offline = sync.offline
+        val error = showFailed || (sync.stale && !offline)
         // lastSyncedAt is non-null whenever `stale` is; the fallback only keeps the exit animation stable.
         val last = sync.lastSyncedAt?.let { relativeTime(it) } ?: stringResource(R.string.time_just_now)
+        val text = when {
+            showFailed -> pluralStringResource(R.plurals.sync_banner_failed_writes, sync.failed, sync.failed)
+            offline && sync.hasPending -> pluralStringResource(R.plurals.sync_banner_offline_pending, sync.pending, sync.pending)
+            offline -> stringResource(R.string.sync_banner_offline, last)
+            else -> stringResource(R.string.sync_banner_failed, last)
+        }
         Surface(
-            color = if (offline) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.errorContainer,
-            contentColor = if (offline) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onErrorContainer,
+            color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -130,13 +146,22 @@ fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifie
                     .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(if (offline) Icons.Outlined.CloudOff else Icons.Outlined.SyncProblem, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(
-                    stringResource(if (offline) R.string.sync_banner_offline else R.string.sync_banner_failed, last),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                Icon(
+                    when {
+                        showFailed -> Icons.Outlined.ErrorOutline
+                        offline && sync.hasPending -> Icons.Outlined.CloudUpload
+                        offline -> Icons.Outlined.CloudOff
+                        else -> Icons.Outlined.SyncProblem
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
                 )
-                TextButton(onClick = onRetry, enabled = !sync.status.running) { Text(stringResource(R.string.action_retry)) }
+                Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+                if (showFailed) {
+                    TextButton(onClick = onShowFailed!!) { Text(stringResource(R.string.action_show)) }
+                } else {
+                    TextButton(onClick = onRetry, enabled = !sync.status.running) { Text(stringResource(R.string.action_retry)) }
+                }
             }
         }
     }

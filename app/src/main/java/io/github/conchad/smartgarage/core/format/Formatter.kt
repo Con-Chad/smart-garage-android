@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit
 import java.util.Currency
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Turns stored values (km, liters, cents, UTC instants) into display text using the server's preferences, the way
@@ -19,7 +20,9 @@ import kotlin.math.roundToInt
 class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.getDefault()) {
     val miles: Boolean = prefs?.distanceUnit == "mi"
     val gallons: Boolean = prefs?.volumeUnit == "gal"
-    private val currency: String = prefs?.currency ?: "EUR"
+    /** The server's preferred currency; new entries are stored in it. */
+    val currencyCode: String = prefs?.currency ?: "EUR"
+    private val currency: String get() = currencyCode
     val zone: ZoneId = prefs?.timezone?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault()
 
     private val integer = NumberFormat.getIntegerInstance(locale)
@@ -27,6 +30,7 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
         minimumFractionDigits = 1
         maximumFractionDigits = 1
     }
+    private val decimalSeparator: Char = java.text.DecimalFormatSymbols.getInstance(locale).decimalSeparator
 
     val distanceUnit: String get() = if (miles) "mi" else "km"
     val volumeUnit: String get() = if (gallons) "gal" else "L"
@@ -89,6 +93,89 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
     /** Whole days from today (in the server's time zone) to [instant]; negative when it's in the past. */
     fun daysFromToday(instant: Instant, today: LocalDate = LocalDate.now(zone)): Long =
         ChronoUnit.DAYS.between(today, instant.atZone(zone).toLocalDate())
+
+    // ── Input: display → stored, for the forms (D-A20) ───────────────────────────────────────────────────────
+
+    /** "$" for USD in the US, "€" in Germany; the code itself when the locale has no symbol for it. */
+    val currencySymbol: String get() = runCatching { Currency.getInstance(currencyCode).getSymbol(locale) }.getOrDefault(currencyCode)
+
+    /**
+     * Parses what the user typed. A single "." or "," is the decimal mark whatever the locale, so "1,5" and "1.5"
+     * both read as one and a half; when both appear, the last one is the decimal mark and the other is grouping.
+     * Spaces and apostrophes are grouping. Null for anything that isn't a number.
+     */
+    fun parseNumber(text: String): Double? {
+        val cleaned = text.trim().replace(" ", "").replace("\u00a0", "").replace("'", "")
+        if (cleaned.isEmpty()) return null
+        val lastDot = cleaned.lastIndexOf('.')
+        val lastComma = cleaned.lastIndexOf(',')
+        val decimal: Char? = when {
+            lastDot >= 0 && lastComma >= 0 -> if (lastDot > lastComma) '.' else ','
+            lastDot >= 0 -> if (cleaned.count { it == '.' } == 1) '.' else null
+            lastComma >= 0 -> if (cleaned.count { it == ',' } == 1) ',' else null
+            else -> null
+        }
+        val normalized = buildString {
+            cleaned.forEach { c ->
+                when {
+                    c.isDigit() || c == '-' -> append(c)
+                    c == decimal -> append('.')
+                    c == '.' || c == ',' -> Unit
+                    else -> return null
+                }
+            }
+        }
+        return normalized.toDoubleOrNull()
+    }
+
+    /** A distance typed in the display unit, as stored km. */
+    fun kmFromDisplay(value: Double): Int = (if (miles) value * KM_PER_MILE else value).roundToInt()
+
+    /** A volume typed in the display unit, as stored liters. */
+    fun litersFromDisplay(value: Double): Double = if (gallons) value * LITERS_PER_GALLON else value
+
+    /** An amount typed in the currency's major unit, as integer cents. */
+    fun centsFromDisplay(value: Double): Long = (value * 100).roundToLong()
+
+    /** Price per display volume unit as a number (the form's "price per gal" field), or null without a volume. */
+    fun unitPriceValue(totalCents: Long, liters: Double): Double? {
+        if (liters <= 0) return null
+        return totalCents / 100.0 / (if (gallons) liters / LITERS_PER_GALLON else liters)
+    }
+
+    /** A stored distance as editable text: display unit, no grouping, whole number. */
+    fun distanceInput(km: Int): String = distanceValue(km).roundToInt().toString()
+
+    /** A stored volume as editable text: display unit, up to three decimals, the locale's decimal mark. */
+    fun volumeInput(liters: Double): String = inputNumber(if (gallons) liters / LITERS_PER_GALLON else liters, 3)
+
+    /** Stored cents as editable text: two decimals, the locale's decimal mark, no symbol. */
+    fun moneyInput(cents: Long): String = inputNumber(cents / 100.0, 2, minFraction = 2)
+
+    /** A number as editable text: no grouping, the locale's decimal mark, trailing zeros dropped past [minFraction]. */
+    fun inputNumber(value: Double, maxFraction: Int, minFraction: Int = 0): String {
+        val format = NumberFormat.getNumberInstance(locale).apply {
+            isGroupingUsed = false
+            minimumFractionDigits = minFraction
+            maximumFractionDigits = maxFraction
+        }
+        return format.format(value)
+    }
+
+    /** The keyboard's decimal key; what [inputNumber] writes. */
+    val decimalMark: Char get() = decimalSeparator
+
+    fun today(): LocalDate = LocalDate.now(zone)
+
+    fun localDate(instant: Instant): LocalDate = instant.atZone(zone).toLocalDate()
+
+    /**
+     * The instant to store for a date the user picked: [now] when it is today (the web and the server default
+     * to the current time), else noon in the server's zone, which stays on that calendar day in any zone within
+     * eleven hours of it, so neither this app nor the web shows the day before.
+     */
+    fun instantFor(date: LocalDate, now: Instant = Instant.now()): Instant =
+        if (date == localDate(now)) now else date.atTime(12, 0).atZone(zone).toInstant()
 
     companion object {
         const val KM_PER_MILE = 1.609344

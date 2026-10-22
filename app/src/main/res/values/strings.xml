@@ -385,4 +385,99 @@
         <item quantity="one">%d file</item>
         <item quantity="other">%d files</item>
     </plurals>
+
+    <!-- Editing (CP11, D-A20): forms, the write queue and what can go wrong -->
+    <string name="action_save">Save</string>
+    <string name="action_save_anyway">Save anyway</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_log_fill_up">Log fill-up</string>
+    <string name="action_log_service">Log service</string>
+    <string name="action_update_odometer">Update odometer</string>
+    <string name="field_vehicle">Vehicle</string>
+    <string name="field_date">Date</string>
+    <string name="field_schedule">Service</string>
+    <string name="pending_mark">Waiting to sync</string>
+    <string name="view_only">View only</string>
+    <string name="view_only_shared_by">View only · shared by %1$s</string>
+    <string name="form_discard_title">Discard changes?</string>
+    <string name="form_discard_body">What you entered here won\'t be saved.</string>
+    <string name="form_discard_confirm">Discard</string>
+    <string name="form_no_editable_vehicles">You have no vehicle you can edit.</string>
+    <string name="form_fix_errors">Fix the highlighted fields first.</string>
+    <string name="form_invalid_number">Enter a number.</string>
+    <string name="form_odometer_current">Current reading: %1$s</string>
+    <string name="form_odometer_below_current">Below the current reading of %1$s</string>
+    <string name="form_odometer_confirm_title">Odometer going backwards?</string>
+    <string name="form_odometer_confirm_body">%1$s is less than the vehicle\'s current reading of %2$s. Save it anyway, for example as a late entry?</string>
+    <string name="fuel_form_title">Log fill-up</string>
+    <string name="fuel_form_needs_total">Enter the total you paid.</string>
+    <string name="fuel_form_price_per">Price per %1$s</string>
+    <string name="fuel_form_total">Total</string>
+    <string name="fuel_form_last_fill_up">Last fill-up: %1$s</string>
+    <string name="fuel_delete_title">Delete this fill-up?</string>
+    <string name="fuel_delete_body">The entry is removed from this vehicle\'s fuel history. This can\'t be undone.</string>
+    <string name="odometer_form_title">Update odometer</string>
+    <string name="odometer_form_reading">New reading</string>
+    <string name="odometer_form_needs_reading">Enter the reading on the dash.</string>
+    <string name="record_form_title">Log service</string>
+    <string name="record_form_edit_title">Edit service</string>
+    <string name="record_form_needs_schedule">Pick the service that was done.</string>
+    <string name="record_form_no_schedules">This vehicle has no service schedules. Add one in Smart Garage on the web first.</string>
+    <string name="record_form_parts_total">Parts add up to %1$s</string>
+    <string name="record_form_use_parts_total">Use parts total</string>
+    <string name="record_form_add_part">Add</string>
+    <string name="record_form_no_parts">No parts or fluids listed.</string>
+    <string name="record_form_part">Part</string>
+    <string name="record_form_part_name">Name</string>
+    <string name="record_form_quantity">Quantity</string>
+    <string name="record_form_remove_part">Remove %1$s</string>
+    <string name="record_form_save_as_default">Save as this service\'s default parts</string>
+    <string name="record_form_save_as_default_hint">Next time, the list starts with these parts.</string>
+    <string name="record_delete_title">Delete this service record?</string>
+    <string name="record_delete_body">The record and its parts are removed; the schedule\'s due date is recalculated from what is left. This can\'t be undone.</string>
+
+    <string name="write_denied_not_signed_in">Sign in to make changes.</string>
+    <string name="write_denied_unknown">This item isn\'t on the phone yet. Sync and try again.</string>
+    <string name="write_denied_view_only">This vehicle is shared with you as view only.</string>
+    <string name="write_denied_owner_only">Only the owner can do that.</string>
+    <string name="write_failed_view_only">The server says you can only view this vehicle.</string>
+    <string name="write_failed_not_found">It no longer exists on the server.</string>
+    <string name="write_failed_invalid">The server didn\'t accept the values.</string>
+    <string name="write_failed_file_too_large">The file is too large for the server.</string>
+    <string name="write_failed_unsupported_file">The server doesn\'t accept this file type.</string>
+    <string name="write_failed_dependency">It depended on another change that failed.</string>
+    <string name="write_failed_file_missing">The file to upload is no longer on this phone.</string>
+    <string name="write_failed_other">The server couldn\'t process it.</string>
+    <string name="write_resource_fuel">fill-up</string>
+    <string name="write_resource_record">service record</string>
+    <string name="write_resource_odometer">odometer reading</string>
+    <string name="write_resource_schedule">service schedule</string>
+    <string name="write_resource_expense">expense</string>
+    <string name="write_resource_vehicle">vehicle</string>
+    <string name="write_resource_note">note</string>
+    <string name="write_resource_wishlist">wishlist item</string>
+    <string name="write_resource_document">document</string>
+    <string name="write_resource_inspection">inspection</string>
+    <string name="write_resource_insurance">insurance policy</string>
+    <string name="write_resource_other">change</string>
+    <string name="write_op_create">New</string>
+    <string name="write_op_update">Edited</string>
+    <string name="write_op_delete">Deleted</string>
+    <!-- "New fill-up", "Deleted service record" -->
+    <string name="failed_write_what">%1$s %2$s</string>
+    <string name="failed_writes_subtitle">Retry sends the change again; Dismiss forgets it.</string>
+    <plurals name="failed_writes_title">
+        <item quantity="one">%1$d change couldn\'t be saved</item>
+        <item quantity="other">%1$d changes couldn\'t be saved</item>
+    </plurals>
+    <plurals name="sync_banner_failed_writes">
+        <item quantity="one">%1$d change couldn\'t be saved</item>
+        <item quantity="other">%1$d changes couldn\'t be saved</item>
+    </plurals>
+    <plurals name="sync_banner_offline_pending">
+        <item quantity="one">Offline · %1$d change waiting to sync</item>
+        <item quantity="other">Offline · %1$d changes waiting to sync</item>
+    </plurals>
 </resources>

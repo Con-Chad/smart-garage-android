@@ -34,6 +34,12 @@ import kotlinx.serialization.Serializable
 @Serializable object AddProfileRoute
 @Serializable data class VehicleDetailRoute(val vehicleId: String)
 
+/** The quick fill-up form; [vehicleId] preselects the vehicle it was opened from. */
+@Serializable data class FuelEntryRoute(val vehicleId: String? = null)
+
+/** Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. */
+@Serializable data class RecordFormRoute(val recordId: String? = null, val scheduleId: String? = null, val vehicleId: String? = null)
+
 /** A section reached from More that has no screen yet; replaced one by one in CP10. */
 @Serializable data class SectionRoute(val section: Section)
 

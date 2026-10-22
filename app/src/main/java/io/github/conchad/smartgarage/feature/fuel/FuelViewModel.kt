@@ -3,8 +3,9 @@ package io.github.conchad.smartgarage.feature.fuel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
+import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.ui.sync.SyncControl
-import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
+import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.FuelSegment
@@ -45,11 +46,14 @@ data class FuelUiState(
 ) {
     val vehicleById: Map<String, Vehicle> = vehicles.associateBy { it.id }
 
+    /** Something to log a fill-up on: the FAB hides otherwise. */
+    val canAdd: Boolean get() = vehicles.any { it.access.canEdit }
+
     fun entry(id: String): FuelEntry? = months.firstNotNullOfOrNull { month -> month.entries.firstOrNull { it.id == id } }
 }
 
 @HiltViewModel
-class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
+class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncControl, writer: GarageWriter) : WritingViewModel(control, writer) {
     private val selected = MutableStateFlow<String?>(null)
 
     val state: StateFlow<FuelUiState> = combine(garage.vehicles, garage.fuelEntries, garage.formatter, selected) { allVehicles, all, fmt, vehicleId ->
@@ -85,4 +89,6 @@ class FuelViewModel @Inject constructor(garage: GarageRepository, control: SyncC
     fun selectVehicle(id: String?) {
         selected.value = id
     }
+
+    fun deleteFuelEntry(id: String) = perform { deleteFuelEntry(id) }
 }

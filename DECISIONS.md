@@ -189,3 +189,40 @@ App decisions use the `D-A` prefix.
     being cleared; a copy is published to the documents cache under the temp
     id, so the file opens offline immediately, and is renamed to the server's
     id on success. Last write wins throughout (D-A15): no conflict detection.
+- **D-A20: Forms convert at the edge; stored units never reach a text field.**
+  - A form's text fields hold what the user typed, in the server's display
+    units (mi/gal/USD per its preferences, D-A05), with the unit as a suffix.
+    The ViewModel converts at save time through `Formatter` (`kmFromDisplay`,
+    `litersFromDisplay`, `centsFromDisplay`) and prefills the other way
+    (`distanceInput`, `volumeInput`, `moneyInput`): no grouping, the locale's
+    decimal mark. `parseNumber` takes "." or "," as the decimal mark whatever
+    the keyboard offers; a single separator is always the decimal mark.
+  - Dates: the picker works on calendar days in the server's time zone.
+    Today is stored as the current instant (what the web and the server
+    default to); any other day as noon in that zone, so neither app shows
+    the day before. Future dates are not selectable.
+  - Odometer fields are prefilled with the vehicle's current reading. A lower
+    value is allowed (a late entry) but asks first, in a dialog that names
+    both numbers; the server accepts either. Editing an existing record
+    skips the question, since its reading is historical by nature.
+  - Fill-up: volume × price per unit = total. The money field touched last
+    stays, the other follows; with no volume yet, total ÷ price gives the
+    volume (the web's quick add). The price is prefilled from the vehicle's
+    most recent fill-up. The server has no "full tank" field, so the form
+    has no toggle; adding one is a server change first.
+  - Service records open with the schedule's `itemDefaults` as editable
+    rows (name, quantity, cost); the fields the form doesn't show (brand,
+    part number, unit) ride along unchanged. Blank rows are dropped.
+  - Where things open: list tabs (Fuel, Service) get one extended FAB with a
+    verb ("Log fill-up"). Detail screens use inline buttons below the
+    heading, never a FAB. Edit and Delete live in the row's detail sheet, so
+    a list row stays a single tap target; delete confirms first. Short forms
+    (odometer) are bottom sheets; anything with more than three fields is a
+    full-screen form with a pinned Save bar, whose disabled state always
+    says why, and a discard confirmation on back.
+  - Viewers (`access.canEdit == false`) see "View only · shared by <owner>"
+    where an action would be, and no FAB for a garage with nothing editable.
+    A `Denied` from the writer still shows a snackbar, so a stale cache
+    never fails silently. Rows waiting to sync carry an icon-plus-text mark;
+    the sync banner counts queued changes while offline and lists the
+    rejected ones with Retry/Dismiss.
