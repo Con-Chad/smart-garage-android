@@ -114,6 +114,46 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
             url(connection.url("/api/v1/auth/logout"))
         }
 
+    /** The server's VAPID public key; stable for the life of the installation (PUSH.md §1). */
+    suspend fun pushVapid(connection: ServerConnection): ApiResult<VapidKeyResponse> =
+        send(connection) { url(connection.url("/api/v1/push/vapid")) }
+
+    /**
+     * Registers (or idempotently re-registers) this device's Web Push subscription (PUSH.md §1 step 3). A device
+     * may only register its own [deviceId], which is validated like every other server id (D-A28).
+     */
+    suspend fun registerPush(
+        connection: ServerConnection,
+        deviceId: String,
+        subscription: PushSubscriptionRequest,
+    ): ApiResult<PushRegistrationResponse> {
+        val target = connection.pushUrl(deviceId)
+        return send(connection) {
+            method = HttpMethod.Put
+            url(target)
+            contentType(ContentType.Application.Json)
+            setBody(subscription)
+        }
+    }
+
+    /** Removes the subscription; 204 also when nothing was registered. */
+    suspend fun unregisterPush(connection: ServerConnection, deviceId: String): ApiResult<Unit> {
+        val target = connection.pushUrl(deviceId)
+        return send(connection) {
+            method = HttpMethod.Delete
+            url(target)
+        }
+    }
+
+    /** Sends a `type: "test"` push to this device (PUSH.md §3); 409/429/502 tell why nothing arrives. */
+    suspend fun testPush(connection: ServerConnection, deviceId: String): ApiResult<PushTestResponse> {
+        val target = connection.pushUrl(deviceId) + "/test"
+        return send(connection) {
+            method = HttpMethod.Post
+            url(target)
+        }
+    }
+
     /** One `/sync` page: `since` starts a session, `cursor` continues it. */
     suspend fun sync(connection: ServerConnection, since: String?, cursor: String?): ApiResult<SyncPageDto> =
         send(connection) {
@@ -260,3 +300,7 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
 }
 
 fun ServerConnection.url(path: String): String = baseUrl.trimEnd('/') + path
+
+/** Throws [InvalidServerIdException] before any request is built, so a bad id never becomes a path (D-A28). */
+private fun ServerConnection.pushUrl(deviceId: String): String =
+    url("/api/v1/devices/${ServerIds.require(deviceId).encodeURLPathPart()}/push")

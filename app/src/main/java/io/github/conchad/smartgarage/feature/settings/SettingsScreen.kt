@@ -1,5 +1,10 @@
 package io.github.conchad.smartgarage.feature.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +21,8 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Sync
@@ -28,34 +35,47 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.BuildConfig
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.DisplayPreferences
+import io.github.conchad.smartgarage.core.data.PushProblem
+import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.core.data.ThemeMode
+import io.github.conchad.smartgarage.core.push.PushTestOutcome
 import io.github.conchad.smartgarage.feature.dashboard.Avatar
 import io.github.conchad.smartgarage.feature.more.NavRow
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.SectionLabel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun SettingsScreen(
@@ -67,8 +87,14 @@ fun SettingsScreen(
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
     val profile = state.profile ?: return
     val account = profile.account
+    val snackbar = remember { SnackbarHostState() }
+    PushTestSnackbar(state.push.testOutcome, snackbar, viewModel::pushTestShown)
 
-    AppScaffold(title = stringResource(R.string.nav_settings), onBack = onBack) { padding ->
+    AppScaffold(
+        title = stringResource(R.string.nav_settings),
+        onBack = onBack,
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         LazyColumn(contentPadding = padding) {
             item { SectionLabel(stringResource(R.string.settings_account)) }
             item {
@@ -125,6 +151,9 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            item { SectionLabel(stringResource(R.string.settings_notifications)) }
+            item { PushCard(profile, state.push, viewModel) }
 
             item { SectionLabel(stringResource(R.string.settings_units)) }
             item { UnitsCard(profile.preferences) }
@@ -207,6 +236,169 @@ fun SettingsScreen(
                 TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
+    }
+}
+
+/**
+ * The push rows (D-A29): the switch, what the registration is doing, a test button and a plain explanation. The
+ * notification permission (API 33+) is asked for here, when the user turns the switch on, never at launch.
+ */
+@Composable
+private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val settings = profile.push
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        // Granted or not, go ahead: a denied permission is shown as "blocked" under the switch.
+        viewModel.notificationPermissionChanged()
+        viewModel.setPushEnabled(true)
+    }
+    val turnOn = {
+        val needsPermission = Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) permission.launch(Manifest.permission.POST_NOTIFICATIONS) else viewModel.setPushEnabled(true)
+    }
+
+    GroupCard {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.settings_push)) },
+            supportingContent = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(pushStatus(profile, push))
+                    if (settings.enabled && push.notificationsBlocked) {
+                        Text(stringResource(R.string.settings_push_blocked), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            leadingContent = { IconBadge(Icons.Outlined.NotificationsActive) },
+            trailingContent = {
+                if (push.busy) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Switch(checked = settings.enabled, onCheckedChange = null, enabled = profile.pushAllowed)
+                }
+            },
+            colors = transparentRow(),
+            modifier = Modifier.toggleable(
+                value = settings.enabled,
+                enabled = profile.pushAllowed && !push.busy,
+                role = Role.Switch,
+                onValueChange = { on -> if (on) turnOn() else viewModel.setPushEnabled(false) },
+            ),
+        )
+        if (settings.enabled) {
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            val canTest = settings.registered && !push.sendingTest
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.settings_push_test)) },
+                supportingContent = { Text(stringResource(R.string.settings_push_test_desc)) },
+                leadingContent = { IconBadge(Icons.Outlined.Send) },
+                trailingContent = if (push.sendingTest) {
+                    { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+                } else {
+                    null
+                },
+                colors = transparentRow(),
+                modifier = Modifier.clickable(enabled = canTest, onClick = viewModel::sendTestPush),
+            )
+        }
+        Text(
+            stringResource(R.string.settings_push_about),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+        )
+    }
+
+    val choices = push.choices
+    if (choices != null) {
+        if (choices.isEmpty()) {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissPushDistributors,
+                title = { Text(stringResource(R.string.settings_push_none_title)) },
+                text = { Text(stringResource(R.string.settings_push_none_body)) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::dismissPushDistributors) { Text(stringResource(R.string.action_ok)) }
+                },
+            )
+        } else {
+            AlertDialog(
+                onDismissRequest = viewModel::dismissPushDistributors,
+                title = { Text(stringResource(R.string.settings_push_pick_title)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.settings_push_pick_body))
+                        Spacer(Modifier.height(8.dp))
+                        choices.forEach { distributor ->
+                            ListItem(
+                                headlineContent = { Text(distributor.label) },
+                                supportingContent = { Text(distributor.packageName, style = MaterialTheme.typography.bodySmall) },
+                                colors = transparentRow(),
+                                modifier = Modifier.clickable { viewModel.choosePushDistributor(distributor.packageName) },
+                            )
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissPushDistributors) { Text(stringResource(R.string.action_cancel)) }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun pushStatus(profile: ServerProfile, push: PushUiState): String {
+    val settings = profile.push
+    return when {
+        !profile.pushAllowed -> stringResource(R.string.settings_push_cleartext_blocked)
+        !settings.enabled -> stringResource(R.string.settings_push_off_desc)
+        settings.problem != null -> when (settings.problem) {
+            PushProblem.NoDistributor -> stringResource(R.string.settings_push_problem_no_distributor)
+            PushProblem.DistributorFailed -> stringResource(R.string.settings_push_problem_distributor_failed)
+            PushProblem.NetworkRequired -> stringResource(R.string.settings_push_problem_network)
+            PushProblem.ActionRequired -> stringResource(R.string.settings_push_problem_action_required)
+            PushProblem.NoKeys -> stringResource(R.string.settings_push_problem_no_keys)
+            PushProblem.EndpointRejected -> stringResource(
+                R.string.settings_push_problem_endpoint_rejected,
+                settings.problemDetail ?: stringResource(R.string.settings_unknown),
+            )
+            PushProblem.ServerRejected -> stringResource(R.string.settings_push_problem_server_rejected)
+            PushProblem.Unreachable -> stringResource(R.string.settings_push_problem_unreachable)
+            PushProblem.Unregistered -> stringResource(R.string.settings_push_problem_unregistered)
+        }
+        settings.registeredAt == null -> stringResource(R.string.settings_push_registering)
+        else -> {
+            val at = runCatching { Instant.parse(settings.registeredAt) }.getOrNull()
+            val formatter = remember { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault()) }
+            stringResource(
+                R.string.settings_push_registered,
+                push.distributorLabel ?: "UnifiedPush",
+                at?.let(formatter::format) ?: stringResource(R.string.settings_unknown),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PushTestSnackbar(outcome: PushTestOutcome?, snackbar: SnackbarHostState, onShown: () -> Unit) {
+    val message = when (outcome) {
+        null -> null
+        PushTestOutcome.Sent -> stringResource(R.string.settings_push_test_sent)
+        PushTestOutcome.NotRegistered -> stringResource(R.string.settings_push_test_not_registered)
+        is PushTestOutcome.RateLimited -> outcome.retryAfterSeconds?.toInt()
+            ?.let { pluralStringResource(R.plurals.settings_push_test_rate_limited, it, it) }
+            ?: stringResource(R.string.settings_push_test_rate_limited_short)
+        PushTestOutcome.SubscriptionGone -> stringResource(R.string.settings_push_test_gone)
+        is PushTestOutcome.Failed -> outcome.message?.let { stringResource(R.string.settings_push_test_failed, it) }
+            ?: stringResource(R.string.settings_push_test_failed_generic)
+        PushTestOutcome.Unreachable -> stringResource(R.string.settings_push_test_unreachable)
+    }
+    LaunchedEffect(outcome) {
+        if (message != null) {
+            onShown()
+            snackbar.showSnackbar(message)
+        }
     }
 }
 

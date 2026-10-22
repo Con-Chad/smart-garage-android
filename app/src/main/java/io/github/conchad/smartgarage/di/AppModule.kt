@@ -13,7 +13,9 @@ import dagger.hilt.components.SingletonComponent
 import io.github.conchad.smartgarage.BuildConfig
 import io.github.conchad.smartgarage.core.cache.CacheProvider
 import io.github.conchad.smartgarage.core.data.ProfileDataCleaner
+import io.github.conchad.smartgarage.core.data.PushSessionHook
 import io.github.conchad.smartgarage.core.network.HttpClientFactory
+import io.github.conchad.smartgarage.core.push.PushRegistrar
 import io.github.conchad.smartgarage.core.security.KeystoreSecretCipher
 import io.github.conchad.smartgarage.core.security.SecretCipher
 import io.ktor.client.HttpClient
@@ -34,6 +36,10 @@ object AppModule {
 
     @Provides
     fun profileDataCleaner(cache: CacheProvider): ProfileDataCleaner = cache
+
+    /** Sign-out and revoked tokens also end the UnifiedPush registration (D-A29). */
+    @Provides
+    fun pushSessionHook(registrar: PushRegistrar): PushSessionHook = registrar
 
     @Provides
     @Singleton

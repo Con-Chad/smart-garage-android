@@ -776,4 +776,44 @@
     <string name="vehicle_purchase">Kauf</string>
     <string name="vehicle_custom_fields">Eigene Felder</string>
     <string name="vehicle_photo_options">Foto- und Namensoptionen öffnen</string>
+
+    <!-- Push-Benachrichtigungen (CP12, D-A29) -->
+    <string name="settings_notifications">Benachrichtigungen</string>
+    <string name="settings_push">Push-Benachrichtigungen</string>
+    <string name="settings_push_off_desc">Wartungs- und Kilometerstand-Erinnerungen von diesem Server, zugestellt über UnifiedPush.</string>
+    <string name="settings_push_registering">Registrierung bei der Push-App…</string>
+    <string name="settings_push_registered">Über %1$s · registriert %2$s</string>
+    <string name="settings_push_blocked">Benachrichtigungen sind für diese App in den Android-Einstellungen blockiert.</string>
+    <string name="settings_push_cleartext_blocked">Für einen Server mit unverschlüsseltem http nur verfügbar, wenn oben die stündliche Hintergrund-Synchronisation eingeschaltet ist.</string>
+    <string name="settings_push_problem_no_distributor">Keine UnifiedPush-App gefunden. Installiere ntfy (oder einen anderen Distributor) und schalte dies erneut ein.</string>
+    <string name="settings_push_problem_distributor_failed">Die Push-App hat die Registrierung abgelehnt. Öffne sie und schalte dies aus und wieder ein.</string>
+    <string name="settings_push_problem_network">Die Push-App wartet auf eine Netzwerkverbindung.</string>
+    <string name="settings_push_problem_action_required">Die Push-App braucht deine Aufmerksamkeit; öffne sie, um die Einrichtung abzuschließen.</string>
+    <string name="settings_push_problem_no_keys">Die Push-App unterstützt kein verschlüsseltes Web Push. Aktualisiere sie oder wähle eine andere.</string>
+    <string name="settings_push_problem_endpoint_rejected">Der Server hat die Push-Adresse abgelehnt: %1$s</string>
+    <string name="settings_push_problem_server_rejected">Der Server hat die Registrierung abgelehnt. Beim nächsten App-Start wird es erneut versucht.</string>
+    <string name="settings_push_problem_unreachable">Server nicht erreichbar. Die Registrierung wird beim nächsten App-Start wiederholt.</string>
+    <string name="settings_push_problem_unregistered">Die Push-App hat diese Registrierung verworfen. Beim nächsten App-Start wird sie neu angefordert.</string>
+    <string name="settings_push_test">Testbenachrichtigung senden</string>
+    <string name="settings_push_test_desc">Bittet den Server, jetzt eine Testnachricht an dieses Telefon zu schicken.</string>
+    <string name="settings_push_test_sent">Test gesendet. Er sollte in wenigen Sekunden ankommen.</string>
+    <string name="settings_push_test_not_registered">Noch nicht registriert; es wird erneut versucht.</string>
+    <plurals name="settings_push_test_rate_limited">
+        <item quantity="one">Zu viele Tests. Versuche es in %1$d Sekunde noch einmal.</item>
+        <item quantity="other">Zu viele Tests. Versuche es in %1$d Sekunden noch einmal.</item>
+    </plurals>
+    <string name="settings_push_test_rate_limited_short">Zu viele Tests. Versuche es in ein paar Minuten noch einmal.</string>
+    <string name="settings_push_test_gone">Die Push-App kennt dieses Telefon nicht mehr; es wird neu registriert.</string>
+    <string name="settings_push_test_failed">Der Server konnte die Nachricht nicht zustellen: %1$s</string>
+    <string name="settings_push_test_failed_generic">Der Server konnte die Nachricht nicht zustellen.</string>
+    <string name="settings_push_test_unreachable">Server nicht erreichbar.</string>
+    <string name="settings_push_about">Nutzt UnifiedPush: Dein Server verschlüsselt jede Nachricht für dieses Telefon und übergibt sie der Push-App deiner Wahl (zum Beispiel ntfy), die sie zustellt. Google-Dienste sind nicht beteiligt, und die Push-App sieht den Text nie.</string>
+    <string name="settings_push_pick_title">Push-App wählen</string>
+    <string name="settings_push_pick_body">Es sind mehrere UnifiedPush-Apps installiert. Nachrichten für alle deine Server laufen über die, die du auswählst.</string>
+    <string name="settings_push_none_title">Keine Push-App installiert</string>
+    <string name="settings_push_none_body">Smart Garage braucht einen UnifiedPush-Distributor wie ntfy (kostenlos, auf F-Droid). Installiere einen und schalte Push dann erneut ein.</string>
+    <string name="push_channel_name">Garage-Erinnerungen</string>
+    <string name="push_channel_desc">Fällige Wartung, Kilometerstand-Erinnerungen und andere Hinweise von deinem Smart-Garage-Server.</string>
+    <string name="push_action_open_web">Im Web öffnen</string>
+    <string name="push_distributor_message">Smart-Garage-Erinnerungen für %1$s</string>
 </resources>

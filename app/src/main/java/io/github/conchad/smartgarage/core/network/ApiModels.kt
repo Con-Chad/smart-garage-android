@@ -95,3 +95,33 @@ data class SyncPageDto(
     val preferences: PreferencesDto? = null,
     val noteTags: JsonElement? = null,
 )
+
+/** `GET /api/v1/push/vapid`: the server's VAPID public key (docs/mobile/PUSH.md §1). */
+@Serializable
+data class VapidKeyResponse(val publicKey: String, val algorithm: String? = null, val curve: String? = null)
+
+/** Body of `PUT /api/v1/devices/{id}/push`: the Web Push endpoint and the subscription's public keys. */
+@Serializable
+data class PushSubscriptionRequest(val endpoint: String, val keys: PushKeysDto) {
+    override fun toString() = "PushSubscriptionRequest(endpoint=***, keys=***)"
+}
+
+/** `p256dh` is the uncompressed P-256 point, `auth` the 16-byte secret; both base64url without padding. */
+@Serializable
+data class PushKeysDto(val p256dh: String, val auth: String) {
+    override fun toString() = "PushKeysDto(***)"
+}
+
+@Serializable
+data class PushRegistrationResponse(val push: PushInfoDto? = null)
+
+@Serializable
+data class PushInfoDto(
+    val deviceId: String? = null,
+    val createdAt: String? = null,
+    val failedAt: String? = null,
+    val failureCount: Int? = null,
+)
+
+@Serializable
+data class PushTestResponse(val ok: Boolean = false, val deviceId: String? = null)

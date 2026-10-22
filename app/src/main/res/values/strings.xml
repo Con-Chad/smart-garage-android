@@ -789,4 +789,44 @@
     <string name="vehicle_purchase">Purchase</string>
     <string name="vehicle_custom_fields">Custom fields</string>
     <string name="vehicle_photo_options">Open photo and name options</string>
+
+    <!-- Push notifications (CP12, D-A29) -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_push">Push notifications</string>
+    <string name="settings_push_off_desc">Maintenance and odometer reminders from this server, delivered through UnifiedPush.</string>
+    <string name="settings_push_registering">Registering with the push app…</string>
+    <string name="settings_push_registered">Via %1$s · registered %2$s</string>
+    <string name="settings_push_blocked">Notifications are blocked for this app in Android settings.</string>
+    <string name="settings_push_cleartext_blocked">Not available for a plain-http server unless hourly background sync is turned on above.</string>
+    <string name="settings_push_problem_no_distributor">No UnifiedPush app found. Install ntfy (or another distributor), then turn this on again.</string>
+    <string name="settings_push_problem_distributor_failed">The push app refused the registration. Open it, then turn this off and on again.</string>
+    <string name="settings_push_problem_network">The push app is waiting for a network connection.</string>
+    <string name="settings_push_problem_action_required">The push app needs your attention; open it to finish setting up.</string>
+    <string name="settings_push_problem_no_keys">The push app doesn\'t support encrypted Web Push. Update it or choose another one.</string>
+    <string name="settings_push_problem_endpoint_rejected">The server rejected the push address: %1$s</string>
+    <string name="settings_push_problem_server_rejected">The server refused the registration. It is retried the next time the app starts.</string>
+    <string name="settings_push_problem_unreachable">Couldn\'t reach the server. The registration is retried the next time the app starts.</string>
+    <string name="settings_push_problem_unregistered">The push app dropped this registration. It is requested again the next time the app starts.</string>
+    <string name="settings_push_test">Send test notification</string>
+    <string name="settings_push_test_desc">Asks the server to push a test message to this phone now.</string>
+    <string name="settings_push_test_sent">Test sent. It should arrive within a few seconds.</string>
+    <string name="settings_push_test_not_registered">Not registered yet; trying again.</string>
+    <plurals name="settings_push_test_rate_limited">
+        <item quantity="one">Too many tests. Try again in %1$d second.</item>
+        <item quantity="other">Too many tests. Try again in %1$d seconds.</item>
+    </plurals>
+    <string name="settings_push_test_rate_limited_short">Too many tests. Try again in a few minutes.</string>
+    <string name="settings_push_test_gone">The push app forgot this phone; registering again.</string>
+    <string name="settings_push_test_failed">The server couldn\'t deliver the push: %1$s</string>
+    <string name="settings_push_test_failed_generic">The server couldn\'t deliver the push.</string>
+    <string name="settings_push_test_unreachable">Server unreachable.</string>
+    <string name="settings_push_about">Uses UnifiedPush: your server encrypts each message for this phone and hands it to the push app you choose (for example ntfy), which delivers it. No Google services are involved, and the push app never sees the text.</string>
+    <string name="settings_push_pick_title">Choose a push app</string>
+    <string name="settings_push_pick_body">Several UnifiedPush apps are installed. Messages for all your servers go through the one you pick.</string>
+    <string name="settings_push_none_title">No push app installed</string>
+    <string name="settings_push_none_body">Smart Garage needs a UnifiedPush distributor such as ntfy (free, on F-Droid). Install one, then turn push on again.</string>
+    <string name="push_channel_name">Garage reminders</string>
+    <string name="push_channel_desc">Maintenance due, odometer reminders and other alerts from your Smart Garage server.</string>
+    <string name="push_action_open_web">Open on web</string>
+    <string name="push_distributor_message">Smart Garage reminders for %1$s</string>
 </resources>

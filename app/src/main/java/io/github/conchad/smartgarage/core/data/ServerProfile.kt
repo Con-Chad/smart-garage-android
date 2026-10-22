@@ -26,12 +26,20 @@ data class ServerProfile(
      * device token in clear text. Only meaningful when [isCleartext]; foreground syncs are never affected.
      */
     val backgroundSyncOnCleartext: Boolean = false,
+    /** Push notification state for this profile (D-A29); the subscription keys live encrypted next to the token. */
+    val push: PushSettings = PushSettings(),
 ) {
     /** Whether requests to this server travel unencrypted (`http://`, only allowed for private hosts, D-A04). */
     val isCleartext: Boolean get() = baseUrl.startsWith("http://", ignoreCase = true)
 
     /** Whether the hourly background sync may touch this profile (D-A28). */
     val syncsInBackground: Boolean get() = !isCleartext || backgroundSyncOnCleartext
+
+    /**
+     * Whether push may be turned on (D-A29): a push wakes the app to sync while the user isn't looking, which is
+     * exactly what D-A28 keeps plain-http profiles from doing unless the user opted in.
+     */
+    val pushAllowed: Boolean get() = syncsInBackground
 
     /** Host (and port) for compact display. */
     val hostLabel: String
@@ -57,6 +65,58 @@ data class ServerFeatures(
     /** Shows "Scan receipt" on the fill-up form. */
     val receiptScanner: Boolean = false,
 )
+
+/**
+ * Push state of one profile (D-A29). Every field has a default so profiles stored before CP12 keep parsing.
+ * The UnifiedPush `instance` is the profile id; the distributor is shared by all profiles (the connector keeps one).
+ */
+@Serializable
+data class PushSettings(
+    /** The user turned push on; registration with the distributor and the server follows asynchronously. */
+    val enabled: Boolean = false,
+    /** When the server last accepted this device's subscription (ISO instant); null until the first PUT succeeded. */
+    val registeredAt: String? = null,
+    /** Package name of the UnifiedPush distributor that was saved when push was turned on. */
+    val distributor: String? = null,
+    /** The server's VAPID public key, fetched once and compared on refresh (PUSH.md §1). */
+    val vapidKey: String? = null,
+    /** Why the last step didn't complete, for Settings; null while everything is fine. */
+    val problem: PushProblem? = null,
+    /** The server's message for [PushProblem.EndpointRejected]; nothing sensitive, shown as-is. */
+    val problemDetail: String? = null,
+) {
+    /** Registered and healthy: the server has a current subscription. */
+    val registered: Boolean get() = enabled && registeredAt != null && problem == null
+}
+
+/** Where push registration got stuck. Stored as names, so adding a case later never breaks parsing of old ones. */
+@Serializable
+enum class PushProblem {
+    /** No UnifiedPush distributor is installed, or the saved one was removed. */
+    NoDistributor,
+    /** The distributor answered the registration with a failure (internal, or it needs a VAPID key we sent). */
+    DistributorFailed,
+    /** The distributor had no network; it retries when the network is back. */
+    NetworkRequired,
+    /** The distributor wants the user to do something in its own app first (e.g. log in). */
+    ActionRequired,
+    /** The distributor delivered an endpoint without Web Push keys; the server can't encrypt for it. */
+    NoKeys,
+    /** The server refused the endpoint URL (`endpoint_rejected`): see [PushSettings.problemDetail]. */
+    EndpointRejected,
+    /** The server answered the registration with another error. */
+    ServerRejected,
+    /** The server couldn't be reached; the registration is retried on the next app start. */
+    Unreachable,
+    /** The distributor dropped the registration (`onUnregistered`); push is re-requested on the next start. */
+    Unregistered,
+}
+
+/** What the server needs to encrypt for this device; stored encrypted (ProfileStore), never logged. */
+@Serializable
+data class PushSubscription(val endpoint: String, val p256dh: String, val auth: String) {
+    override fun toString() = "PushSubscription(***)"
+}
 
 /** How the server wants values shown. Stored values are always km, liters and cents. */
 @Serializable

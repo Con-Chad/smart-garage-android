@@ -24,10 +24,25 @@ fun interface ProfileDataCleaner {
     suspend fun clear(profileId: String)
 }
 
+/**
+ * Lets the push layer drop a profile's distributor registration when its session ends (D-A29): the server's logout
+ * already revoked the device and its subscription, so only the UnifiedPush side needs telling. The app binds
+ * `PushRegistrar`; tests get the no-op default.
+ */
+fun interface PushSessionHook {
+    suspend fun forget(profileId: String)
+
+    companion object {
+        val None = PushSessionHook {}
+    }
+}
+
 @Singleton
 class AuthRepository @Inject constructor(
     private val api: ApiClient,
     private val profiles: ProfileStore,
+    // Defaulted before the cleaner so tests can keep passing the cleaner as a trailing lambda.
+    private val push: PushSessionHook = PushSessionHook.None,
     private val cleaner: ProfileDataCleaner,
 ) {
     suspend fun testConnection(draft: ServerDraft): HealthResult =
@@ -104,6 +119,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun removeProfile(profileId: String) {
         revokeQuietly(profileId)
+        push.forget(profileId)
         profiles.remove(profileId)
         cleaner.clear(profileId)
     }
@@ -113,6 +129,7 @@ class AuthRepository @Inject constructor(
      * a revoked phone may be a lost phone (D-A12).
      */
     suspend fun sessionRejected(profileId: String) {
+        push.forget(profileId)
         profiles.clearSession(profileId)
         cleaner.clear(profileId)
     }

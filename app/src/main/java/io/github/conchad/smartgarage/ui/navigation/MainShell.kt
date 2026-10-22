@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -34,6 +36,7 @@ import androidx.navigation.toRoute
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
+import io.github.conchad.smartgarage.core.push.PushTarget
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
 import io.github.conchad.smartgarage.feature.documents.DocumentFormScreen
 import io.github.conchad.smartgarage.feature.expenses.ExpenseFormScreen
@@ -76,13 +79,24 @@ fun MainShell(profile: ServerProfile, account: Account, shell: ShellViewModel = 
     val photoLoader = remember(profile.id) { PhotoLoader(profile.id, shell.photos) }
 
     CompositionLocalProvider(LocalPhotoLoader provides photoLoader) {
-        Shell(profile, account)
+        Shell(profile, account, shell)
     }
 }
 
 @Composable
-private fun Shell(profile: ServerProfile, account: Account) {
+private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewModel) {
     val navController = rememberNavController()
+    // A tapped notification (D-A29): PushTapRouter made its profile active, so this shell is the one to open it.
+    val pendingPush by shell.pendingPush.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingPush) {
+        val target = pendingPush ?: return@LaunchedEffect
+        if (target.profileId != profile.id) return@LaunchedEffect
+        shell.pushOpened(target)
+        when (val route = target.route()) {
+            is TopLevel -> navController.navigateTopLevel(route)
+            else -> navController.navigate(route)
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val showBottomBar = destination == null || TopLevel.entries.any { destination.isOn(it) }
@@ -243,6 +257,20 @@ private fun Shell(profile: ServerProfile, account: Account) {
 }
 
 private fun NavDestination.isOn(item: TopLevel): Boolean = hierarchy.any { it.hasRoute(item.route::class) }
+
+/**
+ * Where a push lands (PUSH.md §4): the vehicle when the message is about one, else the Service tab for a single
+ * schedule, else the section the web `url` names, else Home. Ids were validated when the payload was parsed.
+ */
+private fun PushTarget.route(): Any = when {
+    vehicleId != null -> VehicleDetailRoute(vehicleId)
+    scheduleId != null -> TopLevel.Maintenance
+    url == "/maintenance" -> TopLevel.Maintenance
+    url == "/odometer" -> SectionRoute(Section.Odometer)
+    url == "/expenses" -> SectionRoute(Section.Expenses)
+    url == "/reminders" -> SectionRoute(Section.Reminders)
+    else -> TopLevel.Dashboard
+}
 
 private fun NavHostController.navigateTopLevel(item: TopLevel) {
     navigate(item.route) {

@@ -106,7 +106,10 @@ App decisions use the `D-A` prefix.
   - Hourly in the background through WorkManager, only with a network.
     It retries only when the tunnel or proxy answers but the origin is
     down; other failures wait for the next run.
-  - Push-triggered sync waits for CP6 (UnifiedPush).
+  - ~~Push-triggered sync waits for CP6 (UnifiedPush).~~ Done in CP12
+    (D-A29): a push message calls `SyncEngine.syncSoon(profileId)` after
+    the notification is posted, so the cache is fresh by the time the user
+    taps it.
   - 2026-10-22 (battery fix owed since CP11): the hourly worker now skips a
     profile that synced successfully within the last 15 minutes and has an
     empty outbox (`SyncEngine.syncIfStale`): the foreground sync on every
@@ -603,3 +606,79 @@ App decisions use the `D-A` prefix.
     https always, legacy JSON parses), `SyncPullTest` (bad ids dropped and
     counted, good rows still applied), `ApiClientTest` (redirect to another
     host). 102 → 112 unit tests.
+- **D-A29: Push notifications through UnifiedPush, connector only (CP12;
+  server contract docs/mobile/PUSH.md, CP6).**
+  - **Dependency.** `org.unifiedpush.android:connector` 3.3.5 is the one new
+    artefact. Not `connector-ui` (it drags in appcompat for a dialog the app
+    can draw itself) and never the embedded FCM distributor
+    (`scripts/check-no-gms.sh` flags it). The connector brings
+    `com.google.crypto.tink:tink` with protobuf-java and gson: Google-authored
+    but GMS-free, like Hilt and Truth; the script's pattern does not match it
+    and it exits 0.
+  - **Decryption is the connector's job.** The distributor hands over the raw
+    RFC 8291 body; the connector's `DefaultKeyManager` generates the P-256
+    pair and the 16-byte `auth` secret per instance, keeps the private key
+    AES-GCM-encrypted under its own Keystore key, decrypts with Tink's
+    `WebPushHybridDecrypt` and calls `PushService.onMessage` with plaintext
+    and a `decrypted` flag. The app therefore has no crypto of its own, never
+    sees a private key and has nothing to store with `SecretCipher` beyond
+    what the server was given: `PushSubscription` (endpoint, `p256dh`,
+    `auth`) lives encrypted under `secret.<profile>.push_subscription` so the
+    stale re-PUT can repeat it without asking the distributor. A message that
+    arrives with `decrypted == false` shows nothing but still triggers a sync.
+  - **One instance per profile.** The UnifiedPush `instance` is the profile
+    id (a UUID, which passes `ServerIds`), so two servers on one phone are two
+    registrations with the one distributor the connector keeps; the service
+    maps `instance` back to the profile and ignores anything that isn't a
+    valid id. `PushSettings` on the profile (`enabled`, `registeredAt`,
+    `distributor`, `vapidKey`, `problem`, `problemDetail`; every field
+    defaulted so stored profiles parse) is what Settings shows.
+  - **State machine** (`core/push/PushRegistrar`): *enable* saves the
+    distributor (the saved one, the only one installed, or the user's pick
+    from a list of installed ones), fetches `GET /push/vapid`, marks
+    `enabled`, calls `UnifiedPush.register(instance, vapid)`; *onNewEndpoint*
+    does `PUT /devices/{id}/push` and records `registeredAt`; *refresh* runs
+    from `AppViewModel` after `auth.refresh` on every start / profile switch /
+    re-login and re-PUTs when `registeredAt` is a day old (`needsReregister`,
+    pure, tested), re-registers with the distributor when the VAPID key
+    changed or no subscription exists, and retries after Unreachable /
+    ServerRejected / Unregistered / NoDistributor; *disable* (switch off)
+    DELETEs, unregisters with the distributor and forgets the subscription;
+    *forget* (`PushSessionHook`, called from `AuthRepository.sessionRejected`
+    and `removeProfile`) only unregisters with the distributor, since logout
+    already revoked the device, and keeps `enabled` so signing in again
+    re-registers (contract §2). A 409 from the test endpoint forces a
+    refresh; a `push_subscription_gone` 502 clears the subscription and
+    re-registers.
+  - **Cleartext rule.** A push wakes the app to sync while the user isn't
+    looking, which is exactly what D-A28 keeps plain-http profiles from doing.
+    `ServerProfile.pushAllowed == syncsInBackground`: the switch is disabled
+    with a one-line explanation until "Sync hourly in the background" is on
+    for that profile, and `refresh` skips such profiles.
+  - **Notifications.** One channel, "Garage reminders" (en + de). The
+    `POST_NOTIFICATIONS` runtime permission is requested from the Settings
+    push row when the user turns the switch on, never on launch; a denied
+    permission shows as "blocked" under the switch. The tap intent carries
+    profile, vehicle and schedule ids plus the web path; `MainActivity`
+    (`singleTask`) hands it to `PushTapRouter`, which re-validates every id,
+    makes the profile active and parks a `PushTarget` that the profile's
+    shell consumes: vehicle → `VehicleDetailRoute`, a lone schedule or
+    `/maintenance` → Service tab, `/odometer` / `/expenses` / `/reminders` →
+    that section, else Home. The payload's `url` is also offered as an "Open
+    on web" action (`ACTION_VIEW` on the profile's base URL) only when it is
+    a plain site-relative path; there is no WebView. Nothing about the
+    message, endpoint or keys is logged.
+  - **Deferred.** `push_subscription_gone` surfaces only through the test
+    endpoint today: `/sync` doesn't report it and the hourly worker doesn't
+    look for it. `PATCH /notification-settings { mobilePushEnabled }` and the
+    device list's `pushSubscribed` are not shown in the app (the web does
+    that). `onTempUnavailable` is left at the connector's default. No
+    per-type channels or quiet hours on the phone: delivery timing is the
+    server's.
+  - Tests: `PushPayloadTest` (full payload, missing ids, invalid id dropped
+    while the text is kept, non-path `url` dropped, garbage and blank text
+    rejected, intent target validation), `PushStalenessTest` (the one-day
+    rule), `PushApiTest` (PUT/DELETE/POST/GET shapes against `MockEngine`,
+    bearer header, JSON body, `endpoint_rejected`, `push_subscription_gone`,
+    `Retry-After`, a bad device id never becomes a path). 112 → 128 unit
+    tests.

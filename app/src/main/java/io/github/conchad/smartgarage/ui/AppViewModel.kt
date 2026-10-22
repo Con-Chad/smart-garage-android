@@ -10,6 +10,7 @@ import io.github.conchad.smartgarage.core.data.AppearanceSettings
 import io.github.conchad.smartgarage.core.data.AuthRepository
 import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.data.ServerProfile
+import io.github.conchad.smartgarage.core.push.PushRegistrar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ data class RootUiState(val root: RootState = RootState.Loading, val appearance: 
 class AppViewModel @Inject constructor(
     profileStore: ProfileStore,
     private val auth: AuthRepository,
+    private val push: PushRegistrar,
     settings: AppSettings,
     cache: CacheProvider,
 ) : ViewModel() {
@@ -57,12 +59,16 @@ class AppViewModel @Inject constructor(
         // Both run off Main: listing and deleting database files is disk I/O, and refresh() decrypts the token
         // through the Keystore before its network call.
         viewModelScope.launch(Dispatchers.IO) { cache.deleteOrphans(profileStore.current().profiles.mapTo(mutableSetOf()) { it.id }) }
-        // Check the session once per active profile: picks up revoked tokens and changed display preferences.
+        // Check the session once per active profile: picks up revoked tokens and changed display preferences, then
+        // renews a push registration that is older than a day or never completed (D-A29, PUSH.md §2).
         viewModelScope.launch(Dispatchers.Default) {
             state.map { (it.root as? RootState.Ready)?.profile?.id }
                 .distinctUntilChanged()
                 .filterNotNull()
-                .collect { auth.refresh(it) }
+                .collect {
+                    auth.refresh(it)
+                    push.refresh(it)
+                }
         }
     }
 }

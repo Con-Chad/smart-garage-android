@@ -83,6 +83,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.coil.compose)
+    // UnifiedPush connector only (D-A29): no connector-ui (appcompat) and never the embedded FCM distributor.
+    implementation(libs.unifiedpush.connector)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

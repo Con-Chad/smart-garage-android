@@ -28,14 +28,18 @@ not through an app store. Design decisions are recorded in [DECISIONS.md](DECISI
   colours optional; every ambient animation respects the system's reduced-motion setting.
 - Receipt scanning: the hook is in place and appears only when the server advertises
   `features.receiptScanner`; the client that actually sends the photo is not wired yet.
+- Push notifications for maintenance due, odometer reminders and (if enabled on the server)
+  logged services and expenses, via UnifiedPush; tapping opens the vehicle or section and syncs.
 
 ## Privacy
 
 - No Google Play Services, no Firebase, no analytics. `scripts/check-no-gms.sh` fails the build
   if any such artifact reaches the release classpath.
-- The only permission is `INTERNET`. Camera and file access go through the system pickers.
-- Push notifications will arrive via [UnifiedPush](https://unifiedpush.org) (Web Push, VAPID);
-  the server side is done, the app side is not yet.
+- Permissions: `INTERNET` and, only if you turn push on, `POST_NOTIFICATIONS`. Camera and file
+  access go through the system pickers.
+- Push notifications arrive via [UnifiedPush](https://unifiedpush.org) (Web Push, RFC 8291
+  encrypted with VAPID). Your server encrypts each message for this phone; the distributor you
+  choose (ntfy, for example) only relays ciphertext. Needs a UnifiedPush distributor app installed.
 - Remote access is meant to go through a Cloudflare Tunnel with Access service tokens; the app
   sends `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers when a profile has them. Do not
   port-forward your server.
@@ -81,7 +85,7 @@ There is no system Java required; use Android Studio's bundled JBR and SDK platf
 ```sh
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:testDebugUnitTest    # JVM unit tests (98)
+./gradlew :app:testDebugUnitTest    # JVM unit tests (128)
 ./gradlew :app:lintDebug
 ./scripts/check-no-gms.sh           # run before every release
 ```
@@ -102,6 +106,7 @@ use `http://localhost:<<port>>` as the server address.
 | `core/network` | Ktor `ApiClient`, DTOs, `ServerUrl` rules, Cloudflare Access headers, `ReceiptScanner` interface + stub |
 | `core/cache` | Room database per profile; synced rows kept as JSON |
 | `core/sync` | `SyncEngine` (replay outbox, then pull `/sync`) and the hourly `SyncWorker` |
+| `core/push` | UnifiedPush registration (`PushRegistrar`), the connector service, notifications, tap routing |
 | `core/outbox` | Queued writes, temp-id remapping, staged files, write routes |
 | `core/data` | Repositories, `ProfileStore`, `AppSettings`, device-local vehicle prefs |
 | `core/model` | Domain models decoded from the cache |
@@ -119,8 +124,12 @@ use `http://localhost:<<port>>` as the server address.
 
 Working today: everything under Features except the two items below.
 
-- Push notifications in the app (UnifiedPush registration, `PUT /devices/{id}/push`, push-triggered
-  sync). The server contract is in the fork at `docs/mobile/PUSH.md`.
+Push notifications (CP12) are done: Settings → Notifications turns them on per server, picks the
+UnifiedPush distributor, asks for the notification permission and offers a test push. A distributor
+such as [ntfy](https://ntfy.sh) (F-Droid) or another UnifiedPush app must be installed on the phone;
+without one the switch explains what to install. Plain-http servers need "Sync hourly in the
+background" on first. Contract: `docs/mobile/PUSH.md` in the fork.
+
 - Real receipt-scanner client (multipart `POST /fuel/receipt-scan`, prefilled fill-up form,
   offline "unscanned" queue). Contract: `docs/mobile/RECEIPT-SCANNER.md` in the fork.
 - Signed release builds, a CI workflow and setup docs (planned as CP13). No CI exists yet.

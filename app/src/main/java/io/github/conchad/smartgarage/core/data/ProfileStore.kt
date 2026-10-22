@@ -64,6 +64,30 @@ class ProfileStore @Inject constructor(
 
     suspend fun cfAccess(id: String): CfAccessCredentials? = cfAccess(dataStore.data.first(), id)
 
+    /** The Web Push subscription the server was (or is to be) given for this profile; null when none is stored. */
+    suspend fun pushSubscription(id: String): PushSubscription? =
+        dataStore.data.first()[secretKey(id, Secret.PushSubscription)]
+            ?.let(cipher::decrypt)
+            ?.let { runCatching { ApiJson.decodeFromString(PushSubscription.serializer(), it) }.getOrNull() }
+
+    /** Stores the subscription encrypted and updates the profile's push state in the same edit. */
+    suspend fun savePushSubscription(id: String, subscription: PushSubscription, transform: (PushSettings) -> PushSettings) {
+        dataStore.edit { prefs ->
+            prefs.putSecret(id, Secret.PushSubscription, ApiJson.encodeToString(PushSubscription.serializer(), subscription))
+            prefs.setProfiles(prefs.profiles().map { if (it.id == id) it.copy(push = transform(it.push)) else it })
+        }
+    }
+
+    /** Forgets the stored subscription and lets [transform] reset the visible state (e.g. keep `enabled`). */
+    suspend fun clearPushSubscription(id: String, transform: (PushSettings) -> PushSettings) {
+        dataStore.edit { prefs ->
+            prefs.remove(secretKey(id, Secret.PushSubscription))
+            prefs.setProfiles(prefs.profiles().map { if (it.id == id) it.copy(push = transform(it.push)) else it })
+        }
+    }
+
+    suspend fun updatePush(id: String, transform: (PushSettings) -> PushSettings) = update(id) { it.copy(push = transform(it.push)) }
+
     /** Creates or updates the profile, stores its secrets, and makes it the active profile. */
     suspend fun saveSignedIn(draft: ServerDraft, id: String, token: String, account: Account, serverVersion: String?) {
         dataStore.edit { prefs ->
@@ -140,6 +164,7 @@ class ProfileStore @Inject constructor(
         Token("token"),
         CfClientId("cf_client_id"),
         CfClientSecret("cf_client_secret"),
+        PushSubscription("push_subscription"),
     }
 
     private companion object {
