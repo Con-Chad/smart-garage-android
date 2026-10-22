@@ -10,6 +10,7 @@ import io.github.conchad.smartgarage.core.model.Dashboard
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailSource
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
@@ -43,6 +44,7 @@ class DashboardViewModel @Inject constructor(
     control: SyncControl,
     writer: GarageWriter,
     private val prefs: VehicleLocalPrefs,
+    detailSource: VehicleDetailSource,
 ) : WritingViewModel(control, writer) {
 
     private val german = Locale.getDefault().language == "de"
@@ -64,7 +66,10 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    val state: StateFlow<DashboardUiState> = combine(dashboard, garage.formatter, syncInfo, extras, ::DashboardUiState)
+    // The vehicle page's inputs stay in memory while Home is on screen, so a tapped card opens on its content (D-A35).
+    val state: StateFlow<DashboardUiState> = combine(dashboard, garage.formatter, syncInfo, extras, detailSource.keepWarm) { d, fmt, sync, ex, _ ->
+        DashboardUiState(d, fmt, sync, ex)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardUiState())
 
     fun deleteFuelEntry(id: String) = perform { deleteFuelEntry(id) }

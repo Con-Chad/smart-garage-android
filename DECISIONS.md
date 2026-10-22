@@ -1086,6 +1086,41 @@ App decisions use the `D-A` prefix.
   - The Vehicles tab cards keep their D-A32 pop-in and are not a hero (a
     scale pop on a shared element would break full-scale-throughout).
 
+- **D-A35: the vehicle page opens on its content in its first frame.**
+  - **Why.** The hero glide and the drawer (D-A34) need `detail` when the
+    page first composes. The page's ViewModel started empty and combined
+    eleven cache flows (decoded on `Default`), so the vehicle landed a frame
+    or more late: the page was blank (D-A33's 300 ms hold), the hero didn't
+    glide, and the cards appeared in place. `syncInfo` also started at the
+    default `SyncInfo()`, whose `firstLoad` is true, which could put a
+    spinner frame in front.
+  - **Seeding.** `VehicleDetailSource` (feature/vehicles) combines everything
+    the page is built from (vehicles, schedules, templates, records, fuel,
+    expenses, papers, custom fields and values, modifications, formatter,
+    track-fuel-economy, account name) once and shares it like the resources
+    (`WhileSubscribed(5 s)`, replay dropped on stop). Home and the Vehicles
+    tab fold its `keepWarm` (emits once at once, never re-emits) into their
+    state, so while they are on screen the page's inputs are live in memory.
+    `VehicleDetailViewModel.state` is `stateIn(initialValue =` the state
+    built from `source.latest`, the replay read synchronously`)`; the live
+    flow replays the same inputs, yields an equal state and `StateFlow`
+    drops it, so the seeded frame is never replaced and `LoadedContent`
+    never cross-fades. Later changes are rebuilt on `Default` (the build
+    used to run on the main thread). The build is a pure
+    `vehicleDetailState()`, unit-tested. `SyncedViewModel.syncInfo` starts
+    from `SyncControl.latest` the same way, for every screen.
+  - **Unseeded opens** (a deep link, a cold start, nothing observing) get
+    `latest == null`, start unloaded and keep D-A33's behaviour exactly:
+    empty while the cache answers, the spinner after `SPINNER_HOLD_MS`
+    (kept, now only reachable on that path).
+  - **Cost.** Frame 1 builds the state once on the main thread: list
+    filters, the due-items pass and two sorts over one garage's rows,
+    well under 1 ms for a few hundred rows (estimated, not profiled).
+    While Home or Vehicles is on screen, five more resources (records,
+    expenses, custom fields, values, modifications) stay observed and
+    decoded on `Default`. The photo comes from the same `PhotoLoader` /
+    Coil memory cache as the home card's, unchanged.
+
 - **D-A36: the bottom bar is liquid glass; "View all" is a two-line pill.**
   - **Bottom bar** (`MorphingBottomNav`): the opaque `navSurface` block is
     replaced by the cards' plate (`glassPlate`, now `internal` with a `fill`

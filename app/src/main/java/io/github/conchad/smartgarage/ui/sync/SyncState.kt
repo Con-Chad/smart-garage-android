@@ -10,6 +10,7 @@ import io.github.conchad.smartgarage.core.sync.SyncEngine
 import io.github.conchad.smartgarage.core.sync.SyncStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -62,7 +63,7 @@ class SyncControl @Inject constructor(
     writer: GarageWriter,
     scope: CoroutineScope,
 ) {
-    val info: Flow<SyncInfo> = combine(garage.activeProfileId, sync.status, garage.lastSyncedAt, writer.entries) { id, statuses, last, outbox ->
+    val info: SharedFlow<SyncInfo> = combine(garage.activeProfileId, sync.status, garage.lastSyncedAt, writer.entries) { id, statuses, last, outbox ->
         SyncInfo(
             status = statuses[id] ?: SyncStatus(),
             lastSyncedAt = last,
@@ -71,6 +72,9 @@ class SyncControl @Inject constructor(
         )
     }.shareIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = GarageRepository.STOP_TIMEOUT_MS, replayExpirationMillis = 0), replay = 1)
 
+    /** The current [info] if something is observing it, without suspending; else null (D-A35). */
+    val latest: SyncInfo? get() = info.replayCache.firstOrNull()
+
     suspend fun refresh() {
         sync.sync(garage.activeProfileId.first())
     }
@@ -78,7 +82,7 @@ class SyncControl @Inject constructor(
 
 /** Base for the ViewModels behind cache-backed screens: [syncInfo] for the banner and spinner, [refresh] for pull-to-refresh. */
 abstract class SyncedViewModel(private val control: SyncControl) : ViewModel() {
-    val syncInfo: StateFlow<SyncInfo> = control.info.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SyncInfo())
+    val syncInfo: StateFlow<SyncInfo> = control.info.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), control.latest ?: SyncInfo())
 
     fun refresh() {
         viewModelScope.launch { control.refresh() }

@@ -4,10 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
-import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.CustomField
 import io.github.conchad.smartgarage.core.model.GarageMath
@@ -20,11 +18,14 @@ import io.github.conchad.smartgarage.ui.navigation.VehicleDetailRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -38,7 +39,11 @@ data class VehiclesUiState(
 )
 
 @HiltViewModel
-class VehiclesViewModel @Inject constructor(garage: GarageRepository, control: SyncControl) : SyncedViewModel(control) {
+class VehiclesViewModel @Inject constructor(
+    garage: GarageRepository,
+    control: SyncControl,
+    detailSource: VehicleDetailSource,
+) : SyncedViewModel(control) {
     private val german = Locale.getDefault().language == "de"
 
     val state: StateFlow<VehiclesUiState> = combine(
@@ -46,7 +51,9 @@ class VehiclesViewModel @Inject constructor(garage: GarageRepository, control: S
         garage.schedules,
         garage.templates,
         garage.formatter,
-    ) { vehicles, schedules, templates, fmt ->
+        // Keeps the vehicle page's inputs in memory while this list is on screen, so a tapped card opens on its content (D-A35).
+        detailSource.keepWarm,
+    ) { vehicles, schedules, templates, fmt, _ ->
         VehiclesUiState(GarageMath.vehicleSummaries(vehicles, GarageMath.dueItems(schedules, vehicles, templates, german)), fmt, loaded = true)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehiclesUiState())
 }
@@ -88,60 +95,27 @@ sealed interface PhotoPick {
 @HiltViewModel
 class VehicleDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    garage: GarageRepository,
-    settings: AppSettings,
-    profiles: ProfileStore,
+    source: VehicleDetailSource,
     control: SyncControl,
     writer: GarageWriter,
 ) : WritingViewModel(control, writer) {
     private val vehicleId = savedStateHandle.toRoute<VehicleDetailRoute>().vehicleId
     private val german = Locale.getDefault().language == "de"
 
-    private val due = combine(garage.vehicles, garage.schedules, garage.templates) { vehicles, schedules, templates ->
-        Triple(vehicles, GarageMath.dueItems(schedules, vehicles, templates, german), templates to schedules)
-    }
-
-    private val history = combine(garage.records, garage.fuelEntries, garage.expenses, ::Triple)
-    private val papers = combine(garage.inspections, garage.insurancePolicies, ::Pair)
-    private val extras = combine(garage.customFields, garage.customFieldValues, garage.modifications, ::Triple)
-    // Device-side context: the fuel-economy switch and the signed-in account (named as the owner of own vehicles).
-    private val device = combine(settings.fuel, profiles.state) { fuelSettings, p -> fuelSettings.trackFuelEconomy to p.active?.account?.greetingName }
-    private val extrasAndDevice = combine(extras, device, ::Pair)
-
-    val state: StateFlow<VehicleDetailUiState> = combine(due, history, papers, extrasAndDevice, garage.formatter) { dueData, historyData, paperData, (extraData, deviceData), fmt ->
-        val (vehicles, dueItems, templatesAndSchedules) = dueData
-        val (records, fuel, expenses) = historyData
-        val (inspections, policies) = paperData
-        val (fields, values, modifications) = extraData
-        val (trackFuelEconomy, accountName) = deviceData
-        val vehicle = vehicles.firstOrNull { it.id == vehicleId }
-            ?: return@combine VehicleDetailUiState(formatter = fmt, loaded = true)
-        val yearStart = LocalDate.now(fmt.zone).withDayOfYear(1).atStartOfDay(fmt.zone).toInstant()
-        val detail = GarageMath.vehicleDetail(vehicle, dueItems, records, fuel, expenses, inspections, policies, yearStart)
-        val (templates, schedules) = templatesAndSchedules
-        val scheduleById = schedules.associateBy { it.id }
-        val templateById = templates.associateBy { it.id }
-        val names = detail.records.mapNotNull { record ->
-            GarageMath.recordName(record, scheduleById, templateById, german)?.let { record.id to it }
-        }.toMap()
-        // The web's order: the owner's field positions; only fields with a value on this vehicle are rows.
-        val valueByField = values.filter { it.vehicleId == vehicleId }.associateBy { it.fieldId }
-        val customFields = fields
-            .sortedWith(compareBy<CustomField> { it.position }.thenBy { it.createdAt })
-            .mapNotNull { field -> valueByField[field.id]?.value?.takeIf { it.isNotBlank() }?.let { field to it } }
-        val fitted = modifications.filter { it.vehicleId == vehicleId }
-            .sortedWith(compareByDescending<Modification> { it.installedAt ?: "" }.thenByDescending { it.createdAt })
-        val tireField = customFields.firstOrNull { (field, _) -> GarageMath.isAboutTires(field.label) }
-        val tireModification = if (tireField == null) fitted.firstOrNull { GarageMath.isAboutTires(it.name) } else null
-        VehicleDetailUiState(
-            detail, fmt, names, customFields, fitted,
-            ownerName = if (vehicle.access.isShared) vehicle.owner?.name else accountName ?: vehicle.owner?.name,
-            trackFuelEconomy = trackFuelEconomy,
-            tireField = tireField,
-            tireModification = tireModification,
-            loaded = true,
+    /**
+     * Seeded from what Home or the Vehicles tab already holds in memory (D-A35), so the page has its content in its first
+     * frame and the photo card can glide in as the hero; null inputs (a deep link, a cold cache) start unloaded and the
+     * screen waits for the cache as before. The live state then replays the same inputs, which yields an equal state
+     * that [StateFlow] drops, so the first frame is never replaced; later changes are rebuilt off the main thread.
+     */
+    val state: StateFlow<VehicleDetailUiState> = source.inputs
+        .map { vehicleDetailState(vehicleId, it, german) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            source.latest?.let { vehicleDetailState(vehicleId, it, german) } ?: VehicleDetailUiState(),
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehicleDetailUiState())
 
     private val closedState = MutableStateFlow(false)
 
@@ -165,4 +139,40 @@ class VehicleDetailViewModel @Inject constructor(
             if (report(writer.deleteVehicle(vehicleId))) closedState.value = true
         }
     }
+}
+
+/** The page's state for [vehicleId] from [inputs]; "loaded" with no detail when the vehicle isn't (or is no longer) there. */
+internal fun vehicleDetailState(
+    vehicleId: String,
+    inputs: VehicleDetailInputs,
+    german: Boolean,
+    now: java.time.Instant = java.time.Instant.now(),
+): VehicleDetailUiState = with(inputs) {
+    val fmt = formatter
+    val vehicle = vehicles.firstOrNull { it.id == vehicleId } ?: return VehicleDetailUiState(formatter = fmt, loaded = true)
+    val dueItems = GarageMath.dueItems(schedules, vehicles, templates, german)
+    val yearStart = now.atZone(fmt.zone).toLocalDate().withDayOfYear(1).atStartOfDay(fmt.zone).toInstant()
+    val detail = GarageMath.vehicleDetail(vehicle, dueItems, records, fuel, expenses, inspections, policies, yearStart, now)
+    val scheduleById = schedules.associateBy { it.id }
+    val templateById = templates.associateBy { it.id }
+    val names = detail.records.mapNotNull { record ->
+        GarageMath.recordName(record, scheduleById, templateById, german)?.let { record.id to it }
+    }.toMap()
+    // The web's order: the owner's field positions; only fields with a value on this vehicle are rows.
+    val valueByField = customFieldValues.filter { it.vehicleId == vehicleId }.associateBy { it.fieldId }
+    val fields = customFields
+        .sortedWith(compareBy<CustomField> { it.position }.thenBy { it.createdAt })
+        .mapNotNull { field -> valueByField[field.id]?.value?.takeIf { it.isNotBlank() }?.let { field to it } }
+    val fitted = modifications.filter { it.vehicleId == vehicleId }
+        .sortedWith(compareByDescending<Modification> { it.installedAt ?: "" }.thenByDescending { it.createdAt })
+    val tireField = fields.firstOrNull { (field, _) -> GarageMath.isAboutTires(field.label) }
+    val tireModification = if (tireField == null) fitted.firstOrNull { GarageMath.isAboutTires(it.name) } else null
+    VehicleDetailUiState(
+        detail, fmt, names, fields, fitted,
+        ownerName = if (vehicle.access.isShared) vehicle.owner?.name else accountName ?: vehicle.owner?.name,
+        trackFuelEconomy = trackFuelEconomy,
+        tireField = tireField,
+        tireModification = tireModification,
+        loaded = true,
+    )
 }

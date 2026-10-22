@@ -258,10 +258,10 @@ fun VehicleDetailScreen(
                 Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                     WriteQueueBanner(sync, viewModel)
                     RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                        // Arriving from a card (D-A33): the cached vehicle lands within a frame or two, so until then the page
-                        // stays empty instead of showing the spinner; LoadedContent then opens straight on the content with no
-                        // cross-fade, and the photo card is there at full size from its first frame. A slow load still gets
-                        // the spinner after SPINNER_HOLD_MS.
+                        // Arriving from a card (D-A35): the state is seeded from what Home or the Vehicles tab holds, so it is
+                        // loaded in the first frame and LoadedContent opens straight on the content (no cross-fade), with the
+                        // photo card ready to glide in as the hero. Only an unseeded open (a deep link, a cold cache) waits
+                        // here (D-A33): empty while the cache answers, then the spinner after SPINNER_HOLD_MS.
                         if (!state.loaded && !sync.firstLoad && !spinnerDue) return@RefreshBox
                         LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                             if (detail != null) {
@@ -1016,5 +1016,5 @@ private fun ModificationRow(mod: Modification, fmt: Formatter) {
 
 private const val PREVIEW = 3
 
-/** How long the page stays empty waiting for the cached vehicle before it shows the loading spinner (D-A33). */
+/** How long an unseeded page (D-A35) stays empty waiting for the cached vehicle before it shows the loading spinner (D-A33). */
 private const val SPINNER_HOLD_MS = 300L
