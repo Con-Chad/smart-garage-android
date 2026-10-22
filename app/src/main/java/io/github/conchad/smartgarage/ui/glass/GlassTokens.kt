@@ -79,6 +79,11 @@ data class GlassTokens(
     val photoScrim: List<Color>,
     val onPhoto: Color,
     val onPhotoSecondary: Color,
+    /**
+     * The dark ink for an opaque fill that came out light (the fan FAB on a pale car, D-A31), the counterpart of
+     * [onPhoto]; also shared by both sets, since the fill it sits on is the car's colour, not the theme's.
+     */
+    val onPale: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
@@ -88,6 +93,7 @@ data class GlassTokens(
 private val PhotoScrim = listOf(Color.Transparent, Color(0xB3000000), Color(0xD9000000))
 private val OnPhoto = Color(0xFFF4F6FB)
 private val OnPhotoSecondary = Color(0xFFC7CCDB)
+private val OnPale = Color(0xFF1B2130)
 
 val DarkGlassTokens = GlassTokens(
     dark = true,
@@ -123,6 +129,7 @@ val DarkGlassTokens = GlassTokens(
     photoScrim = PhotoScrim,
     onPhoto = OnPhoto,
     onPhotoSecondary = OnPhotoSecondary,
+    onPale = OnPale,
 )
 
 val LightGlassTokens = GlassTokens(
@@ -159,6 +166,7 @@ val LightGlassTokens = GlassTokens(
     photoScrim = PhotoScrim,
     onPhoto = OnPhoto,
     onPhotoSecondary = OnPhotoSecondary,
+    onPale = OnPale,
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

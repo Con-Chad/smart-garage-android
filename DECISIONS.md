@@ -898,3 +898,25 @@ App decisions use the `D-A` prefix.
     toggle, with 8 dp above and below; the plate / mileage column now spans
     the card's width, the Quick info row is still full-width beneath. Same
     48 dp target, `Confirm` haptic and vehicle-page navigation. No new strings.
+  - **2026-10-22, after the phone test: the fan FAB moves to the bottom-right
+    and goes opaque in the car's colour.** `FanFab` is aligned `BottomEnd` at
+    16 dp from the right and the bottom (was `BottomStart`, 16 dp from the
+    left); the petals' angles are mirrored to **180°, 140°, 100°** (left,
+    up-left, up), same 76 dp radius, stagger and spring, so the fan opens
+    toward the upper left and every 48 dp target stays inside the 160 dp
+    square (and the screen) at any font scale. The frosted `panel` fill is
+    gone from these controls: core and petals are **solid**, derived from the
+    aurora tint in effect (`LocalAuroraTint.current.color`, i.e. the car in
+    view; theme primary when nothing has set one) by `fanPalette`. Core =
+    tint made opaque over the page, blended **35 %** toward `pageBackground`
+    on dark / **25 %** toward white on light; petals a step the other way
+    (15 % / 45 %). Each fill is pushed further the same way in 10 % steps
+    until the light ink (`onPhoto`) or the new dark ink **`onPale`**
+    (`0xFF1B2130`, shared by both token sets like `onPhoto`) clears
+    **4.5:1** on it, whichever is better — a mid-tone car colour clears it
+    with neither on its own. The 1 dp border is solid too, the fill 30 %
+    toward its ink. Fills and inks cross-fade with `tween(800)`, matching the
+    aurora, and snap under reduced motion. Open state (135° turn, nav-blob
+    gradient and `navGlow`, `onAccent` glyph), the `FanScrim`, Back, the
+    hide-while-scrolling and edit-only rules, actions, labels and strings are
+    unchanged.

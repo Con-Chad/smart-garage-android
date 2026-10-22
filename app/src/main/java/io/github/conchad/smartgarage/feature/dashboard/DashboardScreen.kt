@@ -273,7 +273,7 @@ fun DashboardScreen(
                             expanded = fanOpen,
                             onExpandedChange = { fanOpen = it },
                             visible = !pagerState.isScrollInProgress,
-                            modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 16.dp),
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
                         )
                     }
                 }
