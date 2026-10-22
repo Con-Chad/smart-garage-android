@@ -5,6 +5,27 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
+        Insurer apps the home card can open from the "Insurance plan" row (D-A24, ui/links/InsuranceApps.kt).
+        Package visibility on Android 11+ needs each one listed for getLaunchIntentForPackage to see it.
+    -->
+    <queries>
+        <package android:name="com.progressive.mobile" />
+        <package android:name="com.geico.mobile" />
+        <package android:name="com.statefarm.pocketagent" />
+        <package android:name="com.allstate.view" />
+        <package android:name="com.usaa.mobile.android.usaa" />
+        <package android:name="com.farmers.ifarmers" />
+        <package android:name="com.nationwide.mobile.android.nwmobile" />
+        <package android:name="com.joinroot.root" />
+        <package android:name="com.lemonadeinc.lemonade" />
+        <package android:name="com.libertymutual.lmmobile" />
+        <package android:name="com.amfam.myamfam" />
+        <package android:name="com.travelers.mytravelers" />
+        <package android:name="de.huk.meinehuk" />
+        <package android:name="de.allianz.meineallianz" />
+    </queries>
+
+    <!--
         allowBackup=false: secrets are encrypted with a Keystore key that never leaves the device, so a restored
         backup would hold ciphertext nothing can open. Signing in again is the recovery path.
     -->

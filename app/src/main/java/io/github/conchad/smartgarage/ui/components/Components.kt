@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isFinite
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.glass
 
 /**
  * Standard screen frame. The shell's bottom bar consumes the navigation-bar inset, so screens shown above it and
@@ -53,6 +54,7 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
+    transparent: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) = AppScaffold(
     title = { Text(title) },
@@ -62,10 +64,15 @@ fun AppScaffold(
     floatingActionButton = floatingActionButton,
     snackbarHost = snackbarHost,
     scrollBehavior = scrollBehavior,
+    transparent = transparent,
     content = content,
 )
 
-/** [AppScaffold] with a custom title slot, for the Dashboard's two-line greeting. Same bar, insets and scroll tint. */
+/**
+ * [AppScaffold] with a custom title slot, for the Dashboard's two-line greeting. Same bar, insets and scroll tint.
+ * [transparent] drops the scaffold's and the bar's own surface so the shell's aurora shows through (glass screens,
+ * D-A24); the bar then tints with the glass panel color once the content scrolls under it.
+ */
 @Composable
 fun AppScaffold(
     title: @Composable () -> Unit,
@@ -75,10 +82,12 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
+    transparent: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         modifier = if (scrollBehavior != null) modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else modifier,
+        containerColor = if (transparent) Color.Transparent else MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = title,
@@ -91,6 +100,11 @@ fun AppScaffold(
                 },
                 actions = { actions() },
                 scrollBehavior = scrollBehavior,
+                colors = if (transparent) {
+                    TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel)
+                } else {
+                    TopAppBarDefaults.topAppBarColors()
+                },
             )
         },
         floatingActionButton = floatingActionButton,

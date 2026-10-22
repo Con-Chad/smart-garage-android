@@ -43,6 +43,11 @@ data class Dashboard(
     val recentFuel: List<Dated<FuelEntry>>,
     /** Segments of the recent fill-ups, for their detail sheets. */
     val fuelSegments: Map<String, FuelSegment> = emptyMap(),
+    /** Per vehicle, for the home card's dropdown (D-A24): the inspection due soonest and the active policy ending soonest. */
+    val inspectionByVehicle: Map<String, Inspection> = emptyMap(),
+    val policyByVehicle: Map<String, InsurancePolicy> = emptyMap(),
+    /** Per vehicle, newest first, at most three: the "Recent fill-ups" that slide with the vehicle pager. */
+    val recentFuelByVehicle: Map<String, List<FuelEntry>> = emptyMap(),
 )
 
 object GarageMath {
@@ -146,25 +151,37 @@ object GarageMath {
     ): Dashboard {
         val byId = vehicles.associateBy { it.id }
         val due = dueItems(schedules, vehicles, templates, german)
+        val activePolicies = policies.filter { policy ->
+            val start = policy.startDate.toInstantOrNull() ?: Instant.MIN
+            val end = policy.endDate.toInstantOrNull() ?: Instant.MIN
+            !now.isBefore(start) && !now.isAfter(end)
+        }
+        val fuelNewestFirst = fuel.sortedByDescending { it.filledAt.toInstantOrNull() ?: Instant.MIN }
         return Dashboard(
             vehicles = vehicleSummaries(vehicles, due),
             attention = due.filter { it.status != DueStatus.OK },
             nextInspection = inspections
                 .mapNotNull { inspection -> byId[inspection.vehicleId]?.let { Dated(inspection, it) } }
                 .minByOrNull { it.item.nextDueAt.toInstantOrNull() ?: Instant.MAX },
-            insurance = policies
-                .filter { policy ->
-                    val start = policy.startDate.toInstantOrNull() ?: Instant.MIN
-                    val end = policy.endDate.toInstantOrNull() ?: Instant.MIN
-                    !now.isBefore(start) && !now.isAfter(end)
-                }
+            insurance = activePolicies
                 .mapNotNull { policy -> byId[policy.vehicleId]?.let { Dated(policy, it) } }
                 .minByOrNull { it.item.endDate.toInstantOrNull() ?: Instant.MAX },
-            recentFuel = fuel
-                .sortedByDescending { it.filledAt.toInstantOrNull() ?: Instant.MIN }
+            recentFuel = fuelNewestFirst
                 .take(3)
                 .mapNotNull { entry -> byId[entry.vehicleId]?.let { Dated(entry, it) } },
             fuelSegments = fuelSegments(fuel),
+            inspectionByVehicle = inspections
+                .filter { it.vehicleId in byId }
+                .groupBy { it.vehicleId }
+                .mapValues { (_, list) -> list.minBy { it.nextDueAt.toInstantOrNull() ?: Instant.MAX } },
+            policyByVehicle = activePolicies
+                .filter { it.vehicleId in byId }
+                .groupBy { it.vehicleId }
+                .mapValues { (_, list) -> list.minBy { it.endDate.toInstantOrNull() ?: Instant.MAX } },
+            recentFuelByVehicle = fuelNewestFirst
+                .filter { it.vehicleId in byId }
+                .groupBy { it.vehicleId }
+                .mapValues { (_, list) -> list.take(3) },
         )
     }
 

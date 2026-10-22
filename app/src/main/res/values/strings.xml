@@ -52,7 +52,6 @@
     <string name="dashboard_attention">Needs attention</string>
     <string name="dashboard_all_caught_up">All caught up</string>
     <string name="dashboard_all_caught_up_body">Nothing is overdue or due soon.</string>
-    <string name="dashboard_coming_up">Coming up</string>
     <string name="dashboard_insurance">Insurance</string>
     <string name="dashboard_insurance_until">until %1$s</string>
     <string name="dashboard_recent_fuel">Recent fill-ups</string>
@@ -727,4 +726,33 @@
     <string name="mod_category_ecu_tune">ECU tune</string>
     <string name="mod_category_transmission_tune">Transmission tune</string>
     <string name="mod_category_custom">Custom</string>
+
+    <!-- Glass home page and vehicle cards (D-A24): aurora, pager, card dropdown, long-press menu, nickname, odometer reminder, disconnect popup. -->
+    <string name="disconnected_title">Can\'t reach %1$s</string>
+    <string name="disconnected_body">Last updated %1$s. Showing what\'s saved on this phone.</string>
+    <string name="disconnected_retry">Retry sync</string>
+    <string name="pager_position">Vehicle %1$d of %2$d</string>
+    <string name="pager_next">Next vehicle</string>
+    <string name="card_details_show">Show details</string>
+    <string name="card_details_hide">Hide details</string>
+    <string name="card_mileage">Mileage</string>
+    <string name="card_no_insurance">No insurance policy on file</string>
+    <string name="card_no_inspection">No inspection date on file</string>
+    <string name="card_insurance_open_app">Opens the %1$s app</string>
+    <string name="odometer_updated">updated %1$s</string>
+    <string name="action_upload_photo">Upload photo</string>
+    <string name="action_rename_vehicle">Rename vehicle</string>
+    <string name="action_open_vehicle">Open vehicle</string>
+    <string name="rename_vehicle_title">Rename vehicle</string>
+    <string name="rename_vehicle_body">Only on this phone. On the server it stays %1$s.</string>
+    <string name="rename_vehicle_field">Nickname</string>
+    <string name="rename_vehicle_clear">Clear nickname</string>
+    <string name="odometer_reminder_title">Odometer last updated %1$s</string>
+    <string name="odometer_reminder_body">A monthly update keeps service intervals accurate.</string>
+    <plurals name="odometer_reminder_weeks_ago">
+        <item quantity="one">%1$d week ago</item>
+        <item quantity="other">%1$d weeks ago</item>
+    </plurals>
+    <string name="action_update">Update</string>
+    <string name="action_later">Later</string>
 </resources>

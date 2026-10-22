@@ -48,7 +48,6 @@
     <string name="dashboard_attention">Braucht Aufmerksamkeit</string>
     <string name="dashboard_all_caught_up">Alles erledigt</string>
     <string name="dashboard_all_caught_up_body">Nichts ist überfällig oder bald fällig.</string>
-    <string name="dashboard_coming_up">Demnächst</string>
     <string name="dashboard_insurance">Versicherung</string>
     <string name="dashboard_insurance_until">bis %1$s</string>
     <string name="dashboard_recent_fuel">Letzte Tankstopps</string>
@@ -714,4 +713,33 @@
     <string name="mod_category_ecu_tune">ECU-Tuning</string>
     <string name="mod_category_transmission_tune">Getriebe-Tuning</string>
     <string name="mod_category_custom">Individuell</string>
+
+    <!-- Glas-Startseite und Fahrzeugkarten (D-A24): Aurora, Pager, Karten-Dropdown, Langdruck-Menü, Spitzname, Kilometerstand-Erinnerung, Verbindungs-Popup. -->
+    <string name="disconnected_title">%1$s nicht erreichbar</string>
+    <string name="disconnected_body">Zuletzt aktualisiert %1$s. Gezeigt wird, was auf diesem Handy gespeichert ist.</string>
+    <string name="disconnected_retry">Synchronisierung erneut versuchen</string>
+    <string name="pager_position">Fahrzeug %1$d von %2$d</string>
+    <string name="pager_next">Nächstes Fahrzeug</string>
+    <string name="card_details_show">Details anzeigen</string>
+    <string name="card_details_hide">Details verbergen</string>
+    <string name="card_mileage">Kilometerstand</string>
+    <string name="card_no_insurance">Keine Versicherung hinterlegt</string>
+    <string name="card_no_inspection">Kein Prüftermin hinterlegt</string>
+    <string name="card_insurance_open_app">Öffnet die %1$s-App</string>
+    <string name="odometer_updated">aktualisiert %1$s</string>
+    <string name="action_upload_photo">Foto hochladen</string>
+    <string name="action_rename_vehicle">Fahrzeug umbenennen</string>
+    <string name="action_open_vehicle">Fahrzeug öffnen</string>
+    <string name="rename_vehicle_title">Fahrzeug umbenennen</string>
+    <string name="rename_vehicle_body">Nur auf diesem Handy. Auf dem Server bleibt es %1$s.</string>
+    <string name="rename_vehicle_field">Spitzname</string>
+    <string name="rename_vehicle_clear">Spitznamen entfernen</string>
+    <string name="odometer_reminder_title">Kilometerstand zuletzt aktualisiert %1$s</string>
+    <string name="odometer_reminder_body">Eine monatliche Aktualisierung hält die Wartungsintervalle genau.</string>
+    <plurals name="odometer_reminder_weeks_ago">
+        <item quantity="one">vor %1$d Woche</item>
+        <item quantity="other">vor %1$d Wochen</item>
+    </plurals>
+    <string name="action_update">Aktualisieren</string>
+    <string name="action_later">Später</string>
 </resources>

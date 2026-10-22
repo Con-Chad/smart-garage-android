@@ -97,9 +97,9 @@ fun DeniedSnackbar(viewModel: WritingViewModel, host: SnackbarHostState) {
  * Drop-in for `SyncBanner(sync, onRetry)` on the four data screens.
  */
 @Composable
-fun WriteQueueBanner(sync: SyncInfo, viewModel: WritingViewModel, modifier: Modifier = Modifier) {
+fun WriteQueueBanner(sync: SyncInfo, viewModel: WritingViewModel, modifier: Modifier = Modifier, syncStates: Boolean = true) {
     var showFailed by rememberSaveable { mutableStateOf(false) }
-    SyncBanner(sync, onRetry = viewModel::refresh, modifier = modifier, onShowFailed = { showFailed = true })
+    SyncBanner(sync, onRetry = viewModel::refresh, modifier = modifier, onShowFailed = { showFailed = true }, syncStates = syncStates)
     if (showFailed) {
         val failed by viewModel.failedWrites.collectAsStateWithLifecycle()
         FailedWritesSheet(

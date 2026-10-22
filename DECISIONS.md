@@ -317,3 +317,65 @@ App decisions use the `D-A` prefix.
     `VehiclePhoto` starts from that, so a card scrolled back into view no
     longer flashes the placeholder.
 
+- **D-A24: A glass design system for the home and vehicles pages; nickname
+  and odometer reminder stay on the phone; insurer deep links by package.**
+  - `ui/glass/` holds the look, translated from the user's reference
+    snippets into Compose with no new dependency: `AuroraBackground` (three
+    soft ribbons drawn as radial gradients with transparent edges rather
+    than a full-screen blur, screen-blended on dark, 9/11/13 s drifts),
+    `GlassPanel`/`GlassCard` (translucent fill + 1 dp border + inset top
+    highlight + lift shadow — a real backdrop blur of drawn content is not
+    expressible in Compose without a library, so this approximates it),
+    `MetallicText` (two tiers: an animated gold sheen sweep for titles and
+    headers, a static steel gradient for body text so contrast stays
+    ≥ 4.5:1), `MetallicFrame` + `rememberTilt` (chrome border, tilt-driven
+    sheen, tiled grain, ≤ 12° 3D tilt), `MorphingBottomNav` (floating pill,
+    spring blob, no auto-cycle) and `DisconnectedPopup`/`RefreshIcon`.
+    Tokens live in `GlassTokens` with dark and light sets chosen from the
+    resolved theme (Light/Dark/System); with dynamic color on, only the nav
+    blob takes the wallpaper's primary → tertiary. Every ambient effect
+    shares two guards: composed without animation when the lifecycle isn't
+    RESUMED, and one static frame when the system animator scale is 0 (the
+    snippets' `visibilitychange` and `prefers-reduced-motion`).
+  - The aurora is drawn once by the shell behind a transparent `Scaffold`,
+    so it also runs behind the floating bottom bar; its tint comes from
+    `LocalAuroraTint`, set by the screen in view (the Dashboard sets the
+    current vehicle's `VehicleTint`, cross-faded over 800 ms). Only the Home
+    and Vehicles routes compose it; the other tabs keep plain surfaces and
+    pay nothing. `VehicleTint` maps the server's free-text `color` (hex, EN
+    and DE words, compounds like "Dunkelrot", dark/light/metallic modifiers)
+    to a color; black, white and greys give a cool steel so a dark car still
+    has a visible aurora. Unit-tested.
+  - Sensor rules: the tilt registers `TYPE_GAME_ROTATION_VECTOR` (fallback
+    `TYPE_ROTATION_VECTOR`) at `SENSOR_DELAY_UI` only while the frame is in
+    the tree, the lifecycle is RESUMED and the page is the settled one; it
+    unregisters on dispose. Without a rotation sensor the frame follows the
+    finger and drifts idly. No permission is involved.
+  - The home card's dropdown shows insurance, mileage and inspection per
+    vehicle, so `Dashboard` gained `inspectionByVehicle`, `policyByVehicle`
+    and `recentFuelByVehicle` (additive, defaulted) and the "Coming up"
+    tiles are gone. "Needs attention" and "Recent fill-ups" are filtered to
+    the vehicle in the pager and slide with it.
+  - Renaming a vehicle is device-local (`VehicleLocalPrefs`, same DataStore
+    as `AppSettings`): the server has no nickname field and
+    `vehiclePatchSchema` cannot change make/model/year, so a nickname that
+    only this phone shows is the honest option. The server's name stays
+    visible under it. Photo change/upload reuses `setVehiclePhoto` and the
+    D-A21 checks, gated on `access.canEdit`.
+  - Odometer reminder: `OdometerReminder` (pure Kotlin, unit-tested) takes
+    the newest odometer log or fill-up with a reading (falling back to the
+    vehicle's `updatedAt`), reminds when that is > 30 days old, and "Later"
+    snoozes for 30 days per vehicle in `VehicleLocalPrefs`. Shown only to
+    people who can edit the vehicle.
+  - Insurer deep links: `InsuranceApps` matches `InsurancePolicy.provider`
+    by keyword to a short table of package names and uses
+    `getLaunchIntentForPackage`, which needs `<queries><package>` entries in
+    the manifest. Not installed or no match: the row is plain text. Several
+    package names are marked unverified in the table; a wrong one degrades
+    to plain text.
+  - The disconnect popup covers `SyncInfo.stale` (offline or server error
+    after an earlier success); dismissing it collapses it into a refresh
+    icon in the top bar until a sync succeeds, after which a new failure
+    shows the popup again. The home screen's `WriteQueueBanner` keeps only
+    the failed-writes message (`syncStates = false`) so nothing is said
+    twice; the never-synced case keeps the full-screen `CantReachState`.

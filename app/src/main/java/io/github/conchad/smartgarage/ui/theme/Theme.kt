@@ -15,6 +15,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import io.github.conchad.smartgarage.core.data.AppearanceSettings
 import io.github.conchad.smartgarage.core.data.ThemeMode
+import io.github.conchad.smartgarage.ui.glass.LocalGlassTokens
+import io.github.conchad.smartgarage.ui.glass.glassTokensFor
 
 @Composable
 fun SmartGarageTheme(
@@ -46,7 +48,10 @@ fun SmartGarageTheme(
             }
         }
     }
-    CompositionLocalProvider(LocalStatusColors provides if (dark) DarkStatusColors else LightStatusColors) {
+    CompositionLocalProvider(
+        LocalStatusColors provides if (dark) DarkStatusColors else LightStatusColors,
+        LocalGlassTokens provides glassTokensFor(dark, colors, appearance.dynamicColor),
+    ) {
         MaterialTheme(colorScheme = colors, typography = AppTypography, content = content)
     }
 }

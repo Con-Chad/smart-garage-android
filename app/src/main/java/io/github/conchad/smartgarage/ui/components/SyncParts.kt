@@ -115,12 +115,15 @@ fun RefreshBox(sync: SyncInfo, onRefresh: () -> Unit, modifier: Modifier = Modif
  *   writes (neutral), else "Offline · last updated X";
  * - "Sync failed · last updated X" when the server answered with an error (error container).
  * Text always carries the meaning; the icon only decorates.
+ *
+ * [syncStates] false keeps only the failed-writes message: the home screen shows "can't reach" as its own popup
+ * (D-A24) and must not say it twice.
  */
 @Composable
-fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifier, onShowFailed: (() -> Unit)? = null) {
+fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifier, onShowFailed: (() -> Unit)? = null, syncStates: Boolean = true) {
     val showFailed = sync.hasFailed && onShowFailed != null
     AnimatedVisibility(
-        visible = sync.stale || showFailed,
+        visible = (syncStates && sync.stale) || showFailed,
         enter = expandVertically() + fadeIn(),
         exit = shrinkVertically() + fadeOut(),
         modifier = modifier,
