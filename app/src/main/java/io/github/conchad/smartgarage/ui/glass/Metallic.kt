@@ -1,26 +1,21 @@
 package io.github.conchad.smartgarage.ui.glass
 
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -43,30 +38,42 @@ private val wipeEasing = CubicBezierEasing(0.5f, 0f, 0.18f, 1f)
 
 /**
  * Starts the sheen sweep for [content] (D-A24): the "Gradient Wipe" loop, 3.6 s with an 18 % anticipation hold
- * before the light arrives. Static when motion is reduced or the screen isn't resumed.
+ * before the light arrives. Static when motion is reduced or the screen isn't resumed. The phase is derived from
+ * the shared ambient clock at up to 60 Hz (the reference CSS ran at that), so a 120 Hz panel repaints every title
+ * half as often, and every title on the screen advances on the same tick.
  */
 @Composable
 fun MetallicSheenHost(content: @Composable () -> Unit) {
     val animate = rememberAmbientMotion()
     val phase: State<Float> = if (animate) {
-        rememberInfiniteTransition(label = "sheen").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                keyframes {
-                    durationMillis = 3_600
-                    0f at 0 using LinearEasing
-                    0.075f at 648 using wipeEasing
-                    1f at 3_600
-                },
-                RepeatMode.Restart,
-            ),
-            label = "sheenPhase",
-        )
+        val clock = rememberAmbientClock(SHEEN_FRAME_MS)
+        remember(clock) {
+            object : State<Float> {
+                override val value: Float get() = sheenPhaseAt(clock.value)
+            }
+        }
     } else {
         ParkedSheen
     }
     CompositionLocalProvider(LocalSheenPhase provides phase, content = content)
+}
+
+private const val SHEEN_FRAME_MS = 16L
+private const val SHEEN_PERIOD_MS = 3_600
+private const val SHEEN_HOLD_MS = 648
+private const val SHEEN_HOLD_END = 0.075f
+
+/**
+ * The keyframes `0 at 0 (linear) → 0.075 at 648 (wipe easing) → 1 at 3600`, restarting each period: a slow linear
+ * creep during the hold, then the eased sweep.
+ */
+private fun sheenPhaseAt(elapsedMs: Long): Float {
+    val t = (elapsedMs % SHEEN_PERIOD_MS).toInt()
+    return if (t < SHEEN_HOLD_MS) {
+        SHEEN_HOLD_END * (t.toFloat() / SHEEN_HOLD_MS)
+    } else {
+        SHEEN_HOLD_END + (1f - SHEEN_HOLD_END) * wipeEasing.transform((t - SHEEN_HOLD_MS).toFloat() / (SHEEN_PERIOD_MS - SHEEN_HOLD_MS))
+    }
 }
 
 /**
@@ -119,43 +126,45 @@ fun staticMetallicBrush(tokens: GlassTokens): Brush = Brush.linearGradient(
 /**
  * Tints the content with the sweeping metallic gradient: the content is drawn to an offscreen layer and the
  * gradient is composited `SrcIn`, so only the glyphs' pixels take the color. Position follows [phase] like the
- * snippet's `background-position: 130% → -30%` on a 280 %-wide gradient.
+ * snippet's `background-position: 130% → -30%` on a 280 %-wide gradient. The gradient is built once per size, at
+ * offset 0; each frame slides the canvas under it rather than creating a new shader, so an animation frame costs
+ * no allocation beyond the draw itself.
  */
 fun Modifier.metallicSheen(tokens: GlassTokens, phase: State<Float>): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-    .drawWithContent {
-        drawContent()
+    .drawWithCache {
         val w = size.width
         val h = size.height
-        if (w <= 0f || h <= 0f) return@drawWithContent
         val gradientW = w * 2.8f
-        // CSS background-position p: offset = p * (container - image) = -1.8 w p; p runs 1.3 → -0.3.
-        val p = 1.3f - 1.6f * phase.value
-        val offset = -1.8f * w * p
         // 110°: mostly horizontal, slightly downward.
         val angle = Math.toRadians(20.0)
         val dx = (cos(angle) * gradientW).toFloat()
         val dy = (sin(angle) * gradientW).toFloat()
-        val start = Offset(offset, h / 2f - dy / 2f)
-        val end = Offset(offset + dx, h / 2f + dy / 2f)
-        drawRect(
-            brush = Brush.linearGradient(
-                colorStops = arrayOf(
-                    0f to tokens.metalDim,
-                    0.22f to tokens.metalMid,
-                    0.44f to tokens.metalDim,
-                    0.49f to tokens.sheen,
-                    0.50f to tokens.sheenHighlight,
-                    0.51f to tokens.sheen,
-                    0.56f to tokens.metalDim,
-                    0.78f to tokens.metalMid,
-                    1f to tokens.metalDim,
-                ),
-                start = start,
-                end = end,
+        val brush = Brush.linearGradient(
+            colorStops = arrayOf(
+                0f to tokens.metalDim,
+                0.22f to tokens.metalMid,
+                0.44f to tokens.metalDim,
+                0.49f to tokens.sheen,
+                0.50f to tokens.sheenHighlight,
+                0.51f to tokens.sheen,
+                0.56f to tokens.metalDim,
+                0.78f to tokens.metalMid,
+                1f to tokens.metalDim,
             ),
-            blendMode = BlendMode.SrcIn,
+            start = Offset(0f, h / 2f - dy / 2f),
+            end = Offset(dx, h / 2f + dy / 2f),
         )
+        onDrawWithContent {
+            drawContent()
+            if (w <= 0f || h <= 0f) return@onDrawWithContent
+            // CSS background-position p: offset = p * (container - image) = -1.8 w p; p runs 1.3 → -0.3.
+            val p = 1.3f - 1.6f * phase.value
+            val offset = -1.8f * w * p
+            translate(left = offset) {
+                drawRect(brush, topLeft = Offset(-offset, 0f), size = size, blendMode = BlendMode.SrcIn)
+            }
+        }
     }
 
 /** Convenience for places that already have a color slot: the metal mid tone, legible on glass. */

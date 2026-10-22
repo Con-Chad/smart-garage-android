@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -88,6 +89,20 @@ class SyncEngine @Inject constructor(
     }
 
     /**
+     * [sync], unless the profile synced successfully within [maxAge] and has nothing queued, in which case nothing
+     * runs and null is returned. For the hourly worker (D-A13): the foreground sync on every return to the app
+     * usually has the cache fresh already, and an incremental pull that returns nothing still costs a request, a
+     * Keystore decrypt and a database pass. A queued write always syncs, so the worker remains the path that sends
+     * writes made while offline.
+     */
+    suspend fun syncIfStale(profileId: String, maxAge: Duration, now: Instant = Instant.now()): SyncOutcome? = withContext(Dispatchers.Default) {
+        val dao = cache.dao(profileId)
+        val lastSync = dao.meta(META_LAST_SYNC)
+        val queued = dao.outbox().isNotEmpty()
+        if (needsSync(lastSync, queued, now, maxAge)) sync(profileId) else null
+    }
+
+    /**
      * Runs a sync on the application scope without blocking the caller, e.g. right after a write was queued.
      * Requests that arrive while one runs are folded into a single follow-up run, so queuing several writes offline
      * doesn't line up a connection timeout per write.
@@ -132,6 +147,14 @@ class SyncEngine @Inject constructor(
         const val META_NEXT_SINCE = "nextSince"
         const val META_LAST_SYNC = "lastSyncAt"
         const val META_NOTE_TAGS = "noteTags"
+
+        /** The [syncIfStale] decision: stale, never synced, unparseable, a clock that went backwards, or work queued. */
+        internal fun needsSync(lastSyncAt: String?, queued: Boolean, now: Instant, maxAge: Duration): Boolean {
+            if (queued) return true
+            val last = lastSyncAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return true
+            val age = Duration.between(last, now)
+            return age.isNegative || age >= maxAge
+        }
 
         /**
          * One sync session: queued writes go out first, then the pull brings back what they changed server-side

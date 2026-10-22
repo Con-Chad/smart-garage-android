@@ -107,6 +107,20 @@ App decisions use the `D-A` prefix.
     It retries only when the tunnel or proxy answers but the origin is
     down; other failures wait for the next run.
   - Push-triggered sync waits for CP6 (UnifiedPush).
+  - 2026-10-22 (battery fix owed since CP11): the hourly worker now skips a
+    profile that synced successfully within the last 15 minutes and has an
+    empty outbox (`SyncEngine.syncIfStale`): the foreground sync on every
+    return to the app usually has the cache fresh, and an empty incremental
+    pull still cost a request, a Keystore decrypt and a database pass. A
+    queued write always syncs, so the worker remains the path that sends
+    writes made offline. Its retry backs off exponentially from 10 min
+    instead of WorkManager's 30 s (an origin that is down stays down for a
+    while; the next hourly run comes anyway). Scheduling uses
+    `ExistingPeriodicWorkPolicy.UPDATE`, which applies spec changes without
+    resetting the period or next run time; it is called once per process
+    start only, never on profile switch. The network constraint
+    (`CONNECTED`) is unchanged. The foreground path is deliberately not
+    throttled: "every time the app comes to the foreground" stays true.
 - **D-A14: Documents open in place for images, in another app for everything else.**
   - Files download through the authenticated API into the cache (the same
     store as vehicle photos), so a file opened once also works offline.
@@ -462,7 +476,8 @@ App decisions use the `D-A` prefix.
     long-press, and is now shown to viewers too because renaming is local;
     edit, photo and delete stay gated on `access.canEdit`. The detail
     screen's own picker path (`VehicleDetailViewModel.setPhoto` /
-    `photoPick`) is no longer called from the UI.
+    `photoPick`) is no longer called from the UI. 2026-10-22: removed, with
+    the ViewModel's `Context` dependency that only it used.
   - The scrim under a name in a photo (transparent → 70 % → 85 % black) and
     its fixed light pair moved from three screens into `GlassTokens`
     (`photoScrim`, `onPhoto`, `onPhotoSecondary`), the same in both token

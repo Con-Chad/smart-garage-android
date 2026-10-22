@@ -1,12 +1,9 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
@@ -19,9 +16,6 @@ import io.github.conchad.smartgarage.core.model.Modification
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.ui.files.FileProblem
-import io.github.conchad.smartgarage.ui.files.UploadKind
-import io.github.conchad.smartgarage.ui.files.inspect
-import io.github.conchad.smartgarage.ui.files.open
 import io.github.conchad.smartgarage.ui.navigation.VehicleDetailRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.SyncedViewModel
@@ -99,7 +93,6 @@ class VehicleDetailViewModel @Inject constructor(
     profiles: ProfileStore,
     control: SyncControl,
     writer: GarageWriter,
-    @ApplicationContext private val context: Context,
 ) : WritingViewModel(control, writer) {
     private val vehicleId = savedStateHandle.toRoute<VehicleDetailRoute>().vehicleId
     private val german = Locale.getDefault().language == "de"
@@ -155,13 +148,6 @@ class VehicleDetailViewModel @Inject constructor(
     /** True once the vehicle's delete is queued: the screen has nothing left to show and goes back. */
     val closed: StateFlow<Boolean> = closedState.asStateFlow()
 
-    private val photoPickState = MutableStateFlow<PhotoPick?>(null)
-    val photoPick: StateFlow<PhotoPick?> = photoPickState.asStateFlow()
-
-    fun clearPhotoPick() {
-        photoPickState.value = null
-    }
-
     fun deleteFuelEntry(id: String) = perform { deleteFuelEntry(id) }
 
     fun deleteRecord(id: String) = perform { deleteRecord(id) }
@@ -177,20 +163,6 @@ class VehicleDetailViewModel @Inject constructor(
     fun deleteVehicle() {
         viewModelScope.launch {
             if (report(writer.deleteVehicle(vehicleId))) closedState.value = true
-        }
-    }
-
-    /**
-     * A photo from the system picker (D-A21): name, type and size come from the content provider and the file's
-     * first bytes; a file the server would refuse (type, size) is reported here instead of queued.
-     */
-    fun setPhoto(uri: Uri) {
-        viewModelScope.launch {
-            val resolver = context.contentResolver
-            val file = resolver.inspect(uri) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
-            file.problem(UploadKind.VehiclePhoto)?.let { photoPickState.value = PhotoPick.Rejected(it); return@launch }
-            val stream = resolver.open(file) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
-            report(writer.setVehiclePhoto(vehicleId, file.name, file.mimeType ?: "application/octet-stream", stream))
         }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -101,8 +102,12 @@ fun rememberTilt(enabled: Boolean): TiltState {
                         basePitch += (pitch - basePitch) * 0.02f
                         baseRoll += (roll - baseRoll) * 0.02f
                     }
-                    targetX = ((pitch - basePitch) * GAIN).coerceIn(-MAX_TILT, MAX_TILT)
-                    targetY = ((roll - baseRoll) * GAIN).coerceIn(-MAX_TILT, MAX_TILT)
+                    val nextX = ((pitch - basePitch) * GAIN).coerceIn(-MAX_TILT, MAX_TILT)
+                    val nextY = ((roll - baseRoll) * GAIN).coerceIn(-MAX_TILT, MAX_TILT)
+                    // A phone at rest still reports a few hundredths of a degree of jitter; each would re-target the
+                    // springs and keep the frame repainting every frame for a change far under a pixel.
+                    if (abs(nextX - targetX) >= TILT_DEADBAND) targetX = nextX
+                    if (abs(nextY - targetY) >= TILT_DEADBAND) targetY = nextY
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -164,6 +169,9 @@ fun rememberStaticTilt(): TiltState {
 }
 
 private const val GAIN = 0.6f
+
+/** Smallest tilt change (degrees) the sensor path passes on; below it the sheen would move under a pixel. */
+private const val TILT_DEADBAND = 0.015f
 
 /**
  * The "Holographic Iridescent" frame (D-A24) around a vehicle photo: a chrome border (3 dp gradient of the foil
@@ -232,29 +240,28 @@ fun MetallicFrame(
                         end = normal,
                         tileMode = TileMode.Repeated,
                     )
+                    // Sheen band: 240 % wide gradient whose position follows the tilt (0..1 → left..right). Built once
+                    // at offset 0; a frame slides the canvas under it instead of creating a new shader.
+                    val gradientW = size.width * 2.4f
+                    val sheenBrush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0f to Color.Transparent,
+                            0.18f to Color.Transparent,
+                            0.38f to tokens.frameSheen[0],
+                            0.50f to tokens.frameSheen[1],
+                            0.62f to tokens.frameSheen[2],
+                            0.82f to Color.Transparent,
+                            1f to Color.Transparent,
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(gradientW, size.height * 0.45f),
+                    )
                     onDrawWithContent {
                         drawContent()
-                        // Sheen band: 240 % wide gradient whose position follows the tilt (0..1 → left..right).
-                        val p = tilt.sheen.value
-                        val gradientW = size.width * 2.4f
-                        val offset = -(gradientW - size.width) * p
-                        drawRect(
-                            Brush.linearGradient(
-                                colorStops = arrayOf(
-                                    0f to Color.Transparent,
-                                    0.18f to Color.Transparent,
-                                    0.38f to tokens.frameSheen[0],
-                                    0.50f to tokens.frameSheen[1],
-                                    0.62f to tokens.frameSheen[2],
-                                    0.82f to Color.Transparent,
-                                    1f to Color.Transparent,
-                                ),
-                                start = Offset(offset, 0f),
-                                end = Offset(offset + gradientW, size.height * 0.45f),
-                            ),
-                            alpha = 0.85f,
-                            blendMode = tokens.frameSheenBlend,
-                        )
+                        val offset = -(gradientW - size.width) * tilt.sheen.value
+                        translate(left = offset) {
+                            drawRect(sheenBrush, topLeft = Offset(-offset, 0f), size = size, alpha = 0.85f, blendMode = tokens.frameSheenBlend)
+                        }
                         drawRect(grainBrush, alpha = 0.5f)
                     }
                 },
