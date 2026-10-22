@@ -99,6 +99,7 @@ import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
@@ -116,6 +117,8 @@ import io.github.conchad.smartgarage.ui.glass.rememberDisconnectedState
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.links.InsuranceApps
+import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.launch
@@ -232,6 +235,7 @@ private fun DashboardContent(
 ) {
     var open by rememberSheetTarget()
     var odometerFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val addToCalendar = rememberAddToCalendar(snackbar)
     val scope = rememberCoroutineScope()
     val reduced = rememberReducedMotion()
     val vehicles = dashboard.vehicles
@@ -326,6 +330,9 @@ private fun DashboardContent(
 
     when (val target = open) {
         is SheetTarget.Schedule -> dashboard.attention.firstOrNull { it.schedule.id == target.id }?.let { item ->
+            val event = item.dueAt?.let { due ->
+                dueCalendarEvent(item.name, item.vehicle, fmt.localDate(due), intervalText(item.schedule.intervalKm, item.schedule.intervalMonths, fmt), item.schedule.notes)
+            }
             ScheduleSheet(
                 item,
                 fmt,
@@ -334,6 +341,7 @@ private fun DashboardContent(
                     open = null
                     onLogService(item.schedule.id)
                 },
+                onAddToCalendar = event?.let { e -> { addToCalendar(e) } },
             )
         }
         is SheetTarget.Fuel -> dashboard.recentFuelByVehicle.values.flatten().firstOrNull { it.id == target.id }?.let { entry ->
@@ -405,13 +413,13 @@ private fun VehicleCard(
                         Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xB3000000), Color(0xD9000000))))
+                            .background(Brush.verticalGradient(tokens.photoScrim))
                             .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
                     ) {
                         Text(
                             title,
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color(0xFFF4F6FB),
+                            color = tokens.onPhoto,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -419,7 +427,7 @@ private fun VehicleCard(
                             Text(
                                 vehicle.displayName,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFC7CCDB),
+                                color = tokens.onPhotoSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -541,7 +549,7 @@ private fun NextChevron(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Modifier.size(36.dp).clip(CircleShape).background(Color(0x99000000)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Outlined.ChevronRight, contentDescription = stringResource(R.string.pager_next), tint = Color(0xFFF4F6FB))
+            Icon(Icons.Outlined.ChevronRight, contentDescription = stringResource(R.string.pager_next), tint = glass.onPhoto)
         }
     }
 }

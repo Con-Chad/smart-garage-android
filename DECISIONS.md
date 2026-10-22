@@ -426,3 +426,49 @@ App decisions use the `D-A` prefix.
     that already carry a reading keep it, the server is unaffected, and
     other screens take the flag with a default of `true` so the dashboard
     is untouched.
+- **D-A26: The vehicle page joins the glass screens; every group is its own
+  drop-down; the photo card shares the home card's menu.**
+  - `MainShell` now treats `VehicleDetailRoute` as a glass route, so the
+    shell's one aurora runs behind it with the same guards as Home and
+    Vehicles (static when the lifecycle isn't RESUMED or the animator scale
+    is 0). The screen sets `AuroraTint` from the vehicle's `color` via
+    `VehicleTint`, so the aurora cross-fades into the car's colour when the
+    page opens and back when it closes. The top bar is transparent and its
+    title is the animated metallic tier; the whole screen sits in one
+    `MetallicSheenHost` so every header glints together.
+  - Notes 11–12: `GlassDropdown` (new in `ui/glass/`) is a `GlassCard` with
+    a bold animated-metallic header row (≥ 56 dp, two lines allowed, so it
+    holds at font scale 1.3), a turning chevron and `animateContentSize`, so
+    the cards under it slide as it opens; under reduced motion both snap.
+    The header is a button with its state for TalkBack. On the page the 2×2
+    "At a glance" figures and the "Quick actions" start open; under one
+    plain "Vehicle details" header each group is its own drop-down, closed by
+    default and remembered across rotation: registration (plate, HSN/TSN,
+    sticker), VIN, colour (with a swatch in the aurora tint when the text
+    names a colour), purchase, specs, tyres (still only with a tyre custom
+    field or modification, D-A25), modifications, custom fields, notes.
+    Groups with nothing in them aren't shown; with nothing at all the one
+    "nothing recorded" card stays. Service, papers, fuel and history keep
+    their headers (they carry actions) on `GlassGroupHeader` + `GlassCard`.
+    The figure tiles are glass pills with static steel values.
+  - Note 10: the photo card is a `MetallicFrame` (tilt on, under the D-A24
+    sensor rules) with `VehicleCardMenu` on tap or long-press and the same
+    TalkBack custom actions as the home card, hosted by the shared
+    `VehicleCardActionsViewModel` / `rememberVehicleCardActions`. The name in
+    the photo and in the scrolled top bar is the device-local nickname when
+    set, with the server's name beneath, as on the home card; the delete
+    dialogs keep the server's name, since that is what is deleted. The top
+    bar's overflow offers the same choices for anyone who doesn't find the
+    long-press, and is now shown to viewers too because renaming is local;
+    edit, photo and delete stay gated on `access.canEdit`. The detail
+    screen's own picker path (`VehicleDetailViewModel.setPhoto` /
+    `photoPick`) is no longer called from the UI.
+  - The scrim under a name in a photo (transparent → 70 % → 85 % black) and
+    its fixed light pair moved from three screens into `GlassTokens`
+    (`photoScrim`, `onPhoto`, `onPhotoSecondary`), the same in both token
+    sets since a photo has no theme. The dashboard's schedule sheet gained
+    the D-A25 "Add to calendar" hook like the maintenance screen's. The
+    unused `vehicle_details` and `vehicle_no_modifications` strings are gone
+    from both locales; new labels (`vehicle_at_a_glance`,
+    `vehicle_quick_actions`, `vehicle_purchase`, `vehicle_custom_fields`,
+    `vehicle_photo_options`) are in EN and DE.

@@ -1,13 +1,9 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +15,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.AddAPhoto
@@ -32,10 +32,9 @@ import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventAvailable
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Payments
@@ -57,9 +56,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,9 +68,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,7 +77,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
-import io.github.conchad.smartgarage.core.model.CustomField
 import io.github.conchad.smartgarage.core.model.MaintenanceRecord
 import io.github.conchad.smartgarage.core.model.Modification
 import io.github.conchad.smartgarage.core.model.Specs
@@ -94,8 +90,6 @@ import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
 import io.github.conchad.smartgarage.ui.components.FuelRow
 import io.github.conchad.smartgarage.ui.components.FuelSheet
-import io.github.conchad.smartgarage.ui.components.GroupCard
-import io.github.conchad.smartgarage.ui.components.GroupHeader
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.InspectionSheet
 import io.github.conchad.smartgarage.ui.components.InsuranceSheet
@@ -105,25 +99,34 @@ import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.ScheduleSheet
 import io.github.conchad.smartgarage.ui.components.SheetTarget
-import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
-import io.github.conchad.smartgarage.ui.components.forms.ActionButton
-import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
-import io.github.conchad.smartgarage.ui.components.forms.PendingMark
-import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
-import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
+import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.bodyTypeLabel
 import io.github.conchad.smartgarage.ui.components.coverageLabel
 import io.github.conchad.smartgarage.ui.components.driveTypeLabel
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.enumLabel
+import io.github.conchad.smartgarage.ui.components.forms.ActionButton
+import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
+import io.github.conchad.smartgarage.ui.components.forms.PendingMark
+import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
 import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.modificationCategoryLabel
-import io.github.conchad.smartgarage.ui.files.UploadKind
-import io.github.conchad.smartgarage.ui.files.fileProblemText
+import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
+import io.github.conchad.smartgarage.ui.glass.AuroraTint
+import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.GlassDropdown
+import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
+import io.github.conchad.smartgarage.ui.glass.MetallicFrame
+import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
+import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.VehicleTint
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.rememberTilt
+import io.github.conchad.smartgarage.ui.glass.staticMetallicBrush
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.links.renewalCalendarEvent
@@ -147,103 +150,116 @@ class VehicleActions(
     val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
 )
 
+/**
+ * One vehicle on glass (D-A25 for the order, D-A26 for the look): the car in its chrome frame, who owns it, then
+ * every group as its own drop-down card on the shell's aurora, which takes the car's colour while this screen is up.
+ * The photo card has the same tap / long-press menu as the home card (change or upload the photo, a device-local
+ * nickname), so the name shown here is the nickname when one is set.
+ */
 @Composable
 fun VehicleDetailScreen(
     onBack: () -> Unit,
     actions: VehicleActions,
     viewModel: VehicleDetailViewModel = hiltViewModel(),
+    cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sync by viewModel.syncInfo.collectAsStateWithLifecycle()
     val pendingIds by viewModel.pendingIds.collectAsStateWithLifecycle()
     val closed by viewModel.closed.collectAsStateWithLifecycle()
-    val photoPick by viewModel.photoPick.collectAsStateWithLifecycle()
     val detail = state.detail
     val listState = rememberLazyListState()
     val snackbar = remember { SnackbarHostState() }
     DeniedSnackbar(viewModel, snackbar)
+    // Photo picker, rename dialog and their feedback are the home card's (D-A24), hosted once here.
+    val cardActions = rememberVehicleCardActions(cardActionsViewModel, snackbar)
     LaunchedEffect(closed) { if (closed) onBack() }
-
-    // A photo the server would refuse is said so here, before anything is queued (D-A21).
-    val photoMessage = when (val pick = photoPick) {
-        null -> null
-        PhotoPick.Unreadable -> stringResource(R.string.file_unreadable)
-        is PhotoPick.Rejected -> fileProblemText(pick.problem, UploadKind.VehiclePhoto)
-    }
-    LaunchedEffect(photoMessage) {
-        if (photoMessage != null) {
-            snackbar.showSnackbar(photoMessage)
-            viewModel.clearPhotoPick()
-        }
-    }
-    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(viewModel::setPhoto)
-    }
+    AuroraTint(VehicleTint.color(detail?.vehicle?.color, MaterialTheme.colorScheme.primary))
 
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableIntStateOf(0) }
 
     // The photo card carries the vehicle's name (note 13); the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 1 } }
-    AppScaffold(
-        title = if (headingGone) detail?.vehicle?.displayName.orEmpty() else "",
-        onBack = onBack,
-        snackbarHost = { SnackbarHost(snackbar) },
-        actions = {
-            val vehicle = detail?.vehicle
-            if (vehicle != null && vehicle.access.canEdit) {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
+    MetallicSheenHost {
+        AppScaffold(
+            transparent = true,
+            title = {
+                val vehicle = detail?.vehicle
+                if (headingGone && vehicle != null) {
+                    MetallicText(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_edit_vehicle)) },
-                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            actions.onEditVehicle(vehicle.id)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_change_photo)) },
-                        leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                    )
-                    if (!vehicle.access.isShared) {
+            },
+            onBack = onBack,
+            snackbarHost = { SnackbarHost(snackbar) },
+            actions = {
+                val vehicle = detail?.vehicle
+                if (vehicle != null) {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
+                    }
+                    // The same choices as the photo's long-press, for anyone who doesn't find that; renaming is local, so viewers get it too.
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (vehicle.access.canEdit) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_edit_vehicle)) },
+                                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    actions.onEditVehicle(vehicle.id)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(photoActionRes(vehicle))) },
+                                leadingIcon = { Icon(Icons.Outlined.AddAPhoto, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    cardActions.changePhoto(vehicle)
+                                },
+                            )
+                        }
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_delete_vehicle), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.action_rename_vehicle)) },
+                            leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null) },
                             onClick = {
                                 menuOpen = false
-                                confirmDelete = 1
+                                cardActions.rename(vehicle)
                             },
                         )
+                        if (vehicle.access.canEdit && !vehicle.access.isShared) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_delete_vehicle), color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    menuOpen = false
+                                    confirmDelete = 1
+                                },
+                            )
+                        }
                     }
                 }
-            }
-        },
-    ) { padding ->
-        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-            WriteQueueBanner(sync, viewModel)
-            RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
-                    if (detail != null) {
-                        VehicleDetailContent(
-                            detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
-                            pendingIds = pendingIds,
-                            actions = actions,
-                            snackbar = snackbar,
-                            viewModel = viewModel,
-                        )
-                    } else {
-                        EmptyState(
-                            icon = Icons.Outlined.DirectionsCar,
-                            title = stringResource(R.string.vehicle_gone_title),
-                            body = stringResource(R.string.vehicle_gone_body),
-                        )
+            },
+        ) { padding ->
+            Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                WriteQueueBanner(sync, viewModel)
+                RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
+                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                        if (detail != null) {
+                            VehicleDetailContent(
+                                detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+                                pendingIds = pendingIds,
+                                actions = actions,
+                                cardActions = cardActions,
+                                snackbar = snackbar,
+                                viewModel = viewModel,
+                            )
+                        } else {
+                            EmptyState(
+                                icon = Icons.Outlined.DirectionsCar,
+                                title = stringResource(R.string.vehicle_gone_title),
+                                body = stringResource(R.string.vehicle_gone_body),
+                            )
+                        }
                     }
                 }
             }
@@ -251,6 +267,7 @@ fun VehicleDetailScreen(
     }
 
     // Deleting a vehicle takes everything with it, so it asks twice; the second time with the consequences spelled out.
+    // The server's name, not the nickname: that is what is being deleted.
     val name = detail?.vehicle?.displayName.orEmpty()
     when (confirmDelete) {
         1 -> ConfirmDialog(
@@ -283,6 +300,7 @@ private fun VehicleDetailContent(
     contentPadding: PaddingValues,
     pendingIds: Set<String>,
     actions: VehicleActions,
+    cardActions: VehicleCardActions,
     snackbar: SnackbarHostState,
     viewModel: VehicleDetailViewModel,
 ) {
@@ -293,27 +311,36 @@ private fun VehicleDetailContent(
     var allFuel by rememberSaveable { mutableStateOf(false) }
     var allRecords by rememberSaveable { mutableStateOf(false) }
     var odometerOpen by rememberSaveable { mutableStateOf(false) }
-    // Closed by default (note 15): the car's paperwork and specs are read rarely; the service groups below are not.
-    var detailsOpen by rememberSaveable { mutableStateOf(false) }
+    // The figures and the actions start open: they are what one came for. The car's paperwork and specs start closed
+    // (note 15); each remembers its own state across rotation.
+    var glanceOpen by rememberSaveable { mutableStateOf(true) }
+    var quickOpen by rememberSaveable { mutableStateOf(true) }
     val addToCalendar = rememberAddToCalendar(snackbar)
+    val sections = detailSections(vehicle, detail, state, fmt)
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
-        // and the rest of the car behind one "Vehicle details" header; service, papers, fuel and history follow.
-        item { PhotoCard(vehicle) }
+        // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
+        item { PhotoCard(vehicle, cardActions) }
         item { OwnerLine(state.ownerName, vehicle.access.isShared, detail) }
-        item { ImmediateInfo(detail, fmt) }
+        item {
+            GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp)) {
+                ImmediateInfo(detail, fmt)
+            }
+        }
         item {
             // The things done at the car first (a fill-up, a reading), then the paperwork. Viewers see why there is nothing to tap.
             if (canEdit) {
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
-                        ActionButton(stringResource(R.string.action_update_odometer), Icons.Outlined.Speed, onClick = { odometerOpen = true }, modifier = Modifier.weight(1f))
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionButton(stringResource(R.string.action_add_expense), Icons.AutoMirrored.Outlined.ReceiptLong, onClick = { actions.onAddExpense(vehicle.id) }, modifier = Modifier.weight(1f))
-                        ActionButton(stringResource(R.string.action_add_document), Icons.Outlined.UploadFile, onClick = { actions.onAddDocument(vehicle.id) }, modifier = Modifier.weight(1f))
+                GlassDropdown(stringResource(R.string.vehicle_quick_actions), expanded = quickOpen, onToggle = { quickOpen = !quickOpen }, modifier = Modifier.padding(top = 12.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
+                            ActionButton(stringResource(R.string.action_update_odometer), Icons.Outlined.Speed, onClick = { odometerOpen = true }, modifier = Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(stringResource(R.string.action_add_expense), Icons.AutoMirrored.Outlined.ReceiptLong, onClick = { actions.onAddExpense(vehicle.id) }, modifier = Modifier.weight(1f))
+                            ActionButton(stringResource(R.string.action_add_document), Icons.Outlined.UploadFile, onClick = { actions.onAddDocument(vehicle.id) }, modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             } else {
@@ -323,12 +350,26 @@ private fun VehicleDetailContent(
         if (vehicle.id in pendingIds) {
             item { PendingMark(Modifier.padding(start = 16.dp, top = 8.dp)) }
         }
-        item {
-            VehicleDetailsCard(vehicle, detail, state, fmt, expanded = detailsOpen, onToggle = { detailsOpen = !detailsOpen })
+
+        // "Vehicle details" (note 15): everything about the car itself and nothing about service, each group its own
+        // drop-down (note 12) so the cards below slide as one opens. Groups with nothing in them aren't shown at all.
+        item { GlassGroupHeader(stringResource(R.string.vehicle_details_all)) }
+        if (sections.isEmpty()) {
+            item { EmptyGroup(stringResource(R.string.vehicle_no_details)) }
+        } else {
+            items(sections, key = { it.key }) { section ->
+                var expanded by rememberSaveable { mutableStateOf(false) }
+                GlassDropdown(
+                    section.title,
+                    expanded = expanded,
+                    onToggle = { expanded = !expanded },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                ) { section.content() }
+            }
         }
 
         item {
-            GroupHeader(
+            GlassGroupHeader(
                 stringResource(R.string.vehicle_service),
                 action = stringResource(R.string.action_add),
                 onAction = { actions.onAddSchedule(vehicle.id) }.takeIf { canEdit },
@@ -338,7 +379,7 @@ private fun VehicleDetailContent(
             if (detail.due.isEmpty()) {
                 EmptyGroup(stringResource(R.string.vehicle_no_schedules))
             } else {
-                GroupCard {
+                GlassCard {
                     detail.due.forEachIndexed { index, item ->
                         if (index > 0) RowDivider()
                         DueRow(item, fmt, onClick = { open = SheetTarget.Schedule(item.schedule.id) }, showVehicle = false)
@@ -348,9 +389,9 @@ private fun VehicleDetailContent(
         }
 
         if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty() || canEdit) {
-            item { GroupHeader(stringResource(R.string.vehicle_papers)) }
+            item { GlassGroupHeader(stringResource(R.string.vehicle_papers)) }
             item {
-                GroupCard {
+                GlassCard {
                     detail.inspections.forEachIndexed { index, inspection ->
                         if (index > 0) RowDivider()
                         val due = inspection.nextDueAt.toInstantOrNull()
@@ -387,7 +428,7 @@ private fun VehicleDetailContent(
         }
 
         item {
-            GroupHeader(
+            GlassGroupHeader(
                 stringResource(R.string.nav_fuel),
                 action = if (allFuel) stringResource(R.string.action_show_less) else stringResource(R.string.action_show_all, detail.fuel.size),
                 onAction = { allFuel = !allFuel }.takeIf { detail.fuel.size > PREVIEW },
@@ -397,7 +438,7 @@ private fun VehicleDetailContent(
             if (detail.fuel.isEmpty()) {
                 EmptyGroup(stringResource(R.string.vehicle_no_fuel))
             } else {
-                GroupCard {
+                GlassCard {
                     // Consumption figures only while fuel economy is tracked (D-A25); costs and volumes always.
                     val average = detail.averageConsumption?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it) }
                     if (average != null) {
@@ -420,7 +461,7 @@ private fun VehicleDetailContent(
         }
 
         item {
-            GroupHeader(
+            GlassGroupHeader(
                 stringResource(R.string.vehicle_history),
                 action = if (allRecords) stringResource(R.string.action_show_less) else stringResource(R.string.action_show_all, detail.records.size),
                 onAction = { allRecords = !allRecords }.takeIf { detail.records.size > PREVIEW },
@@ -430,7 +471,7 @@ private fun VehicleDetailContent(
             if (detail.records.isEmpty()) {
                 EmptyGroup(stringResource(R.string.vehicle_no_records))
             } else {
-                GroupCard {
+                GlassCard {
                     detail.records.take(if (allRecords) Int.MAX_VALUE else PREVIEW).forEachIndexed { index, record ->
                         if (index > 0) RowDivider()
                         RecordRow(record, state.recordName(record), vehicle = null, fmt, pending = record.id in pendingIds) { open = SheetTarget.Record(record.id) }
@@ -438,7 +479,6 @@ private fun VehicleDetailContent(
                 }
             }
         }
-
     }
 
     when (val target = open) {
@@ -569,36 +609,47 @@ private fun VehicleDetailContent(
 }
 
 /**
- * Over a photo the name is always light on a dark scrim, whichever theme is on, so the pair lives here rather than in
- * the colour scheme; the glass restyle may move it into its tokens.
- */
-private val PhotoScrim = Color.Black.copy(alpha = 0.72f)
-private val OnPhoto = Color.White
-
-/**
- * The photo with the vehicle's name inside it, bottom-left over a soft dark gradient (note 13), still 16:9 and clipped
- * to the card shape. Photo and name are one TalkBack item.
+ * The photo in the chrome frame with the vehicle's name inside it, bottom-left over the shared photo scrim (note 13),
+ * 16:9. The name is the device-local nickname when there is one, with the server's name under it, as on the home
+ * card. Tap or hold for the photo / rename menu (note 10); TalkBack gets the same as custom actions. The frame tilts
+ * with the phone under the D-A24 sensor rules (only while this screen is resumed, released on dispose).
  */
 @Composable
-private fun PhotoCard(vehicle: Vehicle) {
-    val shape = MaterialTheme.shapes.extraLarge
-    Box(
-        Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(shape)
-            .semantics(mergeDescendants = true) {},
-    ) {
-        VehiclePhoto(vehicle, Modifier.fillMaxSize(), shape = shape, iconSize = 72.dp)
-        Box(
-            Modifier
-                .align(Alignment.BottomStart)
+private fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions) {
+    val tokens = glass
+    val tilt = rememberTilt(enabled = true)
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
+    val nickname = cardActions.nicknameOf(vehicle)
+    val menuLabel = stringResource(R.string.vehicle_photo_options)
+    Box(Modifier.padding(horizontal = 16.dp)) {
+        MetallicFrame(
+            tilt = tilt,
+            cornerRadius = tokens.radiusLarge,
+            modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, PhotoScrim)))
-                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                .aspectRatio(16f / 9f)
+                .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
         ) {
-            Text(vehicle.displayName, style = MaterialTheme.typography.titleLarge, color = OnPhoto, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
+            ) {
+                VehiclePhoto(vehicle, Modifier.fillMaxSize(), iconSize = 72.dp)
+                Column(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(tokens.photoScrim))
+                        .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                ) {
+                    Text(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, color = tokens.onPhoto, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (nickname != null) {
+                        Text(vehicle.displayName, style = MaterialTheme.typography.bodySmall, color = tokens.onPhotoSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
         }
     }
 }
@@ -606,15 +657,16 @@ private fun PhotoCard(vehicle: Vehicle) {
 /** "Owner: Connor" under the photo (note 14) with the service status chips on the right; the owner line is one TalkBack item. */
 @Composable
 private fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail) {
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    val tokens = glass
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 if (shared) Icons.Outlined.People else Icons.Outlined.Person,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 6.dp),
+                tint = tokens.sheen,
+                modifier = Modifier.padding(end = 8.dp).size(22.dp),
             )
-            Text(stringResource(R.string.vehicle_owner, ownerName ?: "—"), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            MetallicText(stringResource(R.string.vehicle_owner, ownerName ?: "—"), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         VehicleStatusChip(detail.summary, Modifier.padding(start = 8.dp))
     }
@@ -633,7 +685,7 @@ private fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
         Triple(Icons.Outlined.Badge, stringResource(R.string.field_plate), vehicle.licensePlate ?: "—"),
         Triple(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents, vehicle.purchaseCurrency)),
     )
-    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.chunked(2).forEach { pair ->
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pair.forEach { (icon, label, value) -> InfoTile(icon, label, value, Modifier.weight(1f).fillMaxHeight()) }
@@ -642,151 +694,129 @@ private fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
     }
 }
 
-/** One figure with its label above; the value shrinks before it wraps so a long plate or sum stays readable. */
+/** One figure on a glass pill with its label above; the value shrinks before it wraps so a long plate or sum stays readable. */
 @Composable
 private fun InfoTile(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.large, modifier = modifier.semantics(mergeDescendants = true) {}) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
-            }
-            val style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-            BasicText(value, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize))
-        }
-    }
-}
-
-/**
- * A group header that opens and closes the card under it: the whole row is the target (≥ 48 dp), the chevron shows
- * the state and TalkBack reads it ("Vehicle details, collapsed, button").
- */
-@Composable
-private fun CollapsibleHeader(text: String, expanded: Boolean, onToggle: () -> Unit) {
-    val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onToggle, role = Role.Button)
-            .semantics(mergeDescendants = true) { stateDescription = stateText }
-            .heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val tokens = glass
+    val shape = RoundedCornerShape(tokens.radiusMedium)
+    Column(
+        modifier
+            .clip(shape)
+            .background(tokens.pill)
+            .border(1.dp, tokens.pillBorder, shape)
+            .padding(14.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        Icon(
-            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(18.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium.copy(hyphens = Hyphens.Auto),
+                color = tokens.textSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
+        val style = MaterialTheme.typography.titleMedium.copy(brush = staticMetallicBrush(tokens))
+        BasicText(value, style = style, maxLines = 2, overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = style.fontSize))
     }
 }
 
+/** One drop-down under "Vehicle details": a stable key for its saved open/closed state, the header, and the rows. */
+private class DetailSection(val key: String, val title: String, val content: @Composable () -> Unit)
+
 /**
- * "Vehicle details" (note 15): everything about the car itself and nothing about service, behind one header. The
- * card slides open and shut ([animateContentSize] on the column, so the groups below move with it). Registration
- * first (plate, HSN/TSN, inspection sticker, VIN), then colour and purchase, specs, tyres, modifications, the owner's
- * custom fields and the notes. Tyres are only a row when the owner keeps a tyre custom field or modification; there is
- * no tyre model to invent one from.
+ * The groups under "Vehicle details" (note 15) that have anything to show, in reading order: registration (plate,
+ * HSN/TSN, inspection sticker), VIN, colour, purchase, specs, tyres, modifications, the owner's custom fields and the
+ * notes. Tyres are only a group when the owner keeps a tyre custom field or modification; there is no tyre model to
+ * invent one from.
  */
 @Composable
-private fun VehicleDetailsCard(
-    vehicle: Vehicle,
-    detail: VehicleDetail,
-    state: VehicleDetailUiState,
-    fmt: Formatter,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    Column(Modifier.fillMaxWidth().animateContentSize()) {
-        CollapsibleHeader(stringResource(R.string.vehicle_details_all), expanded, onToggle)
-        if (!expanded) return@Column
-        GroupCard {
-            val specs: Specs? = vehicle.specs
-            val yes = stringResource(R.string.yes)
-            val no = stringResource(R.string.no)
-            val registration = listOfNotNull(
-                vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.field_plate) to it },
-                listOfNotNull(vehicle.hsn, vehicle.tsn).joinToString(" / ").ifEmpty { null }?.let { stringResource(R.string.vehicle_form_hsn_tsn) to it },
-                detail.inspections.firstNotNullOfOrNull { it.stickerNumber?.takeIf(String::isNotBlank) }?.let { stringResource(R.string.inspection_sticker) to it },
-                vehicle.vin?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.field_vin) to it },
-            )
-            val purchase = listOfNotNull(
-                vehicle.color?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.field_color) to it },
-                vehicle.purchaseDate.toInstantOrNull()?.let { stringResource(R.string.field_purchased) to fmt.date(it) },
-                vehicle.purchasePriceCents?.let { stringResource(R.string.field_purchase_price) to fmt.money(it, vehicle.purchaseCurrency) },
-            )
-            val specRows = listOfNotNull(
-                specs?.engineDescription?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.spec_engine) to it },
-                listOfNotNull(specs?.powerKw?.let { "$it kW" }, specs?.powerPs?.let { "$it ${stringResource(R.string.unit_ps)}" })
-                    .joinToString(" / ").ifEmpty { null }?.let { stringResource(R.string.spec_power) to it },
-                specs?.torqueNm?.let { stringResource(R.string.spec_torque) to "$it Nm" },
-                specs?.displacementCc?.let { stringResource(R.string.spec_displacement) to "$it cm³" },
-                specs?.fuelType?.let { stringResource(R.string.spec_fuel) to fuelTypeLabel(it) },
-                specs?.transmissionTypes?.joinToString { enumLabel(it) }?.ifEmpty { null }?.let { stringResource(R.string.spec_transmission) to it },
-                specs?.driveType?.let { stringResource(R.string.spec_drive) to driveTypeLabel(it) },
-                specs?.bodyType?.let { stringResource(R.string.spec_body) to bodyTypeLabel(it) },
-            )
-            val tires = state.tireField?.let { (field, value) -> fmt.customFieldValue(field.fieldType, field.unit, value, yes, no) }
-                ?: state.tireModification?.let { mod ->
-                    listOfNotNull(mod.name.ifBlank { null }, mod.installedAt.toInstantOrNull()?.let { stringResource(R.string.modification_installed, fmt.date(it)) })
-                        .joinToString(" · ").ifEmpty { null }
-                }
-            val custom = state.otherCustomFields.map { (field, value) -> field.label to fmt.customFieldValue(field.fieldType, field.unit, value, yes, no) }
-            val notes = vehicle.notes?.takeIf { it.isNotBlank() }
+private fun detailSections(vehicle: Vehicle, detail: VehicleDetail, state: VehicleDetailUiState, fmt: Formatter): List<DetailSection> {
+    val specs: Specs? = vehicle.specs
+    val yes = stringResource(R.string.yes)
+    val no = stringResource(R.string.no)
+    val registration = listOfNotNull(
+        vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.field_plate) to it },
+        listOfNotNull(vehicle.hsn, vehicle.tsn).joinToString(" / ").ifEmpty { null }?.let { stringResource(R.string.vehicle_form_hsn_tsn) to it },
+        detail.inspections.firstNotNullOfOrNull { it.stickerNumber?.takeIf(String::isNotBlank) }?.let { stringResource(R.string.inspection_sticker) to it },
+    )
+    val vin = vehicle.vin?.takeIf { it.isNotBlank() }
+    val colour = vehicle.color?.takeIf { it.isNotBlank() }
+    val purchase = listOfNotNull(
+        vehicle.purchaseDate.toInstantOrNull()?.let { stringResource(R.string.field_purchased) to fmt.date(it) },
+        vehicle.purchasePriceCents?.let { stringResource(R.string.field_purchase_price) to fmt.money(it, vehicle.purchaseCurrency) },
+    )
+    val specRows = listOfNotNull(
+        specs?.engineDescription?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.spec_engine) to it },
+        listOfNotNull(specs?.powerKw?.let { "$it kW" }, specs?.powerPs?.let { "$it ${stringResource(R.string.unit_ps)}" })
+            .joinToString(" / ").ifEmpty { null }?.let { stringResource(R.string.spec_power) to it },
+        specs?.torqueNm?.let { stringResource(R.string.spec_torque) to "$it Nm" },
+        specs?.displacementCc?.let { stringResource(R.string.spec_displacement) to "$it cm³" },
+        specs?.fuelType?.let { stringResource(R.string.spec_fuel) to fuelTypeLabel(it) },
+        specs?.transmissionTypes?.joinToString { enumLabel(it) }?.ifEmpty { null }?.let { stringResource(R.string.spec_transmission) to it },
+        specs?.driveType?.let { stringResource(R.string.spec_drive) to driveTypeLabel(it) },
+        specs?.bodyType?.let { stringResource(R.string.spec_body) to bodyTypeLabel(it) },
+    )
+    val tires = state.tireField?.let { (field, value) -> fmt.customFieldValue(field.fieldType, field.unit, value, yes, no) }
+        ?: state.tireModification?.let { mod ->
+            listOfNotNull(mod.name.ifBlank { null }, mod.installedAt.toInstantOrNull()?.let { stringResource(R.string.modification_installed, fmt.date(it)) })
+                .joinToString(" · ").ifEmpty { null }
+        }
+    val custom = state.otherCustomFields.map { (field, value) -> field.label to fmt.customFieldValue(field.fieldType, field.unit, value, yes, no) }
+    val notes = vehicle.notes?.takeIf { it.isNotBlank() }
 
-            val nothing = registration.isEmpty() && purchase.isEmpty() && specRows.isEmpty() && tires == null &&
-                state.modifications.isEmpty() && custom.isEmpty() && notes == null
-            if (nothing) {
-                Text(
-                    stringResource(R.string.vehicle_no_details),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
-                )
-                return@GroupCard
-            }
-            DetailGroup(stringResource(R.string.vehicle_registration), registration)
-            purchase.forEach { (label, value) -> DetailRow(label, value) }
-            DetailGroup(stringResource(R.string.vehicle_specs), specRows)
-            DetailRow(stringResource(R.string.vehicle_tires), tires)
-            if (state.modifications.isNotEmpty()) {
-                SubLabel(stringResource(R.string.vehicle_modifications))
-                state.modifications.forEachIndexed { index, mod ->
+    return listOfNotNull(
+        registration.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("registration", stringResource(R.string.vehicle_registration)) { DetailRows(rows) } },
+        vin?.let { DetailSection("vin", stringResource(R.string.field_vin)) { ValueBlock(it) } },
+        colour?.let { DetailSection("colour", stringResource(R.string.field_color)) { ColourBlock(it) } },
+        purchase.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("purchase", stringResource(R.string.vehicle_purchase)) { DetailRows(rows) } },
+        specRows.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("specs", stringResource(R.string.vehicle_specs)) { DetailRows(rows) } },
+        tires?.let { DetailSection("tires", stringResource(R.string.vehicle_tires)) { ValueBlock(it) } },
+        state.modifications.takeIf { it.isNotEmpty() }?.let { mods ->
+            DetailSection("modifications", stringResource(R.string.vehicle_modifications)) {
+                mods.forEachIndexed { index, mod ->
                     if (index > 0) RowDivider()
                     ModificationRow(mod, fmt)
                 }
             }
-            custom.forEach { (label, value) -> DetailRow(label, value) }
-            DetailRow(stringResource(R.string.field_notes), notes)
-        }
-    }
+        },
+        custom.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("custom", stringResource(R.string.vehicle_custom_fields)) { DetailRows(rows) } },
+        notes?.let { DetailSection("notes", stringResource(R.string.field_notes)) { ValueBlock(it) } },
+    )
 }
 
-/** A titled run of rows inside the details card; nothing at all when there are no rows. */
 @Composable
-private fun DetailGroup(title: String, rows: List<Pair<String, String>>) {
-    if (rows.isEmpty()) return
-    SubLabel(title)
+private fun DetailRows(rows: List<Pair<String, String>>) {
     rows.forEach { (label, value) -> DetailRow(label, value) }
 }
 
+/** A group whose header is the label: the value alone, full width, so a VIN or a note has the room. */
 @Composable
-private fun SubLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-    )
+private fun ValueBlock(value: String) {
+    Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth().padding(16.dp))
+}
+
+/** The colour as written, with a swatch in the tint the aurora takes from it when the text names a colour. */
+@Composable
+private fun ColourBlock(colour: String) {
+    val tokens = glass
+    val swatch = VehicleTint.argb(colour)?.let { Color(it) }
+    Row(Modifier.fillMaxWidth().padding(16.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+        if (swatch != null) {
+            Box(
+                Modifier
+                    .padding(end = 12.dp)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(swatch)
+                    .border(1.dp, tokens.pillBorder, CircleShape),
+            )
+        }
+        Text(colour, style = MaterialTheme.typography.bodyLarge)
+    }
 }
 
 /**
@@ -816,11 +846,12 @@ fun StatStrip(stats: List<Pair<String, String>>, modifier: Modifier = Modifier, 
 /** An inspection or policy row: one tap target that opens its sheet, where Edit and Delete live (D-A20). */
 @Composable
 private fun PaperRow(icon: ImageVector, title: String, subtitle: String, pending: Boolean, onClick: () -> Unit) {
+    val tokens = glass
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconBadge(icon)
+        IconBadge(icon, container = tokens.pill, content = tokens.sheen)
         Column(Modifier.padding(start = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary)
             if (pending) PendingMark(Modifier.padding(top = 2.dp))
         }
     }
@@ -859,11 +890,11 @@ fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: 
 
 @Composable
 private fun EmptyGroup(text: String) {
-    GroupCard {
+    GlassCard {
         Text(
             text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
             modifier = Modifier.padding(16.dp),
         )
     }
@@ -871,11 +902,12 @@ private fun EmptyGroup(text: String) {
 
 @Composable
 private fun ModificationRow(mod: Modification, fmt: Formatter) {
+    val tokens = glass
     Row(
         Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(Icons.Outlined.Build)
+        IconBadge(Icons.Outlined.Build, container = tokens.pill, content = tokens.sheen)
         Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(mod.name.ifBlank { modificationCategoryLabel(mod.category) }, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
@@ -885,12 +917,12 @@ private fun ModificationRow(mod: Modification, fmt: Formatter) {
                     mod.costCents?.let { fmt.money(it, mod.currency) },
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = tokens.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             mod.description?.takeIf { it.isNotBlank() }?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
         val gains = listOfNotNull(
@@ -900,7 +932,7 @@ private fun ModificationRow(mod: Modification, fmt: Formatter) {
         )
         if (gains.isNotEmpty()) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
-                gains.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                gains.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary) }
             }
         }
     }

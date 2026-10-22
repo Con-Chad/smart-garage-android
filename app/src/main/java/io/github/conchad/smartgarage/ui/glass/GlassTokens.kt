@@ -64,10 +64,24 @@ data class GlassTokens(
     val navGlow: Color,
     val navInactive: Color,
     val onAccent: Color,
+
+    /**
+     * The bottom scrim under a vehicle's name inside its photo (home card, vehicles list, vehicle page), transparent
+     * → dark, and the fixed light pair on it. These sit on a photo, not on the theme, so both token sets share them:
+     * white on ≥ 55 % black clears 4.5:1 whatever the picture.
+     */
+    val photoScrim: List<Color>,
+    val onPhoto: Color,
+    val onPhotoSecondary: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
 }
+
+// Shared by both sets: a photo is neither light nor dark themed.
+private val PhotoScrim = listOf(Color.Transparent, Color(0xB3000000), Color(0xD9000000))
+private val OnPhoto = Color(0xFFF4F6FB)
+private val OnPhotoSecondary = Color(0xFFC7CCDB)
 
 val DarkGlassTokens = GlassTokens(
     dark = true,
@@ -99,6 +113,9 @@ val DarkGlassTokens = GlassTokens(
     navGlow = Color(0x80C0B459),
     navInactive = Color(0xFF8A91A8),
     onAccent = Color(0xFFFFFFFF),
+    photoScrim = PhotoScrim,
+    onPhoto = OnPhoto,
+    onPhotoSecondary = OnPhotoSecondary,
 )
 
 val LightGlassTokens = GlassTokens(
@@ -131,6 +148,9 @@ val LightGlassTokens = GlassTokens(
     navGlow = Color(0x4D776E2D),
     navInactive = Color(0xFF5B6178),
     onAccent = Color(0xFFFFFFFF),
+    photoScrim = PhotoScrim,
+    onPhoto = OnPhoto,
+    onPhotoSecondary = OnPhotoSecondary,
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

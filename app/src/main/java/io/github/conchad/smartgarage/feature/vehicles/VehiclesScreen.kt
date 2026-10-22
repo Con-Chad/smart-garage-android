@@ -129,18 +129,18 @@ private fun VehicleListCard(summary: VehicleSummary, fmt: Formatter, cardActions
                         Modifier
                             .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xB3000000), Color(0xD9000000))))
+                            .background(Brush.verticalGradient(tokens.photoScrim))
                             .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
                     ) {
                         Text(
                             cardActions.titleOf(vehicle),
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color(0xFFF4F6FB),
+                            color = tokens.onPhoto,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         if (nickname != null) {
-                            Text(vehicle.displayName, style = MaterialTheme.typography.bodySmall, color = Color(0xFFC7CCDB), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(vehicle.displayName, style = MaterialTheme.typography.bodySmall, color = tokens.onPhotoSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

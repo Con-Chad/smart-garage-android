@@ -87,9 +87,11 @@ private fun Shell(profile: ServerProfile, account: Account) {
     val destination = backStackEntry?.destination
     val showBottomBar = destination == null || TopLevel.entries.any { destination.isOn(it) }
     val selectedTab = TopLevel.entries.indexOfFirst { destination?.isOn(it) == true }
-    // The glass screens (D-A24) draw on the shell's aurora, which also runs behind the floating bottom bar; the
-    // other tabs keep their plain surfaces, so the aurora isn't composed (and doesn't animate) there.
-    val glassRoute = destination == null || destination.isOn(TopLevel.Dashboard) || destination.isOn(TopLevel.Vehicles)
+    // The glass screens (D-A24, D-A26: Home, Vehicles and the vehicle page) draw on the shell's aurora, which also
+    // runs behind the floating bottom bar; the other routes keep their plain surfaces, so the aurora isn't composed
+    // (and doesn't animate) there.
+    val glassRoute = destination == null || destination.isOn(TopLevel.Dashboard) || destination.isOn(TopLevel.Vehicles) ||
+        destination.hasRoute<VehicleDetailRoute>()
     val auroraTint = remember { mutableStateOf<Color?>(null) }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
 

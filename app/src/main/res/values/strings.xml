@@ -269,7 +269,6 @@
     <string name="vehicle_history">Service history</string>
     <string name="vehicle_no_records">No services recorded yet.</string>
     <string name="vehicle_spent_this_year">Spent this year</string>
-    <string name="vehicle_details">Details</string>
     <string name="insurance_premium">%1$s a year</string>
     <string name="action_show_less">Show less</string>
     <string name="action_show_all">All %1$d</string>
@@ -706,7 +705,6 @@
 
     <!-- Vehicle detail: modifications (read-only) and custom fields (D-A23). Same labels as the web (vehicles.modificationCategories). -->
     <string name="vehicle_modifications">Modifications</string>
-    <string name="vehicle_no_modifications">No modifications recorded yet.</string>
     <string name="modification_installed">Installed %1$s</string>
     <string name="mod_category_stage_1">Stage 1</string>
     <string name="mod_category_stage_2">Stage 2</string>
@@ -771,4 +769,9 @@
     <string name="vehicle_specs">Specifications</string>
     <string name="vehicle_tires">Tires</string>
     <string name="vehicle_no_details">Nothing recorded yet. Edit the vehicle to add its registration, VIN and specs.</string>
+    <string name="vehicle_at_a_glance">At a glance</string>
+    <string name="vehicle_quick_actions">Quick actions</string>
+    <string name="vehicle_purchase">Purchase</string>
+    <string name="vehicle_custom_fields">Custom fields</string>
+    <string name="vehicle_photo_options">Open photo and name options</string>
 </resources>
