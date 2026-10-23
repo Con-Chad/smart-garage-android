@@ -275,7 +275,8 @@ private fun DashboardContent(
     // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan.
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp)) {
         // D-A43: a small pill at the header's end says there is more to swipe to (and steps there), or, with one car, adds the next.
-        GlassGroupHeader(stringResource(R.string.dashboard_vehicles)) {
+        // D-A54: on a glass bar, so the title reads as plain text (no aurora ink, no halo).
+        GlassGroupHeader(stringResource(R.string.dashboard_vehicles), onGlassBar = true) {
             if (vehicles.size > 1) {
                 VehiclesHeaderPill(
                     stringResource(R.string.dashboard_swipe_more),

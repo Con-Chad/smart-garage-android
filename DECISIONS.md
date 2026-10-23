@@ -1666,3 +1666,10 @@ App decisions use the `D-A` prefix.
     the photo is saved and will be attached", 404 "not available on this server", 403 view-only.
   - **Not done**: offline queueing of unscanned photos, gallery pick (the fuel flow is camera-only, kept so), creating
     missing schedules from `serviceTypes[].templateSlug`, and per-field highlighting (the note covers it).
+- **D-A54 (2026-10-23) — Home's "Your vehicles" header on a glass bar, title without halo.**
+  - The header row (title + "Swipe to view more" / "Add vehicle" pill) sits on a full-width rounded `GlassPanel`
+    strip (card margin 16 dp, `radiusLarge`, panel fill/rim/shadow, min height 56 dp) via
+    `GlassGroupHeader(onGlassBar = true)`; other group headers are unchanged.
+  - On the bar the title is plain `Text` in `textPrimary` (the cards' text colour, 4.5:1 on the panel), not the
+    adaptive aurora ink, so D-A52's opposite-tone halo is not drawn behind it. The halo stays for text straight on
+    the aurora. The non-emphasised pill's adaptive ink now accounts for the bar's panel (`inCard = true`).

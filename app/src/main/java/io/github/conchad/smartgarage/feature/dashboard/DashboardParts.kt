@@ -99,8 +99,8 @@ internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () ->
         compact = true,
         textStyle = MaterialTheme.typography.labelMedium,
         contentColor = rememberPillInk(),
-        // On the aurora beside the header: the adaptive ink (D-A46).
-        adaptiveInk = rememberPillInkSpec(inCard = false),
+        // On the header's glass bar (D-A54): the adaptive ink (D-A46) against the aurora under the bar and the pill.
+        adaptiveInk = rememberPillInkSpec(inCard = true),
         modifier = Modifier.padding(start = 8.dp, end = 12.dp),
     )
 }

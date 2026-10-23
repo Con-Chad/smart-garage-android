@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
@@ -28,6 +30,10 @@ import io.github.conchad.smartgarage.R
 /**
  * `GroupHeader` for glass screens: the same paddings and optional text action, with an animated metallic title
  * (the sweep tier, D-A24) in the adaptive ink of the aurora behind it (D-A46). [trailing] puts something else at the end instead (Home's "Swipe to view more" pill, D-A43).
+ *
+ * [onGlassBar] (D-A54, Home's "Your vehicles"): the whole row sits on a full-width rounded glass strip with the
+ * cards' margin, fill and rim, and the title is plain [GlassTokens.textPrimary] on it, the cards' text colour, which
+ * clears 4.5:1 on the panel whatever the aurora; no adaptive ink, so no halo (D-A52) behind the glyphs.
  */
 @Composable
 fun GlassGroupHeader(
@@ -35,8 +41,37 @@ fun GlassGroupHeader(
     modifier: Modifier = Modifier,
     action: String? = null,
     onAction: (() -> Unit)? = null,
+    onGlassBar: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val end: @Composable () -> Unit = {
+        if (trailing != null) {
+            trailing()
+        } else if (onAction != null) {
+            TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
+                Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk())
+            }
+        }
+    }
+    if (onGlassBar) {
+        GlassPanel(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = glass.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(vertical = 8.dp).semantics { heading() },
+                )
+                end()
+            }
+        }
+        return
+    }
     Row(
         modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -51,13 +86,7 @@ fun GlassGroupHeader(
             // On the aurora: the adaptive ink under the sheen (D-A46).
             ink = AuroraInkSpec.Text,
         )
-        if (trailing != null) {
-            trailing()
-        } else if (onAction != null) {
-            TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
-                Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk())
-            }
-        }
+        end()
     }
 }
 
