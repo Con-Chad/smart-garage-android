@@ -44,8 +44,13 @@ data class GlassTokens(
     /** Base metal for text: light steel on dark, dark steel on light, so body copy stays legible (see [MetallicText]). */
     val metalDim: Color,
     val metalMid: Color,
-    /** The gold sheen band and its highlight (`--tte03-sheen`, `--tte03-sheen-hi`). */
+    /** The gold accent on glass: pill labels, icons, focus rings (`--tte03-sheen`). */
     val sheen: Color,
+    /**
+     * The band that sweeps across animated metallic titles and its centre highlight (D-A38): a muted, faintly cool
+     * silver, no longer the gold [sheen] (`--tte03-sheen-hi` was the old gold highlight).
+     */
+    val sheenBand: Color,
     val sheenHighlight: Color,
 
     /** Chrome frame around the vehicle photo (`conic-gradient` of the foil chip) and its glow. */
@@ -116,7 +121,8 @@ val DarkGlassTokens = GlassTokens(
     metalDim = Color(0xFFC7CCDB),
     metalMid = Color(0xFFF4F6FB),
     sheen = Color(0xFFF5D76E),
-    sheenHighlight = Color(0xFFFFF6D6),
+    sheenBand = Color(0xFFDDE1E8),
+    sheenHighlight = Color(0xFFFFFFFF),
     frameChrome = listOf(Color(0xFFD8D097), Color(0xFFEBD5A2), Color(0xFFBCB6A9), Color(0xFFD8D097)),
     frameGlow = Color(0xB3EBD5A2),
     plateGlowAlpha = 0.22f,
@@ -153,7 +159,8 @@ val LightGlassTokens = GlassTokens(
     metalDim = Color(0xFF2C2F3D),
     metalMid = Color(0xFF4A4E60),
     sheen = Color(0xFFAC880C),
-    sheenHighlight = Color(0xFFC9A247),
+    sheenBand = Color(0xFF7E8594),
+    sheenHighlight = Color(0xFFA4ABB8),
     frameChrome = listOf(Color(0xFFB08726), Color(0xFFD8C27A), Color(0xFF948A75), Color(0xFFB08726)),
     frameGlow = Color(0x738B6A1E),
     plateGlowAlpha = 0.14f,

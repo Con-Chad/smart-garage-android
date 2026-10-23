@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -215,6 +217,9 @@ fun GlassPillButton(
  * after the second line, so the pill is about half as wide (the vehicle cards' "View" / "all ›"). Same pill fill,
  * border and sheen, a 14 dp-radius rounded rectangle instead of a stadium (a stadium two lines tall would read as
  * a blob), and at least 48 × 48 dp. TalkBack reads [contentDescription] (the one-line label) once, as a button.
+ *
+ * D-A38: the pill fills whatever height its caller pins (the card footer makes it match the "Quick info" pill) and
+ * is a little wider — 16 dp sides, at least 80 dp — so it sits closer to the "Quick info" pill.
  */
 @Composable
 fun GlassStackedPillButton(
@@ -238,13 +243,12 @@ fun GlassStackedPillButton(
     ) {
         Column(
             Modifier
+                .fillMaxHeight()
                 .heightIn(min = 48.dp)
-                .widthIn(min = 48.dp)
-                .clip(shape)
-                .drawBehind { drawRect(tokens.pill) }
-                .border(1.dp, tokens.pillBorder, shape)
+                .widthIn(min = 80.dp)
+                .glassPillSurface(tokens, shape)
                 .indication(interaction, ripple())
-                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
                 // The two lines are one label; the button's description already says it.
                 .clearAndSetSemantics {},
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -260,3 +264,12 @@ fun GlassStackedPillButton(
         }
     }
 }
+
+/**
+ * The glass pill's surface (D-A31, shared since D-A38 by [GlassStackedPillButton] and the cards' "Quick info"
+ * toggle): clipped to [shape], the panel's pill fill and its 1 dp pill border.
+ */
+fun Modifier.glassPillSurface(tokens: GlassTokens, shape: Shape): Modifier = this
+    .clip(shape)
+    .drawBehind { drawRect(tokens.pill) }
+    .border(1.dp, tokens.pillBorder, shape)

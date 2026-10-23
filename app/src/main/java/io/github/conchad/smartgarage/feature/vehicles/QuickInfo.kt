@@ -7,7 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,10 +31,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -43,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.format.Formatter
@@ -58,6 +58,7 @@ import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.GlassStackedPillButton
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassPillSurface
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import io.github.conchad.smartgarage.ui.links.ICON_SIZE
 import io.github.conchad.smartgarage.ui.links.InsuranceApps
@@ -74,49 +75,64 @@ class QuickInfoActions(
 )
 
 /**
- * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list): the mileage on the
- * left, the "View all" pill exactly centred (both sides take an equal weight), the "Quick info" bubble on the right,
- * all centred on one line. [onViewAll] null leaves the centre empty.
+ * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list): the "View all" pill
+ * centred and the "Quick info" pill at the end. [onViewAll] null leaves only "Quick info".
  *
- * D-A36: "View all" is a two-line pill ("View" over "all ›", [GlassStackedPillButton]) so it takes about half the
- * width; with the trimmed bubble padding, the mileage stays on one line and "Quick info" / "Kurzinfo" on one row
- * up to 1.3× font scale on a 360 dp phone.
+ * D-A36: "View all" is a two-line pill ("View" over "all ›", [GlassStackedPillButton]).
+ * D-A38: the mileage moved up into the card's details (above the status chip), so the row holds just the two pills,
+ * both on the glass pill surface and pinned to one height (the taller of the two). "View all" stays centred while
+ * it clears "Quick info" by [FooterGap]; with a large font or a long German label it slides left instead of
+ * overlapping, which keeps both on one line at 1.3× on a 360 dp phone.
  */
 @Composable
 fun VehicleCardFooter(
-    mileage: String,
     expanded: Boolean,
     onToggle: () -> Unit,
     onViewAll: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            MetallicText(mileage, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (onViewAll != null) {
-            GlassStackedPillButton(
-                topLine = stringResource(R.string.card_view_all_line1),
-                bottomLine = stringResource(R.string.card_view_all_line2),
-                contentDescription = stringResource(R.string.card_view_all),
-                icon = Icons.Outlined.ChevronRight,
-                onClick = onViewAll,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
-        }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+    Layout(
+        content = {
+            if (onViewAll != null) {
+                GlassStackedPillButton(
+                    topLine = stringResource(R.string.card_view_all_line1),
+                    bottomLine = stringResource(R.string.card_view_all_line2),
+                    contentDescription = stringResource(R.string.card_view_all),
+                    icon = Icons.Outlined.ChevronRight,
+                    onClick = onViewAll,
+                )
+            }
             QuickInfoToggle(expanded = expanded, onToggle = onToggle)
+        },
+        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val gap = FooterGap.roundToPx()
+        val toggle = measurables.last()
+        val viewAll = measurables.firstOrNull()?.takeIf { measurables.size == 2 }
+        // One height for both pills: the taller one's natural height.
+        val height = maxOf(toggle.maxIntrinsicHeight(width), viewAll?.maxIntrinsicHeight(width) ?: 0)
+        val toggleP = toggle.measure(Constraints(maxWidth = width, minHeight = height, maxHeight = height))
+        val roomLeft = (width - toggleP.width - gap).coerceAtLeast(0)
+        val viewAllP = viewAll?.measure(Constraints(maxWidth = roomLeft, minHeight = height, maxHeight = height))
+        layout(width, height) {
+            toggleP.placeRelative(width - toggleP.width, 0)
+            viewAllP?.let { p ->
+                val centred = (width - p.width) / 2
+                p.placeRelative(minOf(centred, roomLeft - p.width).coerceAtLeast(0), 0)
+            }
         }
     }
 }
 
+/** The least space between the "View all" and "Quick info" pills when the first is pushed off-centre (D-A38). */
+private val FooterGap = 8.dp
+
 /**
- * The "Quick info" bubble (D-A31, D-A33): the label stacked over a 28 dp ring chevron, and the whole bubble — label,
- * chevron and padding, at least 48 dp — is the target, with a ripple clipped to its rounded shape. The chevron turns
- * 180° on a spring (snaps under reduced motion). TalkBack reads it as a button with its state and the show / hide action.
+ * The "Quick info" pill (D-A31, D-A33, D-A38): the label stacked over a 24 dp ring chevron on the glass pill surface
+ * (the same fill, border and 14 dp corners as "View all"); the whole pill, at least 48 dp, is the target, with the
+ * ripple clipped to it. It fills the height its caller pins. The chevron turns 180° on a spring (snaps under reduced
+ * motion). TalkBack reads it as a button with its state and the show / hide action.
  */
 @Composable
 fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
@@ -131,11 +147,11 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
     val actionText = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
     Column(
         modifier
-            .clip(RoundedCornerShape(tokens.radiusMedium))
+            .glassPillSurface(tokens, RoundedCornerShape(tokens.radiusMedium))
             .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
             .semantics(mergeDescendants = true) { stateDescription = stateText }
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -144,7 +160,7 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
             Icons.Outlined.ExpandCircleDown,
             contentDescription = null,
             tint = tokens.sheen,
-            modifier = Modifier.padding(top = 2.dp).size(28.dp).graphicsLayer { rotationZ = rotation },
+            modifier = Modifier.padding(top = 2.dp).size(24.dp).graphicsLayer { rotationZ = rotation },
         )
     }
 }

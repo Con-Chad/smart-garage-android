@@ -24,7 +24,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Where the sheen band is on its 3.6 s sweep, 0..1, shared by every metallic title on a screen so they glint
+ * Where the sheen band is on its 4.76 s loop, 0..1, shared by every metallic title on a screen so they glint
  * together and only one animation runs. Defaults to the parked frame (sheen over center) when a screen hasn't
  * provided one, which is also the reduced-motion frame.
  */
@@ -37,8 +37,9 @@ private val ParkedSheen = object : State<Float> {
 private val wipeEasing = CubicBezierEasing(0.5f, 0f, 0.18f, 1f)
 
 /**
- * Starts the sheen sweep for [content] (D-A24): the "Gradient Wipe" loop, 3.6 s with an 18 % anticipation hold
- * before the light arrives. Static when motion is reduced or the screen isn't resumed. The phase is derived from
+ * Starts the sheen sweep for [content] (D-A24): the "Gradient Wipe" loop, a hold before the light arrives, then the
+ * eased sweep. D-A38 slowed it: the sweep 2.95 → 3.25 s (+10 %) and the hold 0.65 → 1.51 s, so the time the band
+ * is off the text between glints grows 3.18 → 4.29 s (+35 %); the loop is 4.76 s. Static when motion is reduced or the screen isn't resumed. The phase is derived from
  * the shared ambient clock at up to 60 Hz (the reference CSS ran at that), so a 120 Hz panel repaints every title
  * half as often, and every title on the screen advances on the same tick.
  */
@@ -59,12 +60,13 @@ fun MetallicSheenHost(content: @Composable () -> Unit) {
 }
 
 private const val SHEEN_FRAME_MS = 16L
-private const val SHEEN_PERIOD_MS = 3_600
-private const val SHEEN_HOLD_MS = 648
+private const val SHEEN_HOLD_MS = 1_510
+private const val SHEEN_SWEEP_MS = 3_247
+private const val SHEEN_PERIOD_MS = SHEEN_HOLD_MS + SHEEN_SWEEP_MS
 private const val SHEEN_HOLD_END = 0.075f
 
 /**
- * The keyframes `0 at 0 (linear) → 0.075 at 648 (wipe easing) → 1 at 3600`, restarting each period: a slow linear
+ * The keyframes `0 at 0 (linear) → 0.075 at the hold's end (wipe easing) → 1 at the period's end`, restarting each period: a slow linear
  * creep during the hold, then the eased sweep.
  */
 private fun sheenPhaseAt(elapsedMs: Long): Float {
@@ -72,13 +74,13 @@ private fun sheenPhaseAt(elapsedMs: Long): Float {
     return if (t < SHEEN_HOLD_MS) {
         SHEEN_HOLD_END * (t.toFloat() / SHEEN_HOLD_MS)
     } else {
-        SHEEN_HOLD_END + (1f - SHEEN_HOLD_END) * wipeEasing.transform((t - SHEEN_HOLD_MS).toFloat() / (SHEEN_PERIOD_MS - SHEEN_HOLD_MS))
+        SHEEN_HOLD_END + (1f - SHEEN_HOLD_END) * wipeEasing.transform((t - SHEEN_HOLD_MS).toFloat() / SHEEN_SWEEP_MS)
     }
 }
 
 /**
  * Metallic text (D-A24). Two tiers:
- * - [animated] (titles, group headers, card names): the gold sheen band sweeps across the glyphs. Drawn in the
+ * - [animated] (titles, group headers, card names): a muted silver sheen band (D-A38; gold before) sweeps across the glyphs. Drawn in the
  *   draw phase only (offscreen layer + `SrcIn` gradient), so the frames cost no recomposition or relayout.
  * - static (body and labels): a quiet steel gradient as the text brush, no animation. The base metal is a light
  *   steel on dark and a dark steel on light, so body copy keeps ≥ 4.5:1 contrast on the glass.
@@ -145,9 +147,9 @@ fun Modifier.metallicSheen(tokens: GlassTokens, phase: State<Float>): Modifier =
                 0f to tokens.metalDim,
                 0.22f to tokens.metalMid,
                 0.44f to tokens.metalDim,
-                0.49f to tokens.sheen,
+                0.49f to tokens.sheenBand,
                 0.50f to tokens.sheenHighlight,
-                0.51f to tokens.sheen,
+                0.51f to tokens.sheenBand,
                 0.56f to tokens.metalDim,
                 0.78f to tokens.metalMid,
                 1f to tokens.metalDim,

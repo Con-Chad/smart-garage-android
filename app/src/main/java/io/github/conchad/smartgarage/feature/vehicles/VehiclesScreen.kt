@@ -223,11 +223,12 @@ private fun VehicleListCard(
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
-            Row(Modifier.padding(top = 8.dp)) { VehicleStatusChip(summary) }
+            // The mileage sits right above the status chip, as on the home card (D-A38).
+            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.padding(top = 4.dp)) { VehicleStatusChip(summary) }
         }
-        // Mileage, "View all" and "Quick info" on one centred line, as on the home card (D-A33).
+        // "View all" and "Quick info" pills on one line, one height, as on the home card (D-A33, D-A38).
         VehicleCardFooter(
-            mileage = fmt.distance(vehicle.currentOdometerKm),
             expanded = expanded,
             onToggle = { expanded = !expanded },
             onViewAll = onClick,

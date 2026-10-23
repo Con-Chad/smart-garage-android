@@ -1147,3 +1147,27 @@ App decisions use the `D-A` prefix.
     "Kurzinfo" each fit one line at 1.3x on a 360 dp phone (estimated, not
     screenshot-verified). Home card's Confirm haptic is in the caller,
     unchanged.
+
+- **D-A38: car-card footer pills share one height; mileage above the status chip; silver, slower title sheen.**
+  - **Footer** (`VehicleCardFooter`, home card and Vehicles-tab cards): the
+    mileage moved out of the footer into the details column, directly above
+    `VehicleStatusChip` (bodyMedium `MetallicText`, one line). The footer is now
+    a custom `Layout` holding just "View all" and "Quick info": both pinned to
+    the taller pill's intrinsic height (~54 dp at 1.0x), "Quick info" at the
+    end, "View all" centred unless that would leave < 8 dp to "Quick info", in
+    which case it slides left (large fonts / German), so both stay on one line
+    at 1.3x on a 360 dp phone (estimated, not screenshot-verified). Padding
+    16 / 12 dp sides, 4 dp top, 12 dp bottom (visible pills need room).
+  - **"View all"** (`GlassStackedPillButton`): sides 12 -> 16 dp, min width
+    48 -> 80 dp, inner surface `fillMaxHeight()` so it takes the pinned height.
+  - **"Quick info"** (`QuickInfoToggle`): now on the glass pill surface (same
+    pill fill, 1 dp pill border, 14 dp corners as "View all"; ripple clipped),
+    side padding 4 -> 12 dp, chevron 28 -> 24 dp. New shared
+    `Modifier.glassPillSurface(tokens, shape)` in `GlassMenu.kt`.
+  - **Title sheen** (`MetallicSheenHost` / `metallicSheen`, every animated
+    `MetallicText`): sweep 2952 -> 3247 ms (+10 %), hold 648 -> 1510 ms; the
+    band's off-text time between glints 3.18 -> 4.29 s (+35 %), loop 3.6 ->
+    4.76 s. Band colour is a new `sheenBand` token (muted cool silver: dark
+    `#DDE1E8`, highlight `#FFFFFF`; light `#7E8594`, highlight `#A4ABB8`),
+    replacing the gold `sheen` / `sheenHighlight` in the band. `sheen` stays
+    gold for pill labels, icons and focus rings.

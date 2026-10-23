@@ -431,8 +431,8 @@ private fun DashboardContent(
 
 /**
  * One vehicle on a glass card (D-A30, D-A31): only the chrome-framed photo tilts toward the gyroscope, with the
- * photo behind its frame and the name floating above it; the card around it is flat. Under the photo: the plate ·
- * mileage line and the status chip, then a centred "View all" pill (haptic confirm, opens the vehicle page), then a
+ * photo behind its frame and the name floating above it; the card around it is flat. Under the photo: the plate,
+ * the mileage and the status chip, then a centred "View all" pill (haptic confirm, opens the vehicle page), then a
  * "Quick info" toggle that drops down insurance, mileage and inspection. Tap on the photo opens the vehicle page,
  * long-press the photo / rename menu; TalkBack gets the same as custom actions. [tiltEnabled] is false while the
  * pager moves or for a page that isn't the settled one: the photo then eases flat.
@@ -517,11 +517,12 @@ private fun VehicleCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            // The mileage sits right above the status chip (D-A38), out of the footer.
+            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             VehicleStatusChip(summary)
         }
-        // Mileage, "View all" and "Quick info" on one centred line (D-A33).
+        // "View all" and "Quick info" pills on one line, one height (D-A33, D-A38).
         VehicleCardFooter(
-            mileage = fmt.distance(vehicle.currentOdometerKm),
             expanded = expanded,
             onToggle = { expanded = !expanded },
             onViewAll = {
