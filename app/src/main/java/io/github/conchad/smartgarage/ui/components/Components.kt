@@ -58,6 +58,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import io.github.conchad.smartgarage.ui.glass.AuroraInkCeiling
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraInkCeiling
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
@@ -138,13 +142,16 @@ fun AppScaffold(
     // The soft edge draws the panel itself, fading it in and out as the bar's own scrolled colour would.
     val softAlpha = animateFloatAsState(if (soft && overlapped.value) 1f else 0f, tween<Float>(Motion.SHORT_MS).orSnap(rememberReducedMotion()), label = "barGlass")
     val feather = glass.barFeather
+    // D-A49: the bar's lower edge, below which this screen's content samples the aurora for its ink.
+    val inkCeiling = remember { AuroraInkCeiling() }
     Scaffold(
         modifier = if (scrollBehavior != null) modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else modifier,
         containerColor = if (transparent) Color.Transparent else MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { CompositionLocalProvider(LocalAuroraInk provides if (transparent) barInk else null, content = title) },
-                modifier = if (soft) topBarModifier.softBarGlass(panel, feather) { softAlpha.value } else topBarModifier,
+                modifier = (if (soft) topBarModifier.softBarGlass(panel, feather) { softAlpha.value } else topBarModifier)
+                    .onGloballyPositioned { inkCeiling.y = it.positionInRoot().y + it.size.height },
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
@@ -167,7 +174,7 @@ fun AppScaffold(
         snackbarHost = snackbarHost,
         // The bar's height already includes the navigation bar, so the larger of the two is the bottom inset.
         contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets(bottom = LocalBottomBarInset.current)),
-        content = content,
+        content = { padding -> CompositionLocalProvider(LocalAuroraInkCeiling provides inkCeiling) { content(padding) } },
     )
 }
 

@@ -103,6 +103,32 @@ class AdaptiveInkTest {
     }
 
     @Test
+    fun `above the lightest band content holds the ink of the band (D-A49)`() {
+        // Dark at the top, lightest at row 5 of 8, dark again at the bottom: text rising past the band stays dark.
+        val lums = floatArrayOf(0.05f, 0.1f, 0.2f, 0.3f, 0.45f, 0.9f, 0.3f, 0.05f)
+        val rgb = FloatArray(lums.size * 3)
+        for (i in lums.indices) for (k in 0..2) rgb[i * 3 + k] = lums[i]
+        val map = AuroraLumaMap(1, lums.size, rgb)
+        val band = (5 + 0.5f) / lums.size
+        for (y in listOf(0f, 0.1f, 0.3f, 0.6f)) {
+            assertEquals(band, map.holdY(0.5f, y), 1e-4f)
+            assertEquals(1f, AdaptiveInk.mix(map.luminanceAt(0.5f, map.holdY(0.5f, y))), 1e-4f)
+        }
+        // At and below the band, its own position.
+        assertEquals(0.7f, map.holdY(0.5f, 0.7f), 1e-6f)
+        assertEquals(0.95f, map.holdY(0.5f, 0.95f), 1e-6f)
+        // The held luminance never falls as text rises.
+        var previous = 0f
+        var y = 0.69f
+        while (y >= 0f) {
+            val l = map.luminanceAt(0.5f, map.holdY(0.5f, y))
+            assertTrue("at $y", l >= previous - 1e-4f)
+            previous = l
+            y -= 0.01f
+        }
+    }
+
+    @Test
     fun `a dark-bottom light-top gradient gives white below and dark above`() {
         // The user's example: dark green at the bottom, light green at the top.
         val rows = 8

@@ -147,6 +147,41 @@ class AuroraLumaMap(val cols: Int, val rows: Int, private val rgb: FloatArray) {
         return AdaptiveInk.relativeLuminance(r, g, b)
     }
 
+    /**
+     * Where content at ([xFraction], [yFraction]) takes its ink from (D-A49): above the column's lightest band, from the
+     * lightest row between it and that band, so text that turned dark there stays dark as it scrolls up toward the
+     * darker top of the aurora and under the bar, instead of flipping back to white. At or below the band, and where
+     * nothing lighter lies below, its own position. As text rises the held value only ever grows, so it never flickers.
+     */
+    fun holdY(xFraction: Float, yFraction: Float): Float {
+        val c = (xFraction.coerceIn(0f, 1f) * cols).toInt().coerceIn(0, cols - 1)
+        val r = (yFraction.coerceIn(0f, 1f) * rows).toInt().coerceIn(0, rows - 1)
+        val hy = (holdRows[c * rows + r] + 0.5f) / rows
+        // Only ever toward the band (down the screen), never up from it.
+        if (hy <= yFraction) return yFraction
+        return if (luminanceAt(xFraction, hy) > luminanceAt(xFraction, yFraction)) hy else yFraction
+    }
+
+    // Per column and row, the lightest cell between that row and the column's lightest one (itself below it).
+    private val holdRows: IntArray by lazy {
+        val out = IntArray(cols * rows)
+        val lum = FloatArray(rows)
+        for (c in 0 until cols) {
+            var peak = 0
+            for (r in 0 until rows) {
+                lum[r] = AdaptiveInk.relativeLuminance(at(c, r, 0), at(c, r, 1), at(c, r, 2))
+                if (lum[r] > lum[peak]) peak = r
+                out[c * rows + r] = r
+            }
+            var best = peak
+            for (r in peak downTo 0) {
+                if (lum[r] > lum[best]) best = r
+                out[c * rows + r] = best
+            }
+        }
+        out
+    }
+
     private fun channel(c: Int, x0: Int, y0: Int, x1: Int, y1: Int, tx: Float, ty: Float): Float {
         val top = at(x0, y0, c) + (at(x1, y0, c) - at(x0, y0, c)) * tx
         val bottom = at(x0, y1, c) + (at(x1, y1, c) - at(x0, y1, c)) * tx
@@ -175,6 +210,19 @@ class AuroraLumaHolder {
     internal var width = 0f
     internal var height = 0f
 }
+
+/**
+ * A screen's content area for the ink (D-A49): [y] is the bottom of its top bar in root px, written by the bar on
+ * layout; content scrolled above it samples the aurora at that line. Its presence also turns on
+ * [AuroraLumaMap.holdY] for that content, so text keeps its dark ink up to and under the bar. A plain field, read on
+ * the nodes' placement.
+ */
+class AuroraInkCeiling {
+    var y = Float.NEGATIVE_INFINITY
+}
+
+/** Provided to a screen's content (not its bar's title, which inks by what is actually behind it). */
+val LocalAuroraInkCeiling = staticCompositionLocalOf<AuroraInkCeiling?> { null }
 
 /** The aurora behind this screen's content; null where there is none (previews, tests): ink then stays as composed. */
 val LocalAuroraLuma = staticCompositionLocalOf<AuroraLumaHolder?> { null }
@@ -240,6 +288,7 @@ private class AuroraInkNode(
     // Inputs read under observation (map, theme, overlay, density) and what derives from them, refreshed only when
     // one of them changes (D-A48): a scroll re-places the node every frame, and the placement path then only samples.
     private var holder: AuroraLumaHolder? = null
+    private var ceiling: AuroraInkCeiling? = null
     private var map: AuroraLumaMap? = null
     private var overlay = Color.Transparent
     private var tallPx = 0f
@@ -304,6 +353,7 @@ private class AuroraInkNode(
         if (!isAttached) return
         observeReads {
             holder = currentValueOf(LocalAuroraLuma)
+            ceiling = currentValueOf(LocalAuroraInkCeiling)
             map = holder?.map
             tokens = currentValueOf(LocalGlassTokens)
             overlay = spec.overlay()
@@ -328,8 +378,18 @@ private class AuroraInkNode(
             return
         }
         val x = (centerX - bounds.left) / bounds.width
-        val mixTopRaw = AdaptiveInk.mix(m.luminanceAt(x, (top - bounds.top) / bounds.height, overlay))
-        val mixBottomRaw = AdaptiveInk.mix(m.luminanceAt(x, (bottom - bounds.top) / bounds.height, overlay))
+        // D-A49: under the screen's top bar the content keeps the ink of the aurora at the bar's lower edge.
+        // Above the aurora's lightest band it holds the ink of the lightest row between ([AuroraLumaMap.holdY]).
+        val content = ceiling
+        val floorY = content?.y ?: Float.NEGATIVE_INFINITY
+        var yTop = (maxOf(top, floorY) - bounds.top) / bounds.height
+        var yBottom = (maxOf(bottom, floorY) - bounds.top) / bounds.height
+        if (content != null) {
+            yTop = m.holdY(x, yTop)
+            yBottom = m.holdY(x, yBottom)
+        }
+        val mixTopRaw = AdaptiveInk.mix(m.luminanceAt(x, yTop, overlay))
+        val mixBottomRaw = AdaptiveInk.mix(m.luminanceAt(x, yBottom, overlay))
         // The mapping is continuous (D-A48): the ink follows the aurora through grey and may rest there; the low-pass
         // below smooths it in time. A short block (a line or two) takes one value from its centre, so it never
         // shades top-light / bottom-dark within a line.

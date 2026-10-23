@@ -1541,3 +1541,10 @@ App decisions use the `D-A` prefix.
     alpha animated on the overlapped flag, draw phase). The list's straight clip under the bar is hidden too:
     `Modifier.fadingTopEdge` erases (DstOut) its top 28 dp once scrolled; offscreen layer only while scrolled.
     Other screens keep the plain bar.
+  - **No flip back to white near the top (user follow-up)**: the cause was the aurora map itself: the luma map darkens
+    toward the top (ribbon 0 plus the dark top rows), so content text sampled its own row and went white again as it
+    rose, not because of the bar glass, the feather or the edge fade (content specs carry no overlay). Now
+    `AppScaffold` provides its content an `AuroraInkCeiling`: content scrolled under the bar samples at the bar's lower
+    edge, and `AuroraLumaMap.holdY` makes content above a column's lightest band take the lightest row between it and
+    the band (precomputed per map, 12 × 96). The held value only grows as text rises, so there is no jitter. Bar titles
+    still ink by what is behind them. Screenrecord: "Vehicle details" stays dark grey all the way up and under the bar.
