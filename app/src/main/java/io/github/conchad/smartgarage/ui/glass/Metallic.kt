@@ -13,7 +13,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -168,6 +167,3 @@ fun Modifier.metallicSheen(tokens: GlassTokens, phase: State<Float>): Modifier =
             }
         }
     }
-
-/** Convenience for places that already have a color slot: the metal mid tone, legible on glass. */
-val GlassTokens.metalText: Color get() = metalMid

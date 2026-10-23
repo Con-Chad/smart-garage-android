@@ -118,7 +118,7 @@ fun DisconnectedPopup(state: DisconnectedState, serverName: String, onRetry: () 
                 TextButton(onClick = state::dismiss, colors = ButtonDefaults.textButtonColors(contentColor = tokens.textSecondary)) {
                     Text(stringResource(R.string.action_dismiss))
                 }
-                TextButton(onClick = onRetry, enabled = !state.sync.status.running, colors = ButtonDefaults.textButtonColors(contentColor = tokens.sheen)) {
+                TextButton(onClick = onRetry, enabled = !state.sync.status.running, colors = glassTextButtonColors()) {
                     Text(stringResource(R.string.action_retry))
                 }
             }

@@ -1325,3 +1325,32 @@ App decisions use the `D-A` prefix.
     plate (and "Shared by") stay above. The row under the details is gone,
     so both the Home and Vehicles cards are shorter.
   - **Hero delay** (user-set): see the D-A40 note; `Motion.HERO_OVERLAP_MS`.
+
+- **D-A42: code-health split of the three largest screens (no behaviour or visual change).**
+  - **Vehicle page** (`feature/vehicles`): `VehicleDetailScreen.kt` (1024 -> 492
+    lines) keeps `VehicleActions`, the screen and the list; `VehicleDetailCards.kt`
+    (photo card, owner line, "At a glance" tiles), `VehicleDetailSections.kt`
+    (the "Vehicle details" drop-downs, `detailSections`, modification rows),
+    `VehicleDetailRows.kt` (`StatStrip`, `RecordRow`, `PaperRow`, `EmptyGroup`),
+    `VehicleDetailSheets.kt` (the detail-sheet `when`, now
+    `VehicleDetailSheets(target, onClose, …)`; it owns `rememberAddToCalendar`).
+  - **List keys**: every fixed `item {}` on the vehicle page has a stable string
+    key and a `DetailItem` content type; the details drop-downs are keyed
+    `"section_<key>"`. Order is unchanged, and the D-A37/D-A40 stagger is claimed
+    in first-composition order (`PopInState.claimDelay`), which is still top to
+    bottom, so the 100 ms pop-in sequence is the same.
+  - **Sections** (`feature/sections`): `SectionScreens.kt` (847 -> 35) keeps
+    `SectionActions` and the `SectionScreen` switch; one file per section
+    (`RemindersScreen`, `HistoryScreen`, `OdometerScreen`, `ExpensesScreen`,
+    `DocumentsScreen`, `NotesScreen`, `WishlistScreen`); `byMonth` moved to
+    `SectionParts.kt`.
+  - **Home** (`feature/dashboard`): `DashboardScreen.kt` (644 -> 413) keeps the
+    screen and content; `DashboardVehicleCard.kt` (card + pager chevron),
+    `DashboardParts.kt` (odometer reminder row, all-caught-up card, `Avatar`).
+  - Moved symbols went `private` -> `internal` only where another file needs
+    them. Dead code removed: `GlassTokens.metalText`, `relativeDays` (both
+    unused), and the unused imports in the touched files. Kit consolidation:
+    the sheen text buttons (Home's odometer "Update", `GlassGroupHeader`,
+    the disconnected popup's Retry) use `glassTextButtonColors()`;
+    `GlassIconBadge` draws with `glassPillSurface`. No string was unused (en
+    and de match). `Motion.kt` untouched.

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +44,7 @@ fun GlassGroupHeader(text: String, modifier: Modifier = Modifier, action: String
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
         )
         if (onAction != null) {
-            TextButton(onClick = onAction, colors = ButtonDefaults.textButtonColors(contentColor = glass.sheen)) {
+            TextButton(onClick = onAction, colors = glassTextButtonColors()) {
                 Text(action ?: stringResource(R.string.action_see_all))
             }
         }

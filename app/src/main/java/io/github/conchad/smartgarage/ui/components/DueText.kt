@@ -30,11 +30,3 @@ fun dueDays(days: Int): String = when {
     days > 0 -> pluralStringResource(R.plurals.due_in_days, days, days)
     else -> pluralStringResource(R.plurals.due_days_overdue, -days, -days)
 }
-
-/** "today", "in 5 days" or "3 days ago" for a date that isn't a deadline. */
-@Composable
-fun relativeDays(days: Int): String = when {
-    days == 0 -> stringResource(R.string.due_today)
-    days > 0 -> pluralStringResource(R.plurals.due_in_days, days, days)
-    else -> pluralStringResource(R.plurals.due_days_ago, -days, -days)
-}

@@ -41,6 +41,7 @@ import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -173,3 +174,7 @@ fun monthLabel(month: YearMonth): String {
     val format = remember { DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()) }
     return month.format(format).replaceFirstChar { it.uppercase() }
 }
+
+/** Groups newest-first items by calendar month in the server's time zone, keeping their order. */
+internal fun <T> byMonth(items: List<T>, zone: ZoneId, at: (T) -> java.time.Instant?): Map<YearMonth, List<T>> =
+    items.groupBy { item -> at(item)?.atZone(zone)?.let(YearMonth::from) ?: YearMonth.of(1970, 1) }
