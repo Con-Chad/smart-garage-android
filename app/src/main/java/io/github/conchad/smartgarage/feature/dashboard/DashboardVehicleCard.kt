@@ -43,6 +43,7 @@ import io.github.conchad.smartgarage.core.model.Dashboard
 import io.github.conchad.smartgarage.core.model.VehicleSummary
 import io.github.conchad.smartgarage.feature.vehicles.QuickInfoDetails
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardFooter
+import io.github.conchad.smartgarage.feature.vehicles.VehiclePhotoTitle
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardMenu
 import io.github.conchad.smartgarage.feature.vehicles.vehicleCardSemantics
@@ -121,33 +122,8 @@ internal fun VehicleCard(
                             .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
                     ) {
                         VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
-                        // Name over a bottom scrim so it reads on any photo; white on ≥ 55 % black clears 4.5:1.
-                        Column(
-                            Modifier
-                                .align(Alignment.BottomStart)
-                                .fillMaxWidth()
-                                .background(Brush.verticalGradient(tokens.photoScrim))
-                                .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
-                        ) {
-                            Text(
-                                title,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = tokens.onPhoto,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.tiltLayer(TiltDepths.Title),
-                            )
-                            if (nickname != null) {
-                                Text(
-                                    vehicle.displayName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = tokens.onPhotoSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
-                                )
-                            }
-                        }
+                        // Name over a bottom scrim, placed exactly as on the vehicle page (D-A45).
+                        VehiclePhotoTitle(title, if (nickname != null) vehicle.displayName else null, titleMaxLines = 1, Modifier.align(Alignment.BottomStart))
                     }
                     VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
                 }

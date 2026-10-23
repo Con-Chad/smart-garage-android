@@ -9,6 +9,7 @@ import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -58,6 +59,13 @@ object Motion {
 
     /** Opening the vehicle page, when the hero and the Home card's collapsing drawer come to rest (D-A45). */
     const val HERO_END_MS = HERO_DELAY_MS + HERO_MS
+
+    /**
+     * The screen a vehicle page opens over (Home's greeting, headers and other cards, its fan FAB) and the bottom
+     * tray fade out over the whole hero glide, on its curve, ending as the card lands; Back fades them in over the
+     * same span (D-A45).
+     */
+    const val UNDER_HERO_FADE_MS = HERO_END_MS
 
     /** A slower spin: the refresh icon while a sync runs. */
     const val SPIN_MS = 900
@@ -147,6 +155,9 @@ object Motion {
     /** The white wash over a held glass surface, at full press. */
     const val PRESS_GLOW_ALPHA = 0.10f
 }
+
+/** The fade of what the vehicle hero leaves behind or comes back to: [Motion.UNDER_HERO_FADE_MS] on the hero's curve. */
+fun <T> underHeroFadeSpec(): FiniteAnimationSpec<T> = tween(Motion.UNDER_HERO_FADE_MS, easing = Motion.EmphasizedEasing)
 
 /** [this], or a snap when [reduced]. */
 fun <T> FiniteAnimationSpec<T>.orSnap(reduced: Boolean): FiniteAnimationSpec<T> = if (reduced) snap() else this

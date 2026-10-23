@@ -191,32 +191,7 @@ private fun VehicleListCard(
             ) {
                 Box(Modifier.fillMaxSize().combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })) {
                     VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
-                    Column(
-                        Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .background(Brush.verticalGradient(tokens.photoScrim))
-                            .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
-                    ) {
-                        Text(
-                            cardActions.titleOf(vehicle),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = tokens.onPhoto,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.tiltLayer(TiltDepths.Title),
-                        )
-                        if (nickname != null) {
-                            Text(
-                                vehicle.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = tokens.onPhotoSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
-                            )
-                        }
-                    }
+                    VehiclePhotoTitle(cardActions.titleOf(vehicle), if (nickname != null) vehicle.displayName else null, titleMaxLines = 2, Modifier.align(Alignment.BottomStart))
                 }
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onClick)
             }

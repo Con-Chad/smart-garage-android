@@ -75,6 +75,7 @@ import io.github.conchad.smartgarage.ui.components.PhotoLoader
 import io.github.conchad.smartgarage.ui.glass.AuroraBackground
 import io.github.conchad.smartgarage.ui.glass.AuroraTintHolder
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.underHeroFadeSpec
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraChoices
 import io.github.conchad.smartgarage.ui.glass.LocalNavAnimatedScope
@@ -120,7 +121,17 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val showBottomBar = destination == null || TopLevel.entries.any { destination.isOn(it) }
-    val selectedTab = TopLevel.entries.indexOfFirst { destination?.isOn(it) == true }
+    // D-A45: going to or coming back from the vehicle page, the tray fades over the hero glide instead of shrinking.
+    // Decided once per destination change, from the destination before it.
+    val lastDestination = remember { arrayOfNulls<NavDestination>(1) }
+    val barUnderHero = remember(destination) {
+        destination?.hasRoute<VehicleDetailRoute>() == true || lastDestination[0]?.hasRoute<VehicleDetailRoute>() == true
+    }
+    SideEffect { lastDestination[0] = destination }
+    // While the tray fades away over a route that isn't a tab (D-A45), it keeps showing the tab it was on rather
+    // than dropping its selection on the first frame.
+    val lastTab = remember { intArrayOf(0) }
+    val selectedTab = TopLevel.entries.indexOfFirst { destination?.isOn(it) == true }.let { if (it >= 0) it.also { i -> lastTab[0] = i } else lastTab[0] }
     // Every route is a glass route (D-A30): the shell's one aurora runs behind all of them and the floating bottom
     // bar, with its RESUMED / reduced-motion guards. Only on Home, Vehicles and the vehicle page does a screen's own
     // AuroraTint (the car's color) count; every other destination takes the tab's fallback unconditionally, decided
@@ -152,8 +163,14 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                 bottomBar = {
                     AnimatedVisibility(
                         visible = showBottomBar,
-                        enter = (expandVertically(tween(Motion.SHORT_MS)) + fadeIn(tween(Motion.SHORT_MS))).orNone(reduced),
-                        exit = (shrinkVertically(tween(Motion.SHORT_MS)) + fadeOut(tween(Motion.QUICK_MS))).orNone(reduced),
+                        enter = when {
+                            barUnderHero -> fadeIn(underHeroFadeSpec())
+                            else -> expandVertically(tween(Motion.SHORT_MS)) + fadeIn(tween(Motion.SHORT_MS))
+                        }.orNone(reduced),
+                        exit = when {
+                            barUnderHero -> fadeOut(underHeroFadeSpec())
+                            else -> shrinkVertically(tween(Motion.SHORT_MS)) + fadeOut(tween(Motion.QUICK_MS))
+                        }.orNone(reduced),
                     ) {
                         MorphingBottomNav(
                             tabs = tabs,
@@ -180,21 +197,25 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             modifier = Modifier.fillMaxSize(),
                             // The vehicle page and the Vehicles tab bring their own cards in (D-A32, D-A34), so nothing
                             // cross-fades into them: the page is simply there. The screen the vehicle page opens over fades
-                            // out in Motion.QUICK_MS while the hero glides and the drawer slides up (the page's own drawer
-                            // animation keeps the transition running for Motion.HERO_MS); leaving it, the page fades out the same
-                            // way over the screen beneath, which is there at once. Every other navigation keeps NavHost's
+                            // out over the whole hero glide, on its curve (D-A45, Motion.UNDER_HERO_FADE_MS), and fades back
+                            // in over the same span on Back while the page's cards pop out. Every other navigation keeps NavHost's
                             // 700 ms cross-fade. Timings are Motion's (D-A40); under reduced motion nothing fades.
                             enterTransition = { if (targetState.popsIn() || reduced) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS)) },
                             exitTransition = {
                                 when {
                                     reduced -> ExitTransition.None
-                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(tween(Motion.QUICK_MS))
+                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(underHeroFadeSpec())
                                     targetState.popsIn() -> ExitTransition.None
                                     else -> fadeOut(tween(Motion.NAV_FADE_MS))
                                 }
                             },
                             popEnterTransition = {
-                                if (targetState.popsIn() || initialState.popsIn() || reduced) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS))
+                                when {
+                                    reduced || targetState.popsIn() -> EnterTransition.None
+                                    initialState.destination.hasRoute<VehicleDetailRoute>() -> fadeIn(underHeroFadeSpec())
+                                    initialState.popsIn() -> EnterTransition.None
+                                    else -> fadeIn(tween(Motion.NAV_FADE_MS))
+                                }
                             },
                             popExitTransition = {
                                 when {

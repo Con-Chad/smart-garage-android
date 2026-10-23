@@ -1444,3 +1444,17 @@ App decisions use the `D-A` prefix.
     shows (~280 ms), and the hero is within a pixel or two of rest, so there is no
     overlap and no dead gap; kept at 200.
   - Reduced motion: no shared element, so `heroPlateOff()` is false and nothing changes.
+  - **Title placement shared**: the Home, Vehicles-tab and vehicle-page photo cards now
+    all draw the name through `VehiclePhotoTitle` (feature/vehicles), the Home/Vehicles
+    placement (16 dp sides, 28 top, 12 bottom). The page's card was the odd one out
+    (20/48/16), which put its "Tessa" ~4 dp off the Home card's and showed it doubled for
+    2–3 frames at the end of the cross-fade; verified gone frame by frame on the Pixel.
+  - **What the hero leaves behind fades with it**: opening the vehicle page, the screen
+    beneath (Home's greeting, headers, other cards, the fan FAB) and the bottom tray
+    fade out over the whole glide on its curve (`Motion.UNDER_HERO_FADE_MS` =
+    `HERO_END_MS`, `underHeroFadeSpec()`), and fade back in over the same span on Back
+    while the page's cards pop out. Before, the screen faded in `QUICK_MS` and the tray
+    shrank away. The tray fades as one layer (AnimatedVisibility alpha, no shrink or
+    expand for this route) and keeps the last tab selected while it is off a tab, so the
+    selection bubble no longer drops on frame 1 and re-morphs on return. Reduced motion:
+    none of it animates.
