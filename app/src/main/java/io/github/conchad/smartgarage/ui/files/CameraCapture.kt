@@ -58,20 +58,20 @@ object CameraCapture {
      * Re-encodes [file] in place: coarse shrink in the decoder (`inSampleSize`), a final scale to the target size,
      * the EXIF rotation applied to the pixels, then JPEG. The platform `ExifInterface` is enough to read one tag.
      */
-    internal fun downscale(file: File): Boolean {
+    internal fun downscale(file: File, maxEdge: Int = ImageMath.MAX_EDGE_PX, quality: Int = ImageMath.JPEG_QUALITY): Boolean {
         val path = file.absolutePath
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return false
-        val options = BitmapFactory.Options().apply { inSampleSize = ImageMath.sampleSize(bounds.outWidth, bounds.outHeight) }
+        val options = BitmapFactory.Options().apply { inSampleSize = ImageMath.sampleSize(bounds.outWidth, bounds.outHeight, maxEdge) }
         val decoded = BitmapFactory.decodeFile(path, options) ?: return false
-        val (width, height) = ImageMath.targetSize(decoded.width, decoded.height)
+        val (width, height) = ImageMath.targetSize(decoded.width, decoded.height, maxEdge)
         val scaled = if (width != decoded.width || height != decoded.height) decoded.scale(width, height) else decoded
         val matrix = orientationMatrix(exifOrientation(path))
         val upright = if (matrix == null) scaled else Bitmap.createBitmap(scaled, 0, 0, scaled.width, scaled.height, matrix, true)
         val temp = File(file.parentFile, "${file.name}.tmp")
         val written = runCatching {
-            FileOutputStream(temp).use { out -> upright.compress(Bitmap.CompressFormat.JPEG, ImageMath.JPEG_QUALITY, out) }
+            FileOutputStream(temp).use { out -> upright.compress(Bitmap.CompressFormat.JPEG, quality, out) }
         }.getOrDefault(false)
         if (upright !== scaled) upright.recycle()
         if (scaled !== decoded) scaled.recycle()

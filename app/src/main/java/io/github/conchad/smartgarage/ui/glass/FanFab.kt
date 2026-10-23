@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -59,6 +60,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
@@ -85,38 +87,55 @@ private val CORE = 56.dp
 private val PETAL = 46.dp
 private val PETAL_TARGET = 48.dp
 
-/** Distance from the core's centre to a petal's centre when open (124 dp with four petals; 160 since the fifth, D-A57). */
-private val RADIUS = 160.dp
+/**
+ * Distance from the core's centre to a petal's centre when open (124 dp with four petals, 160 with five in D-A57,
+ * 112 since D-A58 pulled the fan in so it no longer spans half the screen).
+ */
+private val RADIUS = 112.dp
 
 /**
  * The petals' angles, degrees counter-clockwise from "right": a fan toward the upper left (D-A32), five slots since
- * "Theme color" joined at the bottom (D-A57); fewer actions take the lowest slots. Chosen so that at [RADIUS]
- * neighbouring 48 dp targets clear each other (chords 50 / 50 / 55 / 61 dp) and the captions to the left of the
- * petals never share a line: their centres are 49 / 45 / 39 / 25 (+ the elbow's 15) dp apart vertically, more than a
- * `labelMedium` line at font scale 1.3 (≈ 21 dp), and each caption clears the petal below it by ≥ 5 dp there.
+ * "Theme color" joined at the bottom (D-A57); fewer actions take the lowest slots. Since D-A58 they are **evenly
+ * spaced**, 26.25° apart from 190° (just below the core's centre line) to 85° (just right of straight up), so every
+ * neighbouring pair is the same 50.9 dp chord apart at [RADIUS]: 4.9 dp between the 46 dp petals, 2.9 dp between the
+ * 48 dp targets. The arc reaches past the core's quadrant by up to [OVERHANG] (≈ 6 dp right, ≈ 15 dp down: the
+ * bottom petal stays ≈ 11 dp above the bottom bar, the top one ≈ 11 dp off the screen edge).
  */
-private val ANGLES = floatArrayOf(180f, 162f, 144f, 124f, 100f)
+private val ANGLES = floatArrayOf(190f, 163.75f, 137.5f, 111.25f, 85f)
 
-/** Room the fan's touch targets need around the core: half the core, the radius and half a petal target, rounded up. The captions may draw beyond it. */
-private val EXTENT = 212.dp
+/**
+ * Room the fan's touch targets need above / left of the core's bottom-right corner: half the core plus the furthest
+ * reach of a target (110 + 24 left, 112 + 24 up), rounded up. The captions may draw beyond it.
+ */
+private val EXTENT = 164.dp
+
+/**
+ * How far the lowest / rightmost petal targets reach past the core's bottom / right edge (≈ 15 / 6 dp). The fan's box
+ * is grown by this much below and right of the core and the whole fan shifted back by it, so the core stays where the
+ * caller put it while every target is still inside a hit-testable parent.
+ */
+private val OVERHANG = 16.dp
 
 /**
  * The connector line from a petal to its caption: it starts [PETAL_GAP] off the petal's drawn edge and ends
- * [CAPTION_GAP] short of the text. A straight connector is [CONNECTOR] long. An elbowed one ([ELBOW]) leaves the
- * petal [ELBOW_ANGLE] above horizontal for [ELBOW_RUN] (horizontally), then bends into a [CONNECTOR] horizontal run,
- * lifting its caption clear of the petal below.
+ * [CAPTION_GAP] short of the text, its last stretch a [CONNECTOR] horizontal run level with the caption. Petals whose
+ * caption would cross the petal to their left first climb at their [ELBOW_ANGLES] entry until they reach their
+ * [RISES] entry above the petal's centre, then bend into that run.
  */
 private val CONNECTOR = 12.dp
 private val CAPTION_GAP = 6.dp
 private val PETAL_GAP = 5.dp
-private const val ELBOW_ANGLE = 20f
-private val ELBOW_RUN = 16.dp
 
 /**
- * Which petals' connectors elbow upward, parallel to [ANGLES]. Only the top petal (Scan Receipt, 100°): its caption
- * runs left over the 124° petal, whose top it would otherwise cross; the elbow lifts it ≈ 15 dp.
+ * Per slot, parallel to [ANGLES]: how far each caption's centre sits above its petal's centre, and the angle above
+ * horizontal its connector climbs at to get there (0 = straight). Chosen (D-A58) so that at font scale 1.3 (a
+ * `labelMedium` line ≈ 21 dp) every caption clears the petal it runs past and the captions around it by ≥ 5 dp:
+ * - 190 / 163.75 / 137.5°: straight. Each runs left of, or above, the petal below-left of it (≥ 11 dp clear).
+ * - 111.25° ("Fuel"): rises 12 dp at 20°, clearing the 137.5° petal's top by 7 dp.
+ * - 85° ("Scan Receipt"): rises 32 dp at 45°, clearing the 111.25° petal's top by 5.7 dp and the "Fuel" caption by 6.
  */
-private val ELBOW = booleanArrayOf(false, false, false, false, true)
+private val RISES = floatArrayOf(0f, 0f, 0f, 12f, 32f)
+private val ELBOW_ANGLES = floatArrayOf(0f, 0f, 0f, 20f, 45f)
 
 /** A held core or petal shrinks to this (D-A40): the beads are small, so a touch more than a pill. */
 private const val BEAD_PRESS_SCALE = 0.92f
@@ -139,12 +158,13 @@ private const val CONNECTOR_ALPHA = 0.6f
 /**
  * The radial fan FAB (D-A31, D-A32, D-A57): an opaque 56 dp "+" that turns into an × and fans up to **five** 46 dp petals out in
  * a spring arc toward the upper left ([ANGLES] at [RADIUS] from the centre, 45 ms stagger opening, 30 ms closing,
- * petals scale and fade in along the way). Each petal has a thin connector line running left from its edge to a
- * short caption, which animate with it. Core and petals are solid, coloured from the aurora tint in effect
+ * petals scale and fade in along the way; evenly spaced since D-A58). Each petal has a thin connector line running
+ * left from its edge, climbing first where a caption would cross a neighbour ([RISES]), to a short caption, which
+ * animate with it. Core and petals are solid, coloured from the aurora tint in effect
  * ([AuroraTintHolder.effective], i.e. the car in view) and cross-fade over 800 ms when it changes (see
  * [fanPalette]); each disc carries a soft top-left → bottom-right depth gradient and an inner highlight so it reads
  * as a bead rather than a flat dot. Open, the core takes the nav blob's gradient and glow. Under reduced motion
- * everything snaps. The touch targets sit in a [EXTENT] square so they stay inside a hit-testable parent; the
+ * everything snaps. The touch targets sit in an [EXTENT] + [OVERHANG] square so they stay inside a hit-testable parent; the
  * square itself takes no touches. [visible] false hides it (the home pager is scrolling) and closes it. Back closes
  * it; the caller draws a [FanScrim] under it for outside taps.
  *
@@ -198,11 +218,12 @@ fun FanFab(
 
     AnimatedVisibility(
         visible = visible,
-        modifier = modifier,
+        // Shifted back by the overhang so the core sits where the caller placed it (see OVERHANG).
+        modifier = modifier.offset(OVERHANG, OVERHANG),
         enter = (fadeIn(tween(Motion.SHORT_MS)) + scaleIn(Motion.popSpring(), initialScale = 0.6f)).orNone(reduced),
         exit = (fadeOut(tween(Motion.QUICK_MS)) + scaleOut(tween(Motion.QUICK_MS), targetScale = 0.6f)).orNone(reduced),
     ) {
-        Box(Modifier.size(EXTENT)) {
+        Box(Modifier.size(EXTENT + OVERHANG)) {
             if (shown) {
                 actions.forEachIndexed { index, action ->
                     val angle = ANGLES.getOrElse(index) { 180f }
@@ -210,7 +231,8 @@ fun FanFab(
                         text = action.caption,
                         progress = progress[index],
                         angle = angle,
-                        elbow = ELBOW.getOrElse(index) { false },
+                        rise = RISES.getOrElse(index) { 0f }.dp,
+                        elbowAngle = ELBOW_ANGLES.getOrElse(index) { 0f },
                         modifier = Modifier.align(Alignment.BottomEnd),
                     )
                     Petal(
@@ -235,7 +257,7 @@ fun FanFab(
                 fill = coreFill,
                 ink = coreInk,
                 onClick = { onExpandedChange(!expanded) },
-                modifier = Modifier.align(Alignment.BottomEnd),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = OVERHANG, bottom = OVERHANG),
             )
         }
     }
@@ -399,7 +421,7 @@ private fun Petal(
             .size(PETAL_TARGET)
             .offset {
                 val p = progress.value
-                val inset = ((CORE - PETAL_TARGET) / 2).roundToPx()
+                val inset = ((CORE - PETAL_TARGET) / 2 + OVERHANG).roundToPx()
                 val reach = RADIUS.toPx() * p
                 IntOffset(-inset + (reach * vector.dx).roundToInt(), -(inset + (reach * vector.dy).roundToInt()))
             }
@@ -431,47 +453,51 @@ private fun Petal(
 
 /**
  * Where a caption's connector starts and how high its caption sits, relative to the petal's centre, in dp: the start
- * is [PETAL_GAP] off the petal's edge, straight left or, for an [elbow], along [ELBOW_ANGLE]; the horizontal run (and
- * the caption's centre) is [rise] above the centre.
+ * is [PETAL_GAP] off the petal's edge, straight left or, for an elbow, along [elbowAngle]; the connector climbs at that
+ * angle until it is [rise] above the centre, where the horizontal run (and the caption's centre) sits. A straight
+ * connector ([elbowAngle] 0) has no climb and its caption is level with the petal.
  */
-private class ConnectorGeometry(elbow: Boolean) {
-    private val rad = Math.toRadians(if (elbow) ELBOW_ANGLE.toDouble() else 0.0)
+private class ConnectorGeometry(rise: Dp, elbowAngle: Float) {
+    private val elbow = elbowAngle > 0f
+    private val rad = Math.toRadians(if (elbow) elbowAngle.toDouble() else 0.0)
     private val startR = PETAL.value / 2 + PETAL_GAP.value
     /** Start point's distance left of / above the petal's centre. */
     val startDx = (startR * cos(rad)).toFloat().dp
     val startDy = (startR * sin(rad)).toFloat().dp
-    /** The angled segment's horizontal and vertical extent (zero when straight). */
-    val runDx = if (elbow) ELBOW_RUN else 0.dp
-    val runDy = (runDx.value * tan(rad)).toFloat().dp
-    /** Height of the horizontal run, and the caption's centre, above the petal's centre. */
-    val rise = startDy + runDy
-    /** The connector's drawing box: [width] wide, [height] tall, centred on the caption; the petal's centre line is [rise] below its middle. */
+    /** Height of the horizontal run, and the caption's centre, above the petal's centre (never below the start). */
+    val rise = if (elbow) max(rise.value, startDy.value).dp else 0.dp
+    /** The climbing segment's horizontal extent (zero when straight). */
+    val runDx = if (elbow) ((this.rise.value - startDy.value) / tan(rad)).toFloat().dp else 0.dp
+    /** The connector's drawing box: [width] wide, [height] tall, centred on the caption; the start is [startBelow] under its middle. */
     val width = runDx + CONNECTOR
-    val height = rise * 2 + 2.dp
+    val height = this.rise * 2 + 2.dp
+    val startBelow = this.rise - startDy
+    /** The caption row's height: a touch target's, or taller when the connector box needs it. */
+    val rowHeight = max(PETAL_TARGET.value, height.value).dp
 }
 
 /**
- * A petal's caption (D-A32): a 1 dp connector line from just off the petal's edge ([PETAL_GAP]) to just short of the
- * short `labelMedium` text ([CAPTION_GAP]); straight and level with the petal's centre, or for an [elbow] first rising
- * at [ELBOW_ANGLE] and then running level, with the text centred on that run. Both sit on the [FanScrim], so the text
- * is the glass text colour with the on-aurora halo and the line that colour at [CONNECTOR_ALPHA]. It follows the
- * petal's position, scale and alpha from the line's start (the petal side), read in `offset {}` / `graphicsLayer {}`
- * only. Not a TalkBack node: the petal itself carries the full name.
+ * A petal's caption (D-A32, D-A58): a 1 dp connector line from just off the petal's edge ([PETAL_GAP]) to just short
+ * of the short `labelMedium` text ([CAPTION_GAP]); straight and level with the petal's centre, or for an elbow first
+ * climbing at [elbowAngle] to [rise] above it and then running level, with the text centred on that run. Both sit on
+ * the [FanScrim], so the text is the glass text colour with the on-aurora halo and the line that colour at
+ * [CONNECTOR_ALPHA]. It follows the petal's position, scale and alpha from the line's start (the petal side), read in
+ * `offset {}` / `graphicsLayer {}` only. Not a TalkBack node: the petal itself carries the full name.
  */
 @Composable
-private fun PetalCaption(text: String, progress: Animatable<Float, *>, angle: Float, elbow: Boolean, modifier: Modifier) {
+private fun PetalCaption(text: String, progress: Animatable<Float, *>, angle: Float, rise: Dp, elbowAngle: Float, modifier: Modifier) {
     val tokens = glass
     val vector = remember(angle) { PetalVector(angle) }
-    val geo = remember(elbow) { ConnectorGeometry(elbow) }
+    val geo = remember(rise, elbowAngle) { ConnectorGeometry(rise, elbowAngle) }
     Row(
         modifier
-            .height(PETAL_TARGET)
+            .height(geo.rowHeight)
             .offset {
                 val p = progress.value
                 val reach = RADIUS.toPx() * p
-                // Right edge at the connector's start: the petal's centre is half the core in from the corner.
-                val rightEdge = -(CORE / 2 + geo.startDx).roundToPx() + (reach * vector.dx).roundToInt()
-                val inset = ((CORE - PETAL_TARGET) / 2).roundToPx()
+                // Right edge at the connector's start: the petal's centre is half the core (and the overhang) in from the corner.
+                val rightEdge = -(CORE / 2 + OVERHANG + geo.startDx).roundToPx() + (reach * vector.dx).roundToInt()
+                val inset = ((CORE - geo.rowHeight) / 2 + OVERHANG).roundToPx()
                 IntOffset(rightEdge, -(inset + geo.rise.roundToPx() + (reach * vector.dy).roundToInt()))
             }
             .graphicsLayer {
@@ -479,7 +505,7 @@ private fun PetalCaption(text: String, progress: Animatable<Float, *>, angle: Fl
                 alpha = p
                 scaleX = 0.4f + 0.6f * p
                 scaleY = 0.4f + 0.6f * p
-                transformOrigin = TransformOrigin(1f, 0.5f + (geo.rise - geo.startDy) / PETAL_TARGET)
+                transformOrigin = TransformOrigin(1f, 0.5f + geo.startBelow / geo.rowHeight)
             }
             .clearAndSetSemantics {},
         verticalAlignment = Alignment.CenterVertically,
@@ -501,9 +527,8 @@ private fun PetalCaption(text: String, progress: Animatable<Float, *>, angle: Fl
                     val mid = size.height / 2
                     val bend = Offset(CONNECTOR.toPx(), mid)
                     drawLine(color, Offset(0f, mid), bend, stroke)
-                    if (elbow) {
-                        // Start sits startDy above the petal's centre line, which is rise below the middle.
-                        val start = Offset(size.width, mid + (geo.rise - geo.startDy).toPx())
+                    if (geo.runDx > 0.dp) {
+                        val start = Offset(size.width, mid + geo.startBelow.toPx())
                         drawLine(color, bend, start, stroke, cap = StrokeCap.Round)
                     }
                 },
@@ -512,8 +537,8 @@ private fun PetalCaption(text: String, progress: Animatable<Float, *>, angle: Fl
 }
 
 /**
- * The veil under an open [FanFab]: the page colour at 60 %, tap anywhere to close. Fades under motion, appears at
- * once under reduced motion. Drawn by the screen between the content and the fan.
+ * The veil under an open [FanFab]: [GlassTokens.fanScrim], the page colour at 72 % (D-A60), tap anywhere to close.
+ * Fades under motion, appears at once under reduced motion. Drawn by the screen between the content and the fan.
  */
 @Composable
 fun FanScrim(visible: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
@@ -529,7 +554,7 @@ fun FanScrim(visible: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modif
         Box(
             Modifier
                 .fillMaxSize()
-                .drawBehind { drawRect(tokens.veil) }
+                .drawBehind { drawRect(tokens.fanScrim) }
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = dismissLabel, onClick = onDismiss),
         )
     }

@@ -913,4 +913,30 @@
     <string name="car_color_purple">Lila</string>
     <string name="car_color_none">Nicht gesetzt</string>
     <string name="car_color_hint">Tippe auf die Farbe des Autos; nochmal tippen zum Leeren.</string>
+    <!-- Dokumentscanner (D-A59). -->
+    <string name="scan_document">Dokument scannen</string>
+    <string name="scan_adjust_title">Ecken anpassen</string>
+    <string name="scan_adjust_hint">Ziehe die vier Ecken auf die Ränder der Seite.</string>
+    <string name="scan_retake">Neu aufnehmen</string>
+    <string name="scan_detect">Kanten erkennen</string>
+    <string name="scan_whole_photo">Ganzes Foto</string>
+    <string name="scan_done">Fertig</string>
+    <string name="scan_page">Seite %1$d</string>
+    <string name="scan_add_page">Seite hinzufügen</string>
+    <string name="scan_filter_original">Original</string>
+    <string name="scan_filter_greyscale">Graustufen</string>
+    <string name="scan_filter_bw">S/W-Dokument</string>
+    <string name="scan_name">Dokumentname</string>
+    <string name="scan_name_needed">Gib dem Dokument einen Namen.</string>
+    <string name="scan_default_name">Scan %1$s</string>
+    <string name="scan_use">Scan verwenden</string>
+    <string name="scan_exporting">Datei wird erstellt…</string>
+    <string name="scan_failed">Der Scan konnte nicht gespeichert werden. Nimm eine Seite neu auf oder versuche es erneut.</string>
+    <string name="scan_pages_hint">Eine Seite wird als JPEG gespeichert, mehrere als ein PDF (bis zu %1$d).</string>
+    <string name="scan_move_up">Seite nach oben</string>
+    <string name="scan_move_down">Seite nach unten</string>
+    <string name="scan_rotate">Seite drehen</string>
+    <string name="scan_delete_page">Seite löschen</string>
+    <string name="scan_discard_title">Diesen Scan verwerfen?</string>
+    <string name="scan_discard_body">Die fotografierten Seiten werden gelöscht.</string>
 </resources>

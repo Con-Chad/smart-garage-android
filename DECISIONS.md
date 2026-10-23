@@ -1734,3 +1734,68 @@ App decisions use the `D-A` prefix.
     `DashboardViewModel.setAuroraOverride` (thin pass-through).
   - View-only shared vehicles: the override is phone-only, so the fan now shows for them too, with only the Theme
     color petal (core label "Quick actions"); the logging petals still need edit rights.
+- **D-A58 (2026-10-23) — Home fan: evenly spaced petals on a tighter arc.**
+  - Feedback: the bottom petals sat ~40 % closer together than the top ones and the fan spread over half the screen.
+  - `ANGLES` 180/162/144/124/100° → **190/163.75/137.5/111.25/85°** (equal 26.25° steps, every neighbour chord
+    50.9 dp: ≈ 5 dp between 46 dp petals); `RADIUS` 160 → **112 dp**. Petals now span ≈ 47 % of a 376 dp Pixel width
+    (was ≈ 60 %); with captions ≈ 72 % at font scale 1.0 / ≈ 78 % at 1.3 (was ≈ 91 % at 1.3).
+  - The arc dips ≈ 15 dp below and ≈ 6 dp right of the core's box: the fan's box grows by `OVERHANG` (16 dp) below /
+    right of the core and the whole fan is shifted back by it, so the core doesn't move and every target stays
+    hit-testable. `EXTENT` 212 → 164 dp (+ overhang).
+  - Captions stay to the left of their petal; connectors are per-slot (`RISES` / `ELBOW_ANGLES`): straight for the
+    bottom three, 12 dp at 20° for "Fuel", 32 dp at 45° for "Scan Receipt", so each caption clears the petal it runs
+    past and its neighbours by ≥ 5 dp at font scale 1.3 (checked on device at 1.0 and 1.3).
+  - Limit: captions can't fit under half the width with five equally spaced 46 dp petals — the bottom "Theme color"
+    caption must sit left of the leftmost petal (no room below it above the nav bar, or inside the arc). Halving that
+    would need shorter / two-line captions or fewer petals.
+- **D-A60 (2026-10-23) — Denser fan scrim; complementary divider under the shared header.**
+  - Fan scrim: new `GlassTokens.fanScrim`, the page colour at 72 % (was `veil`, 60 %), dark `#B808090D`, light
+    `#B8F2F4F8`. `veil` itself (the aurora's bottom veil) is unchanged.
+  - Header divider: `ui/glass/HeaderDivider.kt`. A 1 dp (whole-pixel) opaque line drawn over the bottom edge of the
+    top bar in `AppScaffold` (every tab and pushed screen) and `FormFrame`. Colour = `complementaryAccent(tint, dark)`:
+    the aurora's effective tint (`LocalAuroraTint.effective`, else primary) with hue + `HeaderDivider.HUE_OFFSET`
+    (180°), saturation clamped 0.65–0.85 (so steel still gets an accent), lightness 0.64 dark / 0.42 light; all
+    knobs are constants on `HeaderDivider`. Cross-fades over `Motion.MEDIUM_MS` (snaps under reduced motion), read
+    in the draw phase only, so no recomposition per frame; drawn in the pinned bar's own bounds, so it doesn't move
+    on scroll. Not on the vehicle page (`softBarEdge`, D-A49 keeps its feathered edge) or the setup flows.
+    Tests: `HeaderDividerTest`.
+  - Follow-up: the divider is hidden (alpha 0) at the top of a page and fades in over `Motion.SHORT_MS` once content
+    scrolls under the bar (`AppScaffold`: the existing `overlapped` derived flag; `FormFrame`: hoisted scroll
+    state's `canScrollBackward` as a derived flag), or while Home's fan is open (`AppScaffold(showHeaderDivider)`).
+    The alpha is read in the draw phase only.
+  - The car card's buttons are title case in English: "Quick Info", "View All" (`card_view_all_line2` "All").
+    German is unchanged ("Kurzinfo", "Alles anzeigen" follow German casing). Other Home labels ("Add vehicle", "See
+    all") aren't on the car's card and stay sentence case.
+- **D-A59 (2026-10-23) — "Scan document": an on-device document scanner on the Upload document form.**
+  - A third button, "Scan document" (de "Dokument scannen"), sits beside "Choose file" and "Take photo" in
+    `FilePickerField` (`onScan`); with three, each takes a third of the row with the icon stacked over the label
+    (72 dp tall). With a file chosen, a scan icon sits next to the camera icon. Only the document form passes it.
+  - **GMS-free, no new dependency.** Not the ML Kit Document Scanner (Play Services). No CameraX either (not a
+    dependency): photos come from the system camera through `TakePicture` into `cache/captures/` as on the document
+    form (D-A23), no CAMERA permission. No OpenCV/Tesseract. **No OCR**: there is no small GMS-free on-device text
+    recogniser (Tesseract would add ~20 MB of native code plus language data), and the server's AI scan is
+    deliberately not used — the scan is only an image/PDF.
+  - Flow (`feature/documents/scan/`): the photo is made upright (EXIF), long edge 2400 px, kept in `cache/scans/`
+    (swept after a day). The **corner screen** shows it with four draggable handles (nearest within 48 dp; outside
+    the page shaded); start corners come from a cheap guess on a 256 px greyscale copy — Otsu threshold, the largest
+    bright blob, its extreme points along the diagonals — accepted only if convex and ≥ 10 % of the photo, else 8 %
+    inset. "Whole photo" / "Detect edges" toggles, "Retake" replaces the page. The **page list** shows each page
+    flattened and filtered, with adjust corners, rotate 90°, move up/down, delete; "Add page" (≤ 20 pages); the
+    filter chips Original / Greyscale (default; `ColorMatrix` saturation 0 + ×1.2 contrast) / B&W document
+    (Bradley adaptive threshold, window ⅛ of the short edge, bias 12 %, integral image); and the **document name**
+    (prefilled from the form's title, else "Scan yyyy-mm-dd"; ≤ 120, required).
+  - Flattening: corners ordered TL/TR/BR/BL by angle round the centroid (so crossed drags still work), rotated by
+    shifting the order, output size = the longer of each pair of opposite edges, long edge ≤ 2200 px, warped with
+    `Matrix.setPolyToPoly` + bitmap filtering onto white.
+  - Export: one page → JPEG (q 85); several → one PDF from a ~100-line writer (`JpegPdf`) that embeds each page's
+    JPEG as-is (`/DCTDecode`), page box A4-wide (595 pt short edge, aspect kept), title in `/Info`.
+    `PdfDocument` was not used: it re-encodes bitmaps losslessly, 5–10× larger. The file must fit the server's
+    document rules (`lib/storage/paths.ts`: JPEG/PDF allowed, `MAX_UPLOAD_SIZE_MB` 25 → `FileRules`); if it
+    doesn't, it is rebuilt at q 75 / 1700 px, then q 65 / 1300 px, else "couldn't be saved".
+  - "Use scan" puts the file (named from the document name, unsafe characters → "-") into the form as the picked
+    file and the name into the title; the user then taps Upload, so it goes through the same `addDocument`
+    outbox/sync path as the other two buttons (the file sits in `cache/captures/` and is deleted once queued).
+    The scan photos are deleted on export or discard ("Discard this scan?" on close).
+  - The session (pages, corners, turns, filter, name, open page) is written to the form's `SavedStateHandle`
+    (`ScanSession.encode`), so a multi-page scan survives the process being killed behind the camera app.
+  - Tests: `ScanGeometryTest`, `ScanFiltersTest`, `JpegPdfTest`, `ScanSessionTest`.

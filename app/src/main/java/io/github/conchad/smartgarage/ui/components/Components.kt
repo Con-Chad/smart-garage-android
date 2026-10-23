@@ -44,6 +44,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.glass.GlassButton
 import io.github.conchad.smartgarage.ui.glass.GlassIconBadge
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.headerDivider
 import io.github.conchad.smartgarage.ui.glass.onAurora
 import io.github.conchad.smartgarage.ui.glass.AdaptiveInk
 import io.github.conchad.smartgarage.ui.glass.AuroraInkSpec
@@ -129,6 +130,8 @@ fun AppScaffold(
      * bar and feathers out over [GlassTokens.barFeather] below it instead of ending in a line.
      */
     softBarEdge: Boolean = false,
+    /** Shows the header divider even with nothing scrolled under the bar, e.g. while Home's fan is open (D-A60). */
+    showHeaderDivider: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     // D-A46: a transparent bar's title sits on the aurora, so it takes the adaptive ink; once content scrolls under
@@ -150,8 +153,13 @@ fun AppScaffold(
         topBar = {
             TopAppBar(
                 title = { CompositionLocalProvider(LocalAuroraInk provides if (transparent) barInk else null, content = title) },
-                modifier = (if (soft) topBarModifier.softBarGlass(panel, feather) { softAlpha.value } else topBarModifier)
-                    .onGloballyPositioned { inkCeiling.y = it.positionInRoot().y + it.size.height },
+                // D-A60: every shared header ends in the complementary divider once content scrolls under it (or the
+                // screen asks for it), except the soft-edged vehicle page bar.
+                modifier = if (soft) {
+                    topBarModifier.softBarGlass(panel, feather) { softAlpha.value }
+                } else {
+                    topBarModifier.headerDivider(overlapped.value || showHeaderDivider)
+                }.onGloballyPositioned { inkCeiling.y = it.positionInRoot().y + it.size.height },
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {

@@ -859,11 +859,11 @@
     <string name="push_action_open_web">Open on web</string>
     <string name="push_distributor_message">Smart Garage reminders for %1$s</string>
     <!-- Home card round (D-A31): quick-info chevron label, View all pill, radial fan FAB. -->
-    <string name="card_quick_info">Quick info</string>
-    <string name="card_view_all">View all</string>
-    <!-- "View all" pill split over two lines (D-A36); the chevron follows line 2. -->
+    <string name="card_quick_info">Quick Info</string>
+    <string name="card_view_all">View All</string>
+    <!-- "View All" pill split over two lines (D-A36); the chevron follows line 2. -->
     <string name="card_view_all_line1">View</string>
-    <string name="card_view_all_line2">all</string>
+    <string name="card_view_all_line2">All</string>
     <string name="fab_quick_log">Log quick expense</string>
     <string name="fab_log_expense">Log expense</string>
     <!-- UX round 3 (D-A32): the fan FAB's short visible petal captions; the TalkBack names stay the full verbs above. -->
@@ -926,4 +926,30 @@
     <string name="car_color_purple">Purple</string>
     <string name="car_color_none">Not set</string>
     <string name="car_color_hint">Tap the car\'s color; tap it again to clear.</string>
+    <!-- Document scanner (D-A59). -->
+    <string name="scan_document">Scan document</string>
+    <string name="scan_adjust_title">Adjust corners</string>
+    <string name="scan_adjust_hint">Drag the four corners onto the edges of the page.</string>
+    <string name="scan_retake">Retake</string>
+    <string name="scan_detect">Detect edges</string>
+    <string name="scan_whole_photo">Whole photo</string>
+    <string name="scan_done">Done</string>
+    <string name="scan_page">Page %1$d</string>
+    <string name="scan_add_page">Add page</string>
+    <string name="scan_filter_original">Original</string>
+    <string name="scan_filter_greyscale">Greyscale</string>
+    <string name="scan_filter_bw">B&amp;W document</string>
+    <string name="scan_name">Document name</string>
+    <string name="scan_name_needed">Give the document a name.</string>
+    <string name="scan_default_name">Scan %1$s</string>
+    <string name="scan_use">Use scan</string>
+    <string name="scan_exporting">Building the file…</string>
+    <string name="scan_failed">The scan couldn\'t be saved. Retake a page or try again.</string>
+    <string name="scan_pages_hint">One page is saved as a JPEG, more pages as one PDF (up to %1$d).</string>
+    <string name="scan_move_up">Move page up</string>
+    <string name="scan_move_down">Move page down</string>
+    <string name="scan_rotate">Rotate page</string>
+    <string name="scan_delete_page">Delete page</string>
+    <string name="scan_discard_title">Discard this scan?</string>
+    <string name="scan_discard_body">The pages you photographed will be deleted.</string>
 </resources>

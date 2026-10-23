@@ -165,6 +165,8 @@ fun DashboardScreen(
         MetallicSheenHost {
             AppScaffold(
                 transparent = true,
+                // D-A60: the header divider shows while the fan is open, as the scrim divides the page from the bar.
+                showHeaderDivider = fanOpen,
                 title = {
                     Column {
                         MetallicText(greeting, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)

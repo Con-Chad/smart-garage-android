@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -151,6 +152,7 @@ fun GlassOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
+    shape: Shape = ButtonDefaults.outlinedShape,
     content: @Composable RowScope.() -> Unit,
 ) {
     val tokens = glass
@@ -159,6 +161,7 @@ fun GlassOutlinedButton(
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
+        shape = shape,
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = tokens.pill,
             contentColor = tokens.sheen,

@@ -43,6 +43,8 @@ import io.github.conchad.smartgarage.ui.files.UploadKind
 import io.github.conchad.smartgarage.ui.files.fileProblemText
 import io.github.conchad.smartgarage.ui.files.inspect
 import io.github.conchad.smartgarage.ui.files.open
+import io.github.conchad.smartgarage.feature.documents.scan.DocumentScannerScreen
+import io.github.conchad.smartgarage.feature.documents.scan.ScanController
 import io.github.conchad.smartgarage.ui.navigation.DocumentFormRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
@@ -53,6 +55,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
@@ -113,6 +117,11 @@ class DocumentFormViewModel @Inject constructor(
     private var capturePath: String?
         get() = savedStateHandle[CAPTURE_PATH]
         set(value) = savedStateHandle.set(CAPTURE_PATH, value)
+
+    /** The document scanner (D-A59): its result becomes the form's file, its name the title. */
+    val scanner = ScanController(context, savedStateHandle, viewModelScope) { file, name ->
+        form.update { it.copy(file = file, unreadable = false, title = name.take(120), dirty = true) }
+    }
 
     init {
         viewModelScope.launch {
@@ -234,6 +243,22 @@ fun DocumentFormScreen(onClose: () -> Unit, viewModel: DocumentFormViewModel = h
         }
     }
     LaunchedEffect(state.loaded) { if (state.loaded && viewModel.consumeAutoCapture()) launchCamera() }
+    // The scanner's photos (D-A59) come from the same system camera, through their own target.
+    val scan by viewModel.scanner.session.collectAsStateWithLifecycle()
+    val scanPicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture(), viewModel.scanner::taken)
+    val launchScanCamera = { retake: Int? ->
+        try {
+            scanPicture.launch(viewModel.scanner.startCapture(retake))
+        } catch (_: ActivityNotFoundException) {
+            viewModel.scanner.cameraUnavailable()
+            viewModel.cameraUnavailable()
+        }
+    }
+    val defaultScanName = stringResource(R.string.scan_default_name, LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE))
+    val startScan = {
+        viewModel.scanner.begin(state.title.trim().ifEmpty { defaultScanName })
+        launchScanCamera(null)
+    }
     val noCamera = stringResource(R.string.camera_unavailable)
     LaunchedEffect(state.cameraUnavailable) {
         if (state.cameraUnavailable) {
@@ -255,6 +280,11 @@ fun DocumentFormScreen(onClose: () -> Unit, viewModel: DocumentFormViewModel = h
         fileError != null -> fileError
         state.titleTooLong -> stringResource(R.string.form_fix_errors)
         else -> null
+    }
+
+    scan?.let { session ->
+        DocumentScannerScreen(session, viewModel.scanner, onCapture = launchScanCamera)
+        return
     }
 
     FormScreen(
@@ -289,6 +319,7 @@ fun DocumentFormScreen(onClose: () -> Unit, viewModel: DocumentFormViewModel = h
             onPick = launchPicker,
             error = fileError,
             onCapture = launchCamera,
+            onScan = startScan.takeIf { state.canEdit },
             busy = state.preparing,
         )
         val categoryLabels = DOCUMENT_CATEGORIES.associateWith { if (it.isEmpty()) stringResource(R.string.document_form_no_category) else documentCategoryLabel(it) }

@@ -27,6 +27,11 @@ data class GlassTokens(
     val auroraBlend: BlendMode,
     /** The bottom veil's end color (`rgba(bg,.6)` at 100 %). */
     val veil: Color,
+    /**
+     * The veil under an open fan menu (D-A60): the page colour at 72 %, a step denser than [veil]'s 60 % so the
+     * captions stand off the content behind them, still letting the page show through.
+     */
+    val fanScrim: Color,
 
     /** Frosted panel fill, border and inset top highlight (`--c02-panel-*`). */
     val panel: Color,
@@ -155,6 +160,7 @@ val DarkGlassTokens = GlassTokens(
     auroraAlpha = 0.85f,
     auroraBlend = BlendMode.Screen,
     veil = Color(0x9908090D),
+    fanScrim = Color(0xB808090D),
     panel = Color(0x6B141622),
     panelBorder = Color(0x29FFFFFF),
     panelHighlight = Color(0x38FFFFFF),
@@ -201,6 +207,7 @@ val LightGlassTokens = GlassTokens(
     auroraAlpha = 0.45f,
     auroraBlend = BlendMode.SrcOver,
     veil = Color(0x99F2F4F8),
+    fanScrim = Color(0xB8F2F4F8),
     panel = Color(0x8CFFFFFF),
     panelBorder = Color(0x24141826),
     panelHighlight = Color(0xA6FFFFFF),
