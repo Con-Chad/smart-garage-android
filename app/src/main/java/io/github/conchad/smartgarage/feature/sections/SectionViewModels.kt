@@ -32,6 +32,7 @@ import io.github.conchad.smartgarage.core.model.WishlistItem
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -139,8 +141,12 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository, control: Sy
     }
     private val source = combine(garage.records, garage.fuelEntries, garage.expenses, garage.odometerLogs, names) {
             records, fuel, expenses, logs, recordNames ->
-        { ids: Set<String>, filter: String?, terms: List<String> ->
-            val inView = SectionMath.timeline(records, fuel, expenses, logs).filter { it.vehicleId.inView(ids, filter) }
+        // Merging and date-sorting the four histories is the heavy part and doesn't depend on the filter or the search:
+        // done once per cache change, off the main thread, instead of on every keystroke.
+        val timeline = SectionMath.timeline(records, fuel, expenses, logs)
+        val segments = GarageMath.fuelSegments(fuel)
+        val build = { ids: Set<String>, filter: String?, terms: List<String> ->
+            val inView = timeline.filter { it.vehicleId.inView(ids, filter) }
             HistoryData(
                 events = inView.filter { event ->
                     when (event) {
@@ -151,11 +157,12 @@ class HistoryViewModel @Inject constructor(garage: GarageRepository, control: Sy
                     }
                 },
                 recordNames = recordNames,
-                segments = GarageMath.fuelSegments(fuel),
+                segments = segments,
                 unfiltered = inView.size,
             )
         }
-    }
+        build
+    }.flowOn(Dispatchers.Default)
 
     override fun content() = source
 }
@@ -181,7 +188,7 @@ class OdometerViewModel @Inject constructor(garage: GarageRepository, control: S
             )
         }
         build
-    }
+    }.flowOn(Dispatchers.Default)
 
     override fun content() = source
 }

@@ -14,9 +14,11 @@ import io.github.conchad.smartgarage.feature.vehicles.VehicleDetailSource
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -55,6 +57,8 @@ class DashboardViewModel @Inject constructor(
     ) { (vehicles, schedules, templates), (inspections, policies, fuel) ->
         GarageMath.dashboard(vehicles, schedules, templates, inspections, policies, fuel, german)
     }
+        // The due/attention math and its timestamp parsing run off the main thread; only the result hops back.
+        .flowOn(Dispatchers.Default)
 
     private val extras = combine(garage.vehicles, garage.odometerLogs, garage.fuelEntries, prefs.odometerReminderSnoozedAt) { vehicles, logs, fuel, snoozed ->
         val now = Instant.now()
@@ -64,7 +68,7 @@ class DashboardViewModel @Inject constructor(
                 reminder = OdometerReminder.evaluate(vehicle.id, logs, fuel, vehicle.updatedAt.toInstantOrNull(), now, snoozed[vehicle.id]),
             )
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     // The vehicle page's inputs stay in memory while Home is on screen, so a tapped card opens on its content (D-A35).
     val state: StateFlow<DashboardUiState> = combine(dashboard, garage.formatter, syncInfo, extras, detailSource.keepWarm) { d, fmt, sync, ex, _ ->

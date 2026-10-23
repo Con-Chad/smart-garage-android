@@ -15,10 +15,12 @@ import io.github.conchad.smartgarage.core.model.FuelSegment
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
 import java.time.LocalDate
@@ -103,7 +105,10 @@ class FuelViewModel @Inject constructor(
             formatter = fmt,
             loaded = true,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FuelUiState())
+    }
+        // Sorting, month grouping, segments and chart series parse every timestamp: off the main thread.
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FuelUiState())
 
     fun selectVehicle(id: String?) {
         selected.value = id

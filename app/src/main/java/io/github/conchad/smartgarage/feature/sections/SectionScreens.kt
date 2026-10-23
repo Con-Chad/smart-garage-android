@@ -177,7 +177,7 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
         },
     ) {
         state.data.groupBy { it.urgency }.forEach { (urgency, reminders) ->
-            item(key = urgency.name) {
+            item(key = urgency.name, contentType = "header") {
                 GroupHeader(
                     when (urgency) {
                         Urgency.OVERDUE -> stringResource(R.string.status_overdue)
@@ -186,7 +186,7 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
                     },
                 )
             }
-            item(key = "${urgency.name}-list") {
+            item(key = "${urgency.name}-list", contentType = "group") {
                 GroupCard {
                     reminders.forEachIndexed { index, reminder ->
                         if (index > 0) RowDivider()
@@ -288,8 +288,8 @@ private fun HistoryScreen(onBack: () -> Unit, actions: SectionActions, viewModel
         },
     ) {
         byMonth(state.data.events, fmt.zone) { it.at }.forEach { (month, events) ->
-            item(key = month.toString()) { GroupHeader(monthLabel(month)) }
-            item(key = "$month-list") {
+            item(key = month.toString(), contentType = "header") { GroupHeader(monthLabel(month)) }
+            item(key = "$month-list", contentType = "group") {
                 GroupCard {
                     events.forEachIndexed { index, event ->
                         if (index > 0) RowDivider()
@@ -387,8 +387,8 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
     ) {
         item(key = "chart") { OdometerChart(state.data.series, state.vehicles.size, fmt) }
         byMonth(state.data.logs, fmt.zone) { it.recordedAt.toInstantOrNull() }.forEach { (month, logs) ->
-            item(key = month.toString()) { GroupHeader(monthLabel(month)) }
-            item(key = "$month-list") {
+            item(key = month.toString(), contentType = "header") { GroupHeader(monthLabel(month)) }
+            item(key = "$month-list", contentType = "group") {
                 GroupCard {
                     logs.forEachIndexed { index, log ->
                         if (index > 0) RowDivider()
@@ -463,10 +463,10 @@ private fun ExpensesScreen(onBack: () -> Unit, actions: SectionActions, viewMode
     ) {
         item(key = "overview") { ExpensesOverview(state.data, fmt) }
         byMonth(state.data.expenses, fmt.zone) { it.occurredAt.toInstantOrNull() }.forEach { (month, expenses) ->
-            item(key = month.toString()) {
+            item(key = month.toString(), contentType = "header") {
                 GroupHeader("${monthLabel(month)} · ${fmt.money(expenses.sumOf { it.amountCents }, expenses.first().currency)}")
             }
-            item(key = "$month-list") {
+            item(key = "$month-list", contentType = "group") {
                 GroupCard {
                     expenses.forEachIndexed { index, expense ->
                         if (index > 0) RowDivider()
@@ -712,8 +712,8 @@ private fun NotesScreen(onBack: () -> Unit, actions: SectionActions, viewModel: 
         },
     ) {
         state.data.notes.groupBy { it.isPinned }.toSortedMap(compareByDescending { it }).forEach { (pinned, notes) ->
-            item(key = "p$pinned") { GroupHeader(stringResource(if (pinned) R.string.notes_pinned else R.string.notes_all)) }
-            item(key = "p$pinned-list") {
+            item(key = "p$pinned", contentType = "header") { GroupHeader(stringResource(if (pinned) R.string.notes_pinned else R.string.notes_all)) }
+            item(key = "p$pinned-list", contentType = "group") {
                 GroupCard {
                     notes.forEachIndexed { index, note ->
                         if (index > 0) RowDivider()
@@ -785,8 +785,8 @@ private fun WishlistScreen(onBack: () -> Unit, actions: SectionActions, viewMode
         state.data.groupBy { it.status }
             .toSortedMap(compareBy { wishlistOrder.indexOf(it).let { i -> if (i < 0) wishlistOrder.size else i } })
             .forEach { (status, items) ->
-                item(key = status) { GroupHeader("${wishlistStatusLabel(status)} · ${items.size}") }
-                item(key = "$status-list") {
+                item(key = status, contentType = "header") { GroupHeader("${wishlistStatusLabel(status)} · ${items.size}") }
+                item(key = "$status-list", contentType = "group") {
                     GroupCard {
                         items.forEachIndexed { index, item ->
                             if (index > 0) RowDivider()

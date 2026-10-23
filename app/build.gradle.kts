@@ -91,6 +91,16 @@ kotlin {
     }
 }
 
+// Compose compiler stability/metrics reports, opt-in only: ./gradlew :app:compileReleaseKotlin -PcomposeReports=true
+// Output lands in app/build/compose_compiler (D-A39).
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose-stability.conf"))
+    if (providers.gradleProperty("composeReports").orNull == "true") {
+        reportsDestination = layout.buildDirectory.dir("compose_compiler")
+        metricsDestination = layout.buildDirectory.dir("compose_compiler")
+    }
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }

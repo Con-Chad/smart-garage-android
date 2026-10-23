@@ -55,7 +55,10 @@ class VehiclesViewModel @Inject constructor(
         detailSource.keepWarm,
     ) { vehicles, schedules, templates, fmt, _ ->
         VehiclesUiState(GarageMath.vehicleSummaries(vehicles, GarageMath.dueItems(schedules, vehicles, templates, german)), fmt, loaded = true)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehiclesUiState())
+    }
+        // The summaries' due math runs off the main thread; nothing in this state is bound to a text field.
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VehiclesUiState())
 }
 
 data class VehicleDetailUiState(
