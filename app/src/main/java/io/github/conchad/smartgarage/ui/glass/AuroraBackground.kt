@@ -106,9 +106,9 @@ fun AuroraBackground(tint: Color, modifier: Modifier = Modifier, content: @Compo
     val tokens = glass
     val animate = rememberAmbientMotion()
     val palette = VehicleTint.palette(tint)
-    val c0 = animateColorAsState(palette[0], tween(800), label = "aurora0")
-    val c1 = animateColorAsState(palette[1], tween(800), label = "aurora1")
-    val c2 = animateColorAsState(palette[2], tween(800), label = "aurora2")
+    val c0 = animateColorAsState(palette[0], tween(Motion.TINT_MS), label = "aurora0")
+    val c1 = animateColorAsState(palette[1], tween(Motion.TINT_MS), label = "aurora1")
+    val c2 = animateColorAsState(palette[2], tween(Motion.TINT_MS), label = "aurora2")
     // Null when static: the ribbons then sit at the parked keyframe fractions below.
     val clock: State<Long>? = if (animate) rememberAmbientClock(AURORA_FRAME_MS) else null
 

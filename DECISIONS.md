@@ -1195,3 +1195,68 @@ App decisions use the `D-A` prefix.
     `drawerSlide`, so both stay in sync. HERO_MS stays 320; MainShell
     untouched.
   - Reduced motion: no pop, no glide, no slide (unchanged paths).
+  - *Superseded in part by D-A40 (user-set):* stagger 150 -> 100 ms; on
+    opening, the hero now starts 400 ms after the drawer. Scale, alpha,
+    window and easing values unchanged.
+
+- **D-A39: Compose stability config; list screens compute off the main thread.**
+  - `app/compose-stability.conf` (wired in `composeCompiler {}`) marks the
+    immutable `java.time` value types and the read-only `kotlin.collections`
+    interfaces stable, so models holding them (Vehicle, DueItem, TimelineEvent,
+    the UiStates) compare by `equals` and an equal re-emission skips instead of
+    recomposing. Safe because UI state is always rebuilt, never mutated in place.
+  - Compiler reports are opt-in: `./gradlew :app:compileReleaseKotlin
+    -PcomposeReports=true` -> `app/build/compose_compiler/`.
+  - Dashboard, Vehicles and Fuel state, Maintenance's filter-independent prep,
+    and History's timeline merge run under `flowOn(Dispatchers.Default)`.
+    Anything that combines the search query stays on the main thread (the
+    query is bound to a TextField; an async round trip drops keystrokes), so
+    only the cheap filter/search step runs there.
+
+- **D-A40: content under the glass tray; one motion system; outside-only glass shadows.**
+  - **Under the tray** (`MainShell`, `AppScaffold`): the NavHost draws full
+    height; the shell's bottom-bar height (nav bar included) goes down as
+    `LocalBottomBarInset`, which `AppScaffold` unions into its
+    `contentWindowInsets`. Tab lists take `padding.calculateBottomPadding()`
+    (+ `FAB_CLEARANCE`) as `contentPadding`; FABs and snackbars sit above the
+    tray; Home's fan is padded by it; empty states stop above it. The shell
+    no longer consumes the inset: Scaffold *excludes* consumed insets from
+    its own, which cancelled the tray back out. Top bars unchanged; pushed
+    screens (no tray) get the plain nav-bar inset as before.
+  - **Motion tokens** (`ui/glass/Motion.kt`, `object Motion`): durations
+    (QUICK 120, SHORT 200, MEDIUM 260, STANDARD 280, HERO 320, NAV_FADE 700,
+    TINT 800, SPIN 900), the D-A37 pop values (stagger now 100, window 600,
+    expand 200, settle 90, fade 120), `HERO_DELAY_MS` 400, easings
+    (`EmphasizedEasing` = (0.6, 0, 0.2, 1) for hero + drawer, `PopExpandEasing`,
+    `SettleEasing`) and springs (bouncy 0.55/300 nav, pop 0.6/MediumLow
+    Vehicles pop + fan core, petal 0.62/380, gentle 0.75/MediumLow menu +
+    drop-down size, standard chevrons, press 600). Used by the hero, drawer,
+    pop-ins, FanFab, bottom nav, GlassMenu, GlassDropdown, Quick info,
+    DisconnectedPopup, tilt settle, aurora tint, nav transitions. Small
+    drift: fan core damping 0.65 -> 0.6, popup 220/300 ms -> 200/320 ms.
+  - **One reduced-motion check**: `rememberReducedMotion()` now reads the
+    setting synchronously (right on frame 1, so the once-only pop/hero
+    decisions use it too) and again on resume; `isReducedMotion` is private.
+    `orSnap` / `orNone` switch specs and transitions off. Now also honoured
+    by nav transitions, the tray's show/hide, tab tint/lift/label and the
+    disconnected popup.
+  - **Press feedback** (`Press.kt`): `rememberPressFeedback(interaction)` +
+    `pressScale` + `pressGlow` (white wash, 10 %), read in layer/draw only.
+    Pills (`GlassPillButton`, View all, Quick info via `glassPillSurface(...,
+    press)`) shrink to 0.96; fan core/petals 0.92; tab icon+label 0.9;
+    tappable `GlassPanel`s keep the D-A24 lift (1.02, now also for
+    long-press-only panels) and gain the wash. Reduced motion: wash only.
+  - **Vehicle page opening** (user-set): the drawer slides up first
+    (`Motion.HERO_MS`, no delay); the hero card starts 400 ms later and rises
+    off the cards it covered (720 ms total). The pop stagger runs from the
+    first frame with the drawer, so the cards below the card are already
+    popping while it waits and those under it are revealed settled; starting
+    the pops with the hero would leave the drawer invisible for 400 ms. The
+    delay is chosen in a direction-aware `BoundsTransform` on both hero
+    sides, so Back stays simultaneous (card and drawer down together in
+    320 ms; checked frame by frame on the Pixel).
+  - **Green boxes removed**: the lighter rectangle behind card text was the
+    platform elevation shadow's penumbra seen through the translucent glass.
+    `GlassPanel` and the bottom-bar pill now use `glassShadow` (a
+    BlurMaskFilter copy of the shape, offset down half the elevation, drawn
+    only outside the shape). Opaque surfaces keep `Modifier.shadow`.

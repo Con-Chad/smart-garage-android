@@ -2,14 +2,9 @@ package io.github.conchad.smartgarage.ui.glass
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -122,11 +117,11 @@ private val ELBOW_RUN = 16.dp
  */
 private val ELBOW = booleanArrayOf(false, false, false, true)
 
+/** A held core or petal shrinks to this (D-A40): the beads are small, so a touch more than a pill. */
+private const val BEAD_PRESS_SCALE = 0.92f
+
 private const val OPEN_STAGGER_MS = 45L
 private const val CLOSE_STAGGER_MS = 30L
-
-/** How long the fan's colour takes to follow the aurora; the same as the aurora's own cross-fade. */
-private const val TINT_FADE_MS = 800
 
 /** The WCAG AA floor for the glyphs on the fills. */
 private const val MIN_CONTRAST = 4.5f
@@ -172,7 +167,8 @@ fun FanFab(
 
     val tint = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
     val palette = remember(tint, tokens) { fanPalette(tint, tokens) }
-    val fadeSpec = if (reduced) snap() else tween<Color>(TINT_FADE_MS)
+    // The fan's colour follows the aurora on the aurora's own cross-fade.
+    val fadeSpec = tween<Color>(Motion.TINT_MS).orSnap(reduced)
     val coreFill = animateColorAsState(palette.coreFill, fadeSpec, label = "fanCoreFill")
     val coreInk = animateColorAsState(palette.coreInk, fadeSpec, label = "fanCoreInk")
     val petalFill = animateColorAsState(palette.petalFill, fadeSpec, label = "fanPetalFill")
@@ -191,7 +187,7 @@ fun FanFab(
                 progress.forEachIndexed { index, petal ->
                     launch {
                         delay(if (expanded) index * OPEN_STAGGER_MS else (last - index) * CLOSE_STAGGER_MS)
-                        petal.animateTo(target, spring(dampingRatio = 0.62f, stiffness = 380f))
+                        petal.animateTo(target, Motion.petalSpring())
                     }
                 }
             }
@@ -202,8 +198,8 @@ fun FanFab(
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = if (reduced) EnterTransition.None else fadeIn() + scaleIn(initialScale = 0.6f),
-        exit = if (reduced) ExitTransition.None else fadeOut() + scaleOut(targetScale = 0.6f),
+        enter = (fadeIn(tween(Motion.SHORT_MS)) + scaleIn(Motion.popSpring(), initialScale = 0.6f)).orNone(reduced),
+        exit = (fadeOut(tween(Motion.QUICK_MS)) + scaleOut(tween(Motion.QUICK_MS), targetScale = 0.6f)).orNone(reduced),
     ) {
         Box(Modifier.size(EXTENT)) {
             if (shown) {
@@ -333,7 +329,9 @@ private fun Core(
     modifier: Modifier,
 ) {
     val tokens = glass
-    val spec = if (reduced) snap() else spring<Float>(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow)
+    val spec = Motion.popSpring<Float>().orSnap(reduced)
+    val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     val rotation by animateFloatAsState(if (expanded) 135f else 0f, spec, label = "fanCore")
     val accent = animateFloatAsState(if (expanded) 1f else 0f, spec, label = "fanAccent")
     val accentBrush = remember(tokens) { Brush.linearGradient(listOf(tokens.navBlobStart, tokens.navBlobEnd)) }
@@ -341,6 +339,7 @@ private fun Core(
     Box(
         modifier
             .size(CORE)
+            .pressScale(press, BEAD_PRESS_SCALE)
             .shadow(
                 elevation = if (expanded) 14.dp else 10.dp,
                 shape = CircleShape,
@@ -351,7 +350,7 @@ private fun Core(
             .clip(CircleShape)
             .bead(fill, overlay = accentBrush, overlayAlpha = { accent.value })
             .border(1.dp, lerp(lerp(fill.value, ink.value, 0.3f), tokens.onAccent, accent.value * 0.4f), CircleShape)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClick = onClick)
             .semantics {
                 contentDescription = label
                 stateDescription = stateText
@@ -393,6 +392,7 @@ private fun Petal(
     val tokens = glass
     val vector = remember(angle) { PetalVector(angle) }
     val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     Box(
         modifier
             .size(PETAL_TARGET)
@@ -415,6 +415,7 @@ private fun Petal(
         Box(
             Modifier
                 .size(PETAL)
+                .pressScale(press, BEAD_PRESS_SCALE)
                 .shadow(8.dp, CircleShape, clip = false, ambientColor = tokens.shadow, spotColor = tokens.shadow)
                 .clip(CircleShape)
                 .bead(fill)
@@ -521,8 +522,8 @@ fun FanScrim(visible: Boolean, onDismiss: () -> Unit, modifier: Modifier = Modif
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = if (reduced) EnterTransition.None else fadeIn(),
-        exit = if (reduced) ExitTransition.None else fadeOut(),
+        enter = fadeIn(tween(Motion.SHORT_MS)).orNone(reduced),
+        exit = fadeOut(tween(Motion.SHORT_MS)).orNone(reduced),
     ) {
         Box(
             Modifier

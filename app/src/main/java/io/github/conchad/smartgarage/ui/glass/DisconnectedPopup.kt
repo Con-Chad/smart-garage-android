@@ -76,12 +76,15 @@ fun rememberDisconnectedState(sync: SyncInfo): DisconnectedState {
 @Composable
 fun DisconnectedPopup(state: DisconnectedState, serverName: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     val tokens = glass
+    val reduced = rememberReducedMotion()
     AnimatedVisibility(
         visible = state.showPopup,
-        enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it / 2 },
-        exit = fadeOut(tween(260)) +
-            scaleOut(tween(300), targetScale = 0.15f, transformOrigin = TransformOrigin(1f, 0f)) +
-            shrinkOut(tween(300), shrinkTowards = Alignment.TopEnd),
+        enter = (fadeIn(tween(Motion.SHORT_MS)) + slideInVertically(tween(Motion.MEDIUM_MS)) { -it / 2 }).orNone(reduced),
+        exit = (
+            fadeOut(tween(Motion.MEDIUM_MS)) +
+                scaleOut(tween(Motion.HERO_MS), targetScale = 0.15f, transformOrigin = TransformOrigin(1f, 0f)) +
+                shrinkOut(tween(Motion.HERO_MS), shrinkTowards = Alignment.TopEnd)
+            ).orNone(reduced),
         modifier = modifier,
     ) {
         GlassPanel(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentPadding = 0.dp) {
@@ -129,16 +132,17 @@ fun DisconnectedPopup(state: DisconnectedState, serverName: String, onRetry: () 
  */
 @Composable
 fun RefreshIcon(state: DisconnectedState, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val reduced = rememberReducedMotion()
     AnimatedVisibility(
         visible = state.showIcon,
-        enter = scaleIn(tween(260)) + fadeIn(tween(200)),
-        exit = scaleOut(tween(200)) + fadeOut(tween(160)),
+        enter = (scaleIn(tween(Motion.MEDIUM_MS)) + fadeIn(tween(Motion.SHORT_MS))).orNone(reduced),
+        exit = (scaleOut(tween(Motion.SHORT_MS)) + fadeOut(tween(Motion.QUICK_MS))).orNone(reduced),
         modifier = modifier,
     ) {
         val running = state.sync.status.running
         val motion = rememberAmbientMotion()
         val angle = if (running && motion) {
-            rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "spinAngle")
+            rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, infiniteRepeatable(tween(Motion.SPIN_MS, easing = LinearEasing), RepeatMode.Restart), label = "spinAngle")
         } else {
             rememberStatic(0f)
         }

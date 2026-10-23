@@ -86,6 +86,7 @@ import io.github.conchad.smartgarage.feature.vehicles.VehicleCardMenu
 import io.github.conchad.smartgarage.feature.vehicles.rememberVehicleCardActions
 import io.github.conchad.smartgarage.feature.vehicles.vehicleCardSemantics
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.LocalBottomBarInset
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
@@ -226,6 +227,7 @@ fun DashboardScreen(
                                 val dashboard = state.dashboard ?: return@LoadedContent
                                 if (dashboard.vehicles.isEmpty()) {
                                     EmptyState(
+                                        modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                         icon = Icons.Outlined.Garage,
                                         title = stringResource(R.string.dashboard_no_vehicles_title),
                                         body = stringResource(R.string.dashboard_no_vehicles_body),
@@ -268,7 +270,7 @@ fun DashboardScreen(
                             expanded = fanOpen,
                             onExpandedChange = { fanOpen = it },
                             visible = !pagerState.isScrollInProgress,
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
                         )
                     }
                 }
@@ -302,7 +304,8 @@ private fun DashboardContent(
     val vehicles = dashboard.vehicles
     val page = pagerState.currentPage.coerceIn(0, vehicles.lastIndex)
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 96.dp)) {
+    // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan.
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp)) {
         GlassGroupHeader(stringResource(R.string.dashboard_vehicles))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // One card per page, no peeking: the page is the full width and the card keeps the list margin inside it.

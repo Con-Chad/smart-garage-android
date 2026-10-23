@@ -350,7 +350,7 @@ private fun VehicleDetailContent(
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.
-        item { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id).then(slide.heroModifier)) }
+        item { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id, page = true).then(slide.heroModifier)) }
         item { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.drawerSlide(slide).popIn(pop)) }
         item {
             GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide).popIn(pop)) {

@@ -1,10 +1,7 @@
 package io.github.conchad.smartgarage.ui.glass
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -53,13 +50,13 @@ fun GlassDropdown(
     val reduced = rememberReducedMotion()
     val rotation by animateFloatAsState(
         if (expanded) 180f else 0f,
-        animationSpec = if (reduced) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = Motion.standardSpring<Float>().orSnap(reduced),
         label = "chevron",
     )
     val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
     GlassCard(
         modifier = modifier.animateContentSize(
-            animationSpec = if (reduced) snap<IntSize>() else spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioLowBouncy),
+            animationSpec = Motion.gentleSpring<IntSize>().orSnap(reduced),
         ),
     ) {
         Row(

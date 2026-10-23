@@ -7,7 +7,6 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -164,8 +163,7 @@ class CardTilt internal constructor(
     val motion: Boolean,
 )
 
-private val easeOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-private val settleSpec: AnimationSpec<Float> = tween(280, easing = easeOut)
+private val settleSpec: AnimationSpec<Float> = tween(Motion.STANDARD_MS, easing = Motion.SettleEasing)
 
 private class PointerTarget(val x: Float, val y: Float, val shine: Float)
 

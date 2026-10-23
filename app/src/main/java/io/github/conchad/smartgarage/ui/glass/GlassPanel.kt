@@ -1,14 +1,12 @@
 package io.github.conchad.smartgarage.ui.glass
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import android.graphics.BlurMaskFilter
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,19 +17,25 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,7 +53,8 @@ import kotlin.math.max
  * static; only the photo frame inside a card tilts and shines ([TiltPhotoFrame]). Brushes are built once per size
  * in `drawWithCache`.
  *
- * [onClick] gives the whole panel the snippet's press lift (scale 1.02) in addition to the ripple.
+ * A tappable panel ([onClick] or [onLongClick]) gives press feedback in addition to the ripple (D-A40): the
+ * snippet's lift to [Motion.PRESS_LIFT] and a faint wash over the fill ([pressGlow]); no lift under reduced motion.
  */
 @Composable
 fun GlassPanel(
@@ -64,26 +69,24 @@ fun GlassPanel(
 ) {
     val tokens = glass
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed && onClick != null) 1.02f else 1f, spring(stiffness = 600f), label = "lift")
+    val tappable = onClick != null || onLongClick != null
+    val press = if (tappable) rememberPressFeedback(interaction) else null
     Box(
         modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .then(if (press != null) Modifier.pressScale(press, Motion.PRESS_LIFT) else Modifier)
             .then(
                 if (elevated) {
-                    Modifier.shadow(elevation = if (tokens.dark) 10.dp else 6.dp, shape = shape, clip = false, ambientColor = tokens.shadow, spotColor = tokens.shadow)
+                    Modifier.glassShadow(shape, elevation = if (tokens.dark) 10.dp else 6.dp, color = tokens.shadow)
                 } else {
                     Modifier
                 },
             )
             .clip(shape)
             .glassPlate(tokens, glow)
+            .then(if (press != null) Modifier.pressGlow(press) else Modifier)
             .border(1.dp, tokens.panelBorder, shape)
             .then(
-                if (onClick != null || onLongClick != null) {
+                if (tappable) {
                     Modifier.glassClickable(interaction, onClick, onLongClick)
                 } else {
                     Modifier
@@ -95,6 +98,32 @@ fun GlassPanel(
         }
     }
 }
+
+/**
+ * A lift shadow for a translucent surface (D-A40): a blurred copy of [shape], [elevation] soft and offset down by
+ * half of it, drawn only *outside* the shape. The platform elevation shadow (`Modifier.shadow`) is drawn under the
+ * whole outline, so through a see-through glass fill its penumbra showed as a darker band with a lighter
+ * rectangle inside — a box behind the card's text. Opaque surfaces (the fan, menus) keep `Modifier.shadow`.
+ */
+fun Modifier.glassShadow(shape: Shape, elevation: Dp, color: Color): Modifier = drawWithCache {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val path = Path().apply { addOutline(outline) }
+    val blur = elevation.toPx()
+    val paint = Paint().asFrameworkPaint().apply {
+        isAntiAlias = true
+        this.color = color.copy(alpha = color.alpha * SHADOW_ALPHA).toArgb()
+        maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
+    }
+    val shadow = Path().apply { addOutline(outline) }.asAndroidPath().apply { offset(0f, blur / 2f) }
+    onDrawBehind {
+        clipPath(path, ClipOp.Difference) {
+            drawIntoCanvas { it.nativeCanvas.drawPath(shadow, paint) }
+        }
+    }
+}
+
+/** How much of the shadow colour the glass shadow uses: the platform shadow attenuates its colour about as much. */
+private const val SHADOW_ALPHA = 0.45f
 
 /**
  * The panel's fill, inset top highlight and (when [glow] is specified) the plate glow; brushes cached per size.

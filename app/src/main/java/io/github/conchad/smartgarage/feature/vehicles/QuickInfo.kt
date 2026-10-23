@@ -1,11 +1,9 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +23,7 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -58,7 +57,11 @@ import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.GlassStackedPillButton
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.glassPillSurface
+import io.github.conchad.smartgarage.ui.glass.orSnap
+import io.github.conchad.smartgarage.ui.glass.pressScale
+import io.github.conchad.smartgarage.ui.glass.rememberPressFeedback
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import io.github.conchad.smartgarage.ui.links.ICON_SIZE
 import io.github.conchad.smartgarage.ui.links.InsuranceApps
@@ -140,15 +143,18 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
     val reduced = rememberReducedMotion()
     val rotation by animateFloatAsState(
         if (expanded) 180f else 0f,
-        animationSpec = if (reduced) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = Motion.standardSpring<Float>().orSnap(reduced),
         label = "chevron",
     )
     val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
     val actionText = stringResource(if (expanded) R.string.card_details_hide else R.string.card_details_show)
+    val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     Column(
         modifier
-            .glassPillSurface(tokens, RoundedCornerShape(tokens.radiusMedium))
-            .clickable(onClick = onToggle, onClickLabel = actionText, role = Role.Button)
+            .pressScale(press)
+            .glassPillSurface(tokens, RoundedCornerShape(tokens.radiusMedium), press)
+            .clickable(interactionSource = interaction, indication = ripple(), onClick = onToggle, onClickLabel = actionText, role = Role.Button)
             .semantics(mergeDescendants = true) { stateDescription = stateText }
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
             .padding(horizontal = 12.dp, vertical = 4.dp),

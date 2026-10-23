@@ -85,14 +85,15 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                     LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                         if (state.months.isEmpty()) {
                             EmptyState(
+                                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = Icons.Outlined.LocalGasStation,
                                 title = stringResource(R.string.fuel_empty_title),
                                 body = stringResource(R.string.fuel_empty_body),
                             )
                         } else {
-                            LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+                            LazyColumn(contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
                                 state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt, showEconomy = state.trackFuelEconomy) } }
-                                item(key = "trends-header") {
+                                item(key = "trends-header", contentType = "header") {
                                     GroupHeader(
                                         stringResource(R.string.fuel_trends),
                                         action = stringResource(if (trendsOpen) R.string.action_hide else R.string.action_show),
@@ -101,13 +102,13 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                                 }
                                 if (trendsOpen) item(key = "trends") { Trends(state.trends, state.vehicles.size, fmt, showEconomy = state.trackFuelEconomy) }
                                 state.months.forEach { month ->
-                                    item(key = month.month.toString()) {
+                                    item(key = month.month.toString(), contentType = "header") {
                                         GroupHeader(
                                             "${month.month.format(monthFormat).replaceFirstChar { it.uppercase() }} · " +
                                                 fmt.money(month.totalCents, month.entries.first().currency),
                                         )
                                     }
-                                    item(key = "${month.month}-list") {
+                                    item(key = "${month.month}-list", contentType = "group") {
                                         GroupCard {
                                             month.entries.forEachIndexed { index, entry ->
                                                 if (index > 0) RowDivider()

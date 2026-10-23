@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,12 +24,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,8 +47,16 @@ import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.onAurora
 
 /**
- * Standard screen frame. The shell's bottom bar consumes the navigation-bar inset, so screens shown above it and
- * full-screen pushed screens both get the right bottom padding from the default Scaffold insets. Transparent by
+ * The height of the shell's floating bottom bar (navigation bar included) that a screen draws under, or 0 where the
+ * bar is hidden. Provided by MainShell (D-A40); [AppScaffold] adds it to its content padding and FAB placement.
+ */
+val LocalBottomBarInset = compositionLocalOf { 0.dp }
+
+/**
+ * Standard screen frame. Tab screens draw full height, under the shell's glass bottom bar (D-A40): the bar's height
+ * ([LocalBottomBarInset]) is part of the bottom content padding, which a scrolling list takes as contentPadding so
+ * its last item still clears the bar, and the FAB sits above it. Pushed screens (no bar) get the navigation-bar
+ * inset from the default Scaffold insets. Transparent by
  * default since D-A30: the shell's aurora runs behind every screen, so the scaffold and the bar draw no surface of
  * their own (the bar tints with the glass panel color once content scrolls under it).
  */
@@ -112,6 +124,8 @@ fun AppScaffold(
         },
         floatingActionButton = floatingActionButton,
         snackbarHost = snackbarHost,
+        // The bar's height already includes the navigation bar, so the larger of the two is the bottom inset.
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.union(WindowInsets(bottom = LocalBottomBarInset.current)),
         content = content,
     )
 }

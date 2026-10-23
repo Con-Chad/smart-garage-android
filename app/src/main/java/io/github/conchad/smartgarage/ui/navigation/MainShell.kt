@@ -12,9 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -70,6 +68,7 @@ import io.github.conchad.smartgarage.feature.profiles.ProfilesScreen
 import io.github.conchad.smartgarage.feature.settings.SettingsScreen
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
+import io.github.conchad.smartgarage.ui.components.LocalBottomBarInset
 import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
 import io.github.conchad.smartgarage.ui.components.PhotoLoader
 import io.github.conchad.smartgarage.ui.glass.AuroraBackground
@@ -80,8 +79,11 @@ import io.github.conchad.smartgarage.ui.glass.LocalNavAnimatedScope
 import io.github.conchad.smartgarage.ui.glass.LocalSharedTransitionScope
 import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
 import io.github.conchad.smartgarage.ui.glass.VehicleHeroOrigins
+import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.MorphingBottomNav
 import io.github.conchad.smartgarage.ui.glass.NavTab
+import io.github.conchad.smartgarage.ui.glass.orNone
+import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 
 @Composable
 fun MainShell(profile: ServerProfile, account: Account, shell: ShellViewModel = hiltViewModel()) {
@@ -129,19 +131,20 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     SideEffect { auroraTint.shown = tint }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
     val heroOrigins = remember { VehicleHeroOrigins() }
+    val reduced = rememberReducedMotion()
 
     CompositionLocalProvider(LocalAuroraTint provides auroraTint, LocalVehicleHeroOrigins provides heroOrigins) {
         Box(Modifier.fillMaxSize()) {
             AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize())
             Scaffold(
-                // Screens draw their own top bars; this Scaffold only reserves room for the bottom bar.
+                // Screens draw their own top bars; this Scaffold only measures the bottom bar.
                 contentWindowInsets = WindowInsets(0),
                 containerColor = Color.Transparent,
                 bottomBar = {
                     AnimatedVisibility(
                         visible = showBottomBar,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut(),
+                        enter = (expandVertically(tween(Motion.SHORT_MS)) + fadeIn(tween(Motion.SHORT_MS))).orNone(reduced),
+                        exit = (shrinkVertically(tween(Motion.SHORT_MS)) + fadeOut(tween(Motion.QUICK_MS))).orNone(reduced),
                     ) {
                         MorphingBottomNav(
                             tabs = tabs,
@@ -151,33 +154,45 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                     }
                 },
             ) { padding ->
+                // D-A40: the content runs full height, under the liquid-glass tray, so the glass has something to
+                // frost. The tray's height (navigation bar included) goes to the screens as LocalBottomBarInset, which
+                // AppScaffold folds into its bottom inset: each tab's list takes it as contentPadding (its last item
+                // still scrolls clear) and the FAB sits above the tray. Nothing is consumed here: Scaffold excludes
+                // consumed insets from its own, which would cancel the tray back out.
                 // The vehicle hero (D-A34): Home's car card and the vehicle page's photo card are one shared element.
-                SharedTransitionLayout(Modifier.padding(padding).consumeWindowInsets(padding)) {
-                    CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                SharedTransitionLayout(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(
+                        LocalSharedTransitionScope provides this,
+                        LocalBottomBarInset provides padding.calculateBottomPadding(),
+                    ) {
                         NavHost(
                             navController = navController,
                             startDestination = DashboardRoute,
                             modifier = Modifier.fillMaxSize(),
                             // The vehicle page and the Vehicles tab bring their own cards in (D-A32, D-A34), so nothing
                             // cross-fades into them: the page is simply there. The screen the vehicle page opens over fades
-                            // out in NAV_POP_OUT_MS while the hero glides and the drawer slides up (the page's own drawer
-                            // animation keeps the transition running for HERO_MS); leaving it, the page fades out the same
+                            // out in Motion.QUICK_MS while the hero glides and the drawer slides up (the page's own drawer
+                            // animation keeps the transition running for Motion.HERO_MS); leaving it, the page fades out the same
                             // way over the screen beneath, which is there at once. Every other navigation keeps NavHost's
-                            // 700 ms cross-fade.
-                            enterTransition = { if (targetState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                            // 700 ms cross-fade. Timings are Motion's (D-A40); under reduced motion nothing fades.
+                            enterTransition = { if (targetState.popsIn() || reduced) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS)) },
                             exitTransition = {
                                 when {
-                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(tween(NAV_POP_OUT_MS))
+                                    reduced -> ExitTransition.None
+                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(tween(Motion.QUICK_MS))
                                     targetState.popsIn() -> ExitTransition.None
-                                    else -> fadeOut(tween(NAV_FADE_MS))
+                                    else -> fadeOut(tween(Motion.NAV_FADE_MS))
                                 }
                             },
-                            popEnterTransition = { if (targetState.popsIn() || initialState.popsIn()) EnterTransition.None else fadeIn(tween(NAV_FADE_MS)) },
+                            popEnterTransition = {
+                                if (targetState.popsIn() || initialState.popsIn() || reduced) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS))
+                            },
                             popExitTransition = {
                                 when {
-                                    initialState.popsIn() -> fadeOut(tween(NAV_POP_OUT_MS))
+                                    reduced -> ExitTransition.None
+                                    initialState.popsIn() -> fadeOut(tween(Motion.QUICK_MS))
                                     targetState.popsIn() -> ExitTransition.None
-                                    else -> fadeOut(tween(NAV_FADE_MS))
+                                    else -> fadeOut(tween(Motion.NAV_FADE_MS))
                                 }
                             },
                         ) {
@@ -338,12 +353,6 @@ private fun NavDestination?.honoursScreenTint(): Boolean =
 
 /** The routes whose cards bubble in (D-A32) and therefore take no nav cross-fade. */
 private fun NavBackStackEntry.popsIn(): Boolean = destination.hasRoute<VehicleDetailRoute>() || destination.hasRoute<VehiclesRoute>()
-
-/** NavHost's own default cross-fade. */
-private const val NAV_FADE_MS = 700
-
-/** How long a bubbling page takes to fade out over the screen beneath when it is left. */
-private const val NAV_POP_OUT_MS = 120
 
 /**
  * The aurora's color where no screen names one (D-A30): Service drifts in the theme's tertiary, Fuel in the glass

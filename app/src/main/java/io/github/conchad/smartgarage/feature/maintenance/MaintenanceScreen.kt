@@ -37,6 +37,7 @@ import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 import io.github.conchad.smartgarage.feature.vehicles.RecordRow
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.LocalBottomBarInset
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DueRow
 import io.github.conchad.smartgarage.ui.components.EmptyState
@@ -118,6 +119,7 @@ fun MaintenanceScreen(
                     LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                         when {
                             tab == 0 && state.due.isEmpty() -> EmptyState(
+                                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = Icons.Outlined.Build,
                                 title = stringResource(R.string.maintenance_no_schedules_title),
                                 body = stringResource(R.string.maintenance_no_schedules_body),
@@ -129,6 +131,7 @@ fun MaintenanceScreen(
                             )
                             tab == 0 -> Upcoming(state.due, state, onOpen = { open = SheetTarget.Schedule(it.schedule.id) })
                             state.records.isEmpty() -> EmptyState(
+                                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
                                 title = stringResource(if (searching) R.string.search_no_matches_title else R.string.maintenance_no_records_title),
                                 body = stringResource(if (searching) R.string.search_no_matches_body else R.string.maintenance_no_records_body),
@@ -199,9 +202,9 @@ fun MaintenanceScreen(
 
 @Composable
 private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (DueItem) -> Unit) {
-    val groups = due.groupBy { it.status }
+    val groups = remember(due) { due.groupBy { it.status } }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
         listOf(
             DueStatus.OVERDUE to R.string.status_overdue,
             DueStatus.DUE_SOON to R.string.status_due_soon,
@@ -209,8 +212,8 @@ private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (Due
         ).forEach { (status, label) ->
             val items = groups[status].orEmpty()
             if (items.isNotEmpty()) {
-                item(key = status.name) { GroupHeader("${stringResource(label)} · ${items.size}") }
-                item(key = "${status.name}-list") {
+                item(key = status.name, contentType = "header") { GroupHeader("${stringResource(label)} · ${items.size}") }
+                item(key = "${status.name}-list", contentType = "group") {
                     GroupCard {
                         items.forEachIndexed { index, item ->
                             if (index > 0) RowDivider()
@@ -227,15 +230,16 @@ private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (Due
 private fun History(state: MaintenanceUiState, pendingIds: Set<String>, onOpen: (String) -> Unit) {
     val fmt = state.formatter
     val zone: ZoneId = fmt.zone
-    val byYear = state.records.groupBy { it.performedAt.toInstantOrNull()?.atZone(zone)?.year }
+    // Parses every record's date; kept across recompositions (a pending mark changing) until the records or zone change.
+    val byYear = remember(state.records, zone) { state.records.groupBy { it.performedAt.toInstantOrNull()?.atZone(zone)?.year } }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+    LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
         byYear.forEach { (year, records) ->
-            item(key = "y$year") {
+            item(key = "y$year", contentType = "header") {
                 val total = records.groupBy { it.currency }.map { (currency, list) -> fmt.money(list.sumOf { it.costCents }, currency) }
                 GroupHeader(listOfNotNull(year?.toString() ?: "—", total.joinToString(" + ")).joinToString(" · "))
             }
-            item(key = "y$year-list") {
+            item(key = "y$year-list", contentType = "group") {
                 GroupCard {
                     records.forEachIndexed { index, record ->
                         if (index > 0) RowDivider()

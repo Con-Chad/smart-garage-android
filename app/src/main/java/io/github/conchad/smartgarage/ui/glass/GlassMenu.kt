@@ -1,8 +1,6 @@
 package io.github.conchad.smartgarage.ui.glass
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -58,7 +56,7 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
  * composable it is called from, holding a [GlassPanel] with a metallic header (the car's name), a divider and
  * [GlassMenuItem] rows. Menus stay readable on any photo: the panel sits on the page colour at 94 % before the
  * frosted fill, so text keeps ≥ 4.5:1 (D-A30 kept menus opaque for the same reason). Springs in from 90 % under
- * motion, appears at once under reduced motion. Back and an outside tap dismiss.
+ * motion ([Motion.gentleSpring]), appears at once under reduced motion. Back and an outside tap dismiss.
  */
 @Composable
 fun GlassMenu(
@@ -71,7 +69,7 @@ fun GlassMenu(
     val tokens = glass
     val reduced = rememberReducedMotion()
     val appear = remember { Animatable(if (reduced) 1f else 0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMediumLow)) }
+    LaunchedEffect(Unit) { appear.animateTo(1f, Motion.gentleSpring()) }
     val shape = RoundedCornerShape(tokens.radiusMedium)
     Popup(
         alignment = Alignment.Center,
@@ -176,7 +174,8 @@ fun glassTextFieldColors(): TextFieldColors {
 /**
  * A pill button on glass (D-A31): the panel's pill fill and border, the label in the sheen, an optional trailing
  * icon. Full size is 48 dp tall; [compact] draws a 36 dp pill inside a 48 dp touch target for a button that sits
- * at the end of a 48 dp row ("Add" / "Update"). The ripple is clipped to the pill either way.
+ * at the end of a 48 dp row ("Add" / "Update"). The ripple is clipped to the pill either way, and the pill shrinks a
+ * little and brightens while held (D-A40).
  */
 @Composable
 fun GlassPillButton(
@@ -188,6 +187,7 @@ fun GlassPillButton(
 ) {
     val tokens = glass
     val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     Box(
         modifier
             .then(if (compact) Modifier.minimumInteractiveComponentSize() else Modifier)
@@ -197,9 +197,8 @@ fun GlassPillButton(
         Row(
             Modifier
                 .heightIn(min = if (compact) 36.dp else 48.dp)
-                .clip(CircleShape)
-                .drawBehind { drawRect(tokens.pill) }
-                .border(1.dp, tokens.pillBorder, CircleShape)
+                .pressScale(press)
+                .glassPillSurface(tokens, CircleShape, press)
                 .indication(interaction, ripple())
                 .padding(horizontal = if (compact) 14.dp else 18.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -232,6 +231,7 @@ fun GlassStackedPillButton(
 ) {
     val tokens = glass
     val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     val shape = RoundedCornerShape(tokens.radiusMedium)
     // Two tight lines inside the 48 dp row: the label size, line spacing trimmed to 1.15 em.
     val style = MaterialTheme.typography.labelLarge.copy(lineHeight = 1.15.em)
@@ -246,7 +246,8 @@ fun GlassStackedPillButton(
                 .fillMaxHeight()
                 .heightIn(min = 48.dp)
                 .widthIn(min = 80.dp)
-                .glassPillSurface(tokens, shape)
+                .pressScale(press)
+                .glassPillSurface(tokens, shape, press)
                 .indication(interaction, ripple())
                 .padding(horizontal = 16.dp, vertical = 4.dp)
                 // The two lines are one label; the button's description already says it.
@@ -267,9 +268,11 @@ fun GlassStackedPillButton(
 
 /**
  * The glass pill's surface (D-A31, shared since D-A38 by [GlassStackedPillButton] and the cards' "Quick info"
- * toggle): clipped to [shape], the panel's pill fill and its 1 dp pill border.
+ * toggle, and by [GlassPillButton] since D-A40): clipped to [shape], the panel's pill fill and its 1 dp pill border.
+ * With [press] the fill brightens while held ([pressGlow]); pair it with [pressScale] before this modifier.
  */
-fun Modifier.glassPillSurface(tokens: GlassTokens, shape: Shape): Modifier = this
+fun Modifier.glassPillSurface(tokens: GlassTokens, shape: Shape, press: PressFeedback? = null): Modifier = this
     .clip(shape)
     .drawBehind { drawRect(tokens.pill) }
+    .then(if (press != null) Modifier.pressGlow(press) else Modifier)
     .border(1.dp, tokens.pillBorder, shape)

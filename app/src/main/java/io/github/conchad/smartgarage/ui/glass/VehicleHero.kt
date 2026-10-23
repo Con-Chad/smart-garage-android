@@ -6,7 +6,6 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -29,7 +28,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -68,15 +66,22 @@ val LocalVehicleHeroOrigins = staticCompositionLocalOf<VehicleHeroOrigins?> { nu
 
 /**
  * The glide (D-A37): a short ramp-up — it gathers speed from rest — then rises and decelerates into place, no
- * overshoot. Shared by the card's bounds and the drawer, so they stay in step.
+ * overshoot ([Motion.EmphasizedEasing] over [Motion.HERO_MS], D-A40). Shared by the card's bounds and the drawer, so
+ * they stay in step, opening and on Back.
  */
-private fun <T> heroSpec() = tween<T>(HERO_MS, easing = HeroEasing)
+private fun <T> heroSpec(delayMs: Int = 0) = tween<T>(Motion.HERO_MS, delayMillis = delayMs, easing = Motion.EmphasizedEasing)
 
-/** A stronger ease-in than FastOutSlowIn's 0.4 (so the start visibly accelerates), the same soft landing. */
-private val HeroEasing = CubicBezierEasing(0.6f, 0f, 0.2f, 1f)
-
+/**
+ * The card's bounds (D-A40): opening the vehicle page, the drawer slides up first and the card follows
+ * [Motion.HERO_DELAY_MS] later, rising off the cards it covered; on Back the card and the drawer move together.
+ * [page] is the vehicle page's card (entering on open), else Home's (leaving on open); whichever side's transform
+ * Compose uses, the delay applies only to the opening.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
-private val HeroBounds = BoundsTransform { _, _ -> heroSpec() }
+private fun heroBounds(nav: AnimatedVisibilityScope, page: Boolean) = BoundsTransform { _, _ ->
+    val entering = nav.transition.targetState == EnterExitState.Visible
+    heroSpec(if (entering == page) Motion.HERO_DELAY_MS else 0)
+}
 
 /**
  * Clips the card in the overlay to its plate: the bounds include [GlassCard]'s 16 dp side margins, so the clip is
@@ -95,27 +100,27 @@ private class CardPlateClip(private val margin: Dp, private val corner: Dp) : Sh
 
 /**
  * Makes this card the hero for [vehicleId]: between Home and the vehicle page it glides from one position and
- * height to the other in [HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once; the
- * leaving card's content fades in [HERO_FADE_MS] under or over it, the photos coinciding). Content keeps its own size, top-aligned, so the photo never stretches. No-op under
+ * height to the other in [Motion.HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once; the
+ * leaving card's content fades in [Motion.QUICK_MS] under or over it, the photos coinciding). Content keeps its own size, top-aligned, so the photo never stretches. No-op under
  * reduced motion or outside the shell.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun Modifier.vehicleHero(vehicleId: String): Modifier {
+fun Modifier.vehicleHero(vehicleId: String, page: Boolean = false): Modifier {
     val shared = LocalSharedTransitionScope.current ?: return this
     val nav = LocalNavAnimatedScope.current ?: return this
-    val context = LocalContext.current
-    val reduced = remember { isReducedMotion(context) }
+    val reduced = rememberReducedMotion()
     if (reduced) return this
     val corner = glass.radiusLarge
     val clip = remember(corner) { CardPlateClip(CARD_MARGIN, corner) }
+    val bounds = remember(nav, page) { heroBounds(nav, page) }
     return with(shared) {
         sharedBounds(
             sharedContentState = rememberSharedContentState(key = "vehicle-card-$vehicleId"),
             animatedVisibilityScope = nav,
             enter = EnterTransition.None,
-            exit = fadeOut(tween(HERO_FADE_MS)),
-            boundsTransform = HeroBounds,
+            exit = fadeOut(tween(Motion.QUICK_MS)),
+            boundsTransform = bounds,
             resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.FillWidth, Alignment.TopCenter),
             clipInOverlayDuringTransition = clip,
         )
@@ -173,8 +178,7 @@ class DrawerSlide internal constructor(
 /** The page's drawer slide. Call it where the cards are composed, with the vehicle the page shows. */
 @Composable
 fun rememberDrawerSlide(vehicleId: String): DrawerSlide {
-    val context = LocalContext.current
-    val reduced = remember { isReducedMotion(context) }
+    val reduced = rememberReducedMotion()
     val origins = LocalVehicleHeroOrigins.current
     val origin = remember(vehicleId) { origins?.take(vehicleId) }
     val fallback = with(LocalDensity.current) { DRAWER_FALLBACK_SLIDE.toPx() }
@@ -202,12 +206,6 @@ fun Modifier.drawerSlide(slide: DrawerSlide): Modifier = if (slide.reduced) this
     translationY = d * p
     alpha = ((1f - p) * DRAWER_ALPHA_RATE).coerceIn(0f, 1f)
 }
-
-/** The hero's glide and the drawer's slide. */
-const val HERO_MS = 320
-
-/** How fast the leaving card's own content fades under the arriving one, so the two titles barely overlap. */
-private const val HERO_FADE_MS = 120
 
 /** How far the drawer rises when there is no Home card to follow. */
 private val DRAWER_FALLBACK_SLIDE = 48.dp

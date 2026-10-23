@@ -2,14 +2,13 @@ package io.github.conchad.smartgarage.ui.glass
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
@@ -57,8 +58,9 @@ data class NavTab(val label: String, val icon: ImageVector, val selectedIcon: Im
 
 /**
  * The "Morphing Bottom Nav" (D-A24): a floating pill with a soft border and lift shadow, and a glowing gradient
- * blob that springs under the active tab (`spring(0.55, 300)`). The active icon turns [GlassTokens.onAccent] and
- * lifts 2 dp; only it shows its label, the others keep theirs for TalkBack. Respects the navigation-bar inset.
+ * blob that springs under the active tab ([Motion.bouncySpring], `spring(0.55, 300)`). The active icon turns
+ * [GlassTokens.onAccent] and lifts 2 dp; only it shows its label, the others keep theirs for TalkBack. A held tab's
+ * icon and label shrink a little (D-A40); under reduced motion the blob, tint and lift snap. Respects the navigation-bar inset.
  * Items are equal-width, so the blob's position is `index × item width`; the row's width is read once with
  * `onSizeChanged`, and the blob moves in the layout phase (`offset { }`) rather than recomposing per frame.
  * No idle auto-cycle: the snippet's demo loop is left out on purpose.
@@ -78,8 +80,7 @@ fun MorphingBottomNav(
     val pillShape = RoundedCornerShape(tokens.radiusLarge)
     val blobShape = RoundedCornerShape(tokens.radiusMedium)
     val reduced = rememberReducedMotion()
-    val blobSpec = if (reduced) spring<Float>(stiffness = Spring.StiffnessHigh) else spring(dampingRatio = 0.55f, stiffness = 300f)
-    val position by animateFloatAsState(selectedIndex.coerceAtLeast(0).toFloat(), blobSpec, label = "blob")
+    val position by animateFloatAsState(selectedIndex.coerceAtLeast(0).toFloat(), Motion.bouncySpring<Float>().orSnap(reduced), label = "blob")
     var rowWidth by remember { mutableIntStateOf(0) }
     val itemCount = tabs.size.coerceAtLeast(1)
     val auroraGlow = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
@@ -93,7 +94,7 @@ fun MorphingBottomNav(
         Box(
             Modifier
                 .fillMaxWidth()
-                .shadow(if (tokens.dark) 14.dp else 8.dp, pillShape, clip = false, ambientColor = tokens.shadow, spotColor = tokens.shadow)
+                .glassShadow(pillShape, if (tokens.dark) 14.dp else 8.dp, tokens.shadow)
                 .clip(pillShape)
                 .glassPlate(tokens, glow = auroraGlow, fill = tokens.navSurface)
                 .border(1.dp, tokens.navBorder, pillShape)
@@ -118,7 +119,7 @@ fun MorphingBottomNav(
             Row(Modifier.fillMaxWidth().fillMaxHeight().selectableGroup(), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { index, tab ->
                     val selected = index == selectedIndex
-                    NavItem(tab, selected, onClick = { onSelect(index) }, modifier = Modifier.weight(1f).fillMaxHeight())
+                    NavItem(tab, selected, reduced, onClick = { onSelect(index) }, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
             }
         }
@@ -126,10 +127,12 @@ fun MorphingBottomNav(
 }
 
 @Composable
-private fun NavItem(tab: NavTab, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun NavItem(tab: NavTab, selected: Boolean, reduced: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val tokens = glass
-    val tint by animateColorAsState(if (selected) tokens.onAccent else tokens.navInactive, tween(280), label = "navTint")
-    val lift by animateDpAsState(if (selected) (-2).dp else 0.dp, spring(dampingRatio = 0.55f, stiffness = 300f), label = "navLift")
+    val tint by animateColorAsState(if (selected) tokens.onAccent else tokens.navInactive, tween<Color>(Motion.STANDARD_MS).orSnap(reduced), label = "navTint")
+    val lift by animateDpAsState(if (selected) (-2).dp else 0.dp, Motion.bouncySpring<Dp>().orSnap(reduced), label = "navLift")
+    val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
     val label = tab.label
     Box(
         modifier
@@ -139,14 +142,14 @@ private fun NavItem(tab: NavTab, selected: Boolean, onClick: () -> Unit, modifie
                 onClick = onClick,
                 role = Role.Tab,
                 indication = ripple(bounded = true, color = tokens.onAccent),
-                interactionSource = null,
+                interactionSource = interaction,
             )
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.offset { IntOffset(0, lift.roundToPx()) },
+            modifier = Modifier.offset { IntOffset(0, lift.roundToPx()) }.pressScale(press, NAV_PRESS_SCALE),
         ) {
             Icon(
                 if (selected) tab.selectedIcon else tab.icon,
@@ -154,7 +157,11 @@ private fun NavItem(tab: NavTab, selected: Boolean, onClick: () -> Unit, modifie
                 tint = tint,
                 modifier = Modifier.size(22.dp),
             )
-            AnimatedVisibility(visible = selected, enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+            AnimatedVisibility(
+                visible = selected,
+                enter = fadeIn(tween(Motion.SHORT_MS)).orNone(reduced),
+                exit = fadeOut(tween(Motion.QUICK_MS)).orNone(reduced),
+            ) {
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall,
@@ -168,6 +175,9 @@ private fun NavItem(tab: NavTab, selected: Boolean, onClick: () -> Unit, modifie
         }
     }
 }
+
+/** A held tab's icon and label shrink to this: more than a pill's, as they are small. */
+private const val NAV_PRESS_SCALE = 0.9f
 
 /** Item height: the snippet's 44 px, raised to the 48 dp touch-target minimum. */
 private val NAV_HEIGHT = 48.dp

@@ -114,6 +114,7 @@ fun VehiclesScreen(
                         LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                             if (state.vehicles.isEmpty()) {
                                 EmptyState(
+                                    modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                     icon = Icons.Outlined.DirectionsCar,
                                     title = stringResource(R.string.dashboard_no_vehicles_title),
                                     body = stringResource(R.string.vehicles_empty_body),
@@ -122,7 +123,7 @@ fun VehiclesScreen(
                                 // The pop-in window starts with the list, so the cards bubble in together (D-A32).
                                 val popIn = rememberPopIn()
                                 LazyColumn(
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FAB_CLEARANCE),
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
                                     modifier = Modifier.fillMaxSize(),
                                 ) {
