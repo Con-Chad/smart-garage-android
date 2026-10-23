@@ -1588,3 +1588,81 @@ App decisions use the `D-A` prefix.
     a data-layer change, not done.)
   - Verified on the Pixel (release, screenrecord frame-step): Home↔Vehicles, Home↔Service, Vehicles↔Fuel each
     settle in ~150–270 ms with no frame showing both pages at strength, no bubble, no "Loading…" on a first visit.
+- **D-A52 (2026-10-23) — Legible aurora ink, no sticky Save bar, colour swatches, plate on the photo, raised glass.**
+  Unattended round; built, unit-tested and linted, not yet checked on the Pixel (no device attached).
+  - **Adaptive ink by contrast** (`AdaptiveInk`, AuroraInk.kt): the white → dark-grey cross-fade is now centred on the
+    equal-contrast point of `onPhoto` and `inkDark` (L ≈ 0.292, both ≈ 2.85:1) and narrowed to ±12 % on the contrast
+    axis (`BAND_LO` 0.255, `BAND_HI` 0.333; was 0.32–0.50 around 0.40). D-A48's wide grey span left text resting at
+    ~1.1:1 on bright bands ("Inspection and insurance" over the purple/pink band); D-A48's 0.40 is now fully dark.
+    Outside the span the ink is whichever end contrasts more (unit-tested). Still continuous (no hysteresis), still
+    the 140 ms low-pass, darkest ink still #474B54, the D-A49 bar-edge ceiling / holdY unchanged.
+  - **Halo where 4.5:1 isn't reachable**: between L ≈ 0.17 and 0.50 neither ink reaches 4.5:1 with a grey dark end,
+    so the ink node now also eases the backdrop luminance and, when the drawn ink falls short of
+    `AdaptiveInk.MIN_CONTRAST` 4.5, draws a soft halo under the glyphs: the content recorded once into a
+    GraphicsLayer, redrawn blurred (`HALO_BLUR_DP` 2.5) and tinted `DstOver` in the opposite tone (new tokens
+    `inkHaloDark` black / `inkHaloLight` white, blended by the ink mix), opacity `0.7 × haloStrength`
+    (0 at ≥ 4.5:1, full at ≤ 2:1, linear). No halo, no extra layer, where the ink already reads. Halo is clipped to
+    the text's own bounds (the node's offscreen layer).
+  - **Frosted quick actions** (`ActionButton`, the vehicle page's four quick actions and Add inspection / Add policy):
+    new `frost` token fill (dark #262A3A @ 78 %, light white @ 85 %) with a top gloss, a 1.5 dp bevelled rim
+    (`rimLight` → `rimShade`, new `ui/glass/Bevel.kt`: `bevelRim`, `bevelFill`) and a 4 dp `glassShadow`; label in
+    `textPrimary` (was the stock outlined button's `primary`, the grey labels in the screenshot), icon in the sheen;
+    press shrink + glow; disabled at 50 %.
+  - **Owner pill**: same raised treatment — panel fill under the gloss, 1.5 dp bevelled rim, 6 dp `glassShadow`.
+  - **"Add vehicle" pill** (Home header, `VehiclesHeaderPill(emphasized = true)`): fixed white label/icon (no adaptive
+    ink), fill `emphasisPillFill(tint)` = the aurora tint with HSV value capped at 0.34 at 88 % (≥ 4.5:1 for white over
+    the lightest bands, a visibly stronger tint than the glass pill), 1.5 dp `onPhoto` @ 60 % rim. `GlassPillButton` /
+    `glassPillSurface` take an optional `fill` and `border`. "Swipe to view more" unchanged.
+  - **No sticky Save bar** (`FormScreen`, every full-screen editor): the frosted bottom bar that rode up with the IME is
+    gone. Save is a compact sheen pill (check + "Save", spinner while saving) at the end of the top bar, always
+    reachable; the full `SaveBar` (validation line + big button) sits inline at the end of the form's panel. The
+    scrolling column now does `consumeWindowInsets(padding).imePadding()`, so focused fields and the autocomplete panel
+    come into view above the keyboard. Setup steps (`StepScaffold`) likewise: their action row moved inline at the end
+    of the panel. `FormSheet` (odometer) unchanged — its save already scrolls inline.
+  - **Vehicle colour** (`CarColorPicker`): a single-select grid of 13 paint swatches with names (radio semantics,
+    `selectableGroup`; tap the selected one to clear). Stores the swatch's English name ("Blue"), which `VehicleTint`
+    already parses; localised names also match on load. A saved value that is none of them is kept and shown first as
+    its own selected swatch. Paint colours in `CarPaints` (GlassTokens.kt); strings `car_color_*` (EN/DE).
+  - **Plate on the photo**: `VehiclePhotoTitle(plate = …)` puts a `PlateBadge` (light plate, dark 1.5 dp rim, bold
+    spaced caps, small shadow, ≤ 160 dp, TalkBack "License plate, …") bottom-right beside the name on all three photo
+    cards (Home, Vehicles tab, vehicle page) so the hero cross-fade lines up. Removed: the plate line under the Home and
+    Vehicles-tab photos and the plate tile in the vehicle page's "At a glance" drop-down (now three tiles, the last full
+    width). The "Registration" group under Vehicle details still lists it.
+
+- **D-A53 (2026-10-23) — Real receipt scanner: fuel and service receipts prefill their forms.**
+  Unattended round; built, unit-tested and linted, not yet checked on the Pixel or against a live scanner server.
+  Contract: server `docs/mobile/RECEIPT-SCANNER.md` (D-042 fuel, D-044 service).
+  - **Client** (`ApiReceiptScanner`, `core/network/ReceiptScanner.kt`, bound in `di/ReceiptScannerModule.kt` in place of
+    the D-A27 stub): `scan` → `POST /api/v1/fuel/receipt-scan`, `scanService` → `POST /api/v1/records/receipt-scan`,
+    multipart `vehicleId` + `file` (the `CameraCapture` JPEG) through `ApiClient.postMultipartJson`, i.e. the active
+    profile's connection with the device token, Cloudflare Access headers, no redirects, a fresh `Idempotency-Key`.
+    `postMultipartJson` returns the JSON body for any status, because the 502 carries the saved photo's top-level
+    `documentId` that `ApiResult.HttpError` would drop. Per-request timeout 45 s (above the server's 25 s model
+    timeout plus upload). Status mapping in the pure `ApiReceiptScanner.interpret` (401/403/404/413/415/422/429 with
+    `Retry-After`/502 with `documentId`; anything else or a malformed 200 → `Unreachable`). Nothing is logged; the AI
+    key stays on the server.
+  - **Features**: `MeFeatures.receiptScannerKinds` (nullable) → `scannerKinds()`: the listed known kinds, `["fuel"]`
+    when an older server omits the field but says `receiptScanner: true`, empty when off. Stored in
+    `ServerFeatures.receiptScannerKinds`; `scansFuel` (null kinds = a profile stored before D-A53 → fuel) gates the
+    fill-up button, `scansService` the service form's.
+  - **Fuel form**: `FuelFormState.withFuelDraft` fills date, volume, price/unit (or total ÷ volume), total, station,
+    currency; grade and address go into the note; null draft fields keep the form's value; odometer keeps its prefill.
+    `filledAt` uses the printed local time in the phone's zone while the form's date still matches it.
+    `receiptDocumentId` is kept (also after a 502) and sent on save; switching vehicle drops it (the server would 404).
+  - **Service form** (`RecordFormScreen`): "Scan receipt" (same button/photo row as fuel, shared in
+    `feature/receipts/`) on new records only, when `scansService`. `withServiceDraft` fills date/time, odometer, total
+    cost, vendor, note, currency and the parts (receipt items replace the schedule defaults), and preselects
+    `suggestedScheduleId` unless the form is locked to a schedule. No match → the user picks in the existing picker
+    (note "Pick the service schedule yourself"). Other recognised service types are listed ("Also on this invoice: …,
+    log those separately with no cost"); we don't create those records. `receiptDocumentId` goes on `POST /records`;
+    no `POST /expenses` (the server books the cost itself). A `fuel_receipt` answer drops the photo and points to the
+    fill-up form.
+  - **Expense hand-off**: after a service scan, "Save as expense instead" replaces the record form with the expense
+    form via `ExpenseFormRoute(category, date, amountCents, currency, description ≤ 500, receiptDocumentId)`;
+    `suggestedTarget == "expense"` adds a note saying so. `ExpenseInput.receiptDocumentId` is sent on save.
+  - **UX**: spinner + "Reading the receipt…" while scanning (Save disabled meanwhile); a short info note lists fields
+    with confidence < 0.8 ("Please check: Date, Total.") and the warnings in words (unknown codes ignored); a foreign
+    receipt currency is named and sent with the entry. Snackbars: 429 "today's scan limit", 502 "couldn't be read;
+    the photo is saved and will be attached", 404 "not available on this server", 403 view-only.
+  - **Not done**: offline queueing of unscanned photos, gallery pick (the fuel flow is camera-only, kept so), creating
+    missing schedules from `serviceTypes[].templateSlug`, and per-field highlighting (the note covers it).

@@ -15,7 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
@@ -36,6 +41,7 @@ import androidx.compose.ui.node.ObserverModifierNode
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.observeReads
+import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -64,23 +70,33 @@ import kotlin.math.sin
  * - The colour is applied in the draw phase: the glyphs draw into the node's offscreen layer and one rect of a
  *   vertical light→dark gradient is composited `SrcIn`, its shader reused and re-aimed with a local matrix, so a
  *   tall block shades across the aurora too. No recomposition, no relayout and no allocation per frame.
+ * - D-A52: where the ink falls short of [AdaptiveInk.MIN_CONTRAST] against the backdrop (a bright band, or while it
+ *   crosses through grey), a soft halo in the opposite tone is drawn under the glyphs, as strong as the shortfall:
+ *   the glyphs are recorded into a layer once and drawn again blurred and tinted, `DstOver`. Where the ink already
+ *   reads, nothing extra is drawn.
  */
 
 /** The pure mapping from a backdrop's luminance to the ink (unit-tested). */
 object AdaptiveInk {
     /**
-     * The backdrop luminance at the middle of the grey span (D-A48, user-approved): white holds until the aurora is
-     * noticeably light, so on the Pixel's green gradient white covers the lower half or more of the screen, grey the
-     * middle, and dark only the lightest part. Lower (D-A46 used 0.20, where both inks contrast equally) puts dark
-     * ink on most mid-tones.
+     * D-A52: the ink is chosen by contrast, not by a fixed lightness threshold. This is the backdrop luminance where
+     * the light ink ([GlassTokens.onPhoto], L 0.92) and the dark ink ([GlassTokens.inkDark], L 0.070) contrast
+     * equally (both ≈ 2.85:1): `sqrt((Ll + 0.05)(Ld + 0.05)) − 0.05`. Below it white contrasts more, above it dark
+     * grey. (D-A48 held white up to 0.40, which left grey text resting on bright bands at ~1.1:1.)
      */
-    const val CENTER = 0.40f
+    const val CENTER = 0.292f
 
-    /** Light ink up to this backdrop luminance (the grey span's lower end; ≈ CENTER / 1.22 on the contrast axis). */
-    const val BAND_LO = 0.32f
+    /** Light ink up to this backdrop luminance (the cross-fade's lower end; CENTER / 1.12 on the contrast axis). */
+    const val BAND_LO = 0.255f
 
-    /** Dark ink from this backdrop luminance (the span's upper end; ≈ CENTER × 1.22 on the contrast axis). */
-    const val BAND_HI = 0.50f
+    /** Dark ink from this backdrop luminance (the cross-fade's upper end; CENTER × 1.12 on the contrast axis). */
+    const val BAND_HI = 0.333f
+
+    /** The contrast the ink aims for; where neither ink reaches it, the halo ([haloStrength]) makes up the rest. */
+    const val MIN_CONTRAST = 4.5f
+
+    /** At or below this contrast the halo is at full strength. */
+    const val HALO_FULL_AT = 2f
 
     /** WCAG relative luminance of an sRGB colour, components 0..1. */
     fun relativeLuminance(r: Float, g: Float, b: Float): Float = 0.2126f * lin(r) + 0.7152f * lin(g) + 0.0722f * lin(b)
@@ -89,8 +105,9 @@ object AdaptiveInk {
 
     /**
      * 0 = light ink, 1 = dark ink, for a backdrop of luminance [backdrop]: light up to [lo], dark from [hi], and a
-     * continuous smoothstep between on `ln(L + 0.05)`, the axis contrast ratios live on, so the ink passes evenly
-     * through grey and can rest there on a mid-tone backdrop (D-A48: no snapping, no hysteresis).
+     * continuous smoothstep between on `ln(L + 0.05)`, the axis contrast ratios live on (D-A48: no snapping, no
+     * hysteresis). D-A52 narrowed the span around the equal-contrast point, so the ink only passes through grey
+     * while crossing it and never rests there on a wide band of mid-tones.
      */
     fun mix(backdrop: Float, lo: Float = BAND_LO, hi: Float = BAND_HI): Float {
         if (backdrop <= lo) return 0f
@@ -100,6 +117,17 @@ object AdaptiveInk {
         val t = ((ln(backdrop + 0.05f) - a) / (b - a)).coerceIn(0f, 1f)
         return t * t * (3f - 2f * t)
     }
+
+    /** WCAG 2 contrast between two relative luminances. */
+    fun contrast(a: Float, b: Float): Float = (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
+
+    /**
+     * How strongly to draw the halo behind ink of luminance [ink] on a backdrop of luminance [backdrop] (D-A52), 0..1:
+     * none from [MIN_CONTRAST] up, rising linearly to full at [HALO_FULL_AT]. Continuous in both, so it fades with the
+     * ink's own low-pass and never pops.
+     */
+    fun haloStrength(ink: Float, backdrop: Float): Float =
+        ((MIN_CONTRAST - contrast(ink, backdrop)) / (MIN_CONTRAST - HALO_FULL_AT)).coerceIn(0f, 1f)
 
     /** The ink at [mix]: a straight sRGB blend from [light] through grey to [dark], as the gradient shader draws it. */
     fun ink(mix: Float, light: Color, dark: Color): Color {
@@ -282,6 +310,10 @@ private class AuroraInkNode(
     private var targetBottom = 0f
     private var mixTop = 0f
     private var mixBottom = 0f
+    // The backdrop's luminance at the text (D-A52, for the halo), eased with the ink.
+    private var lumTarget = 0f
+    private var lum = 0f
+    private var drawnLum = 0f
     private var active = false
     private var settled = false
 
@@ -300,6 +332,13 @@ private class AuroraInkNode(
 
     private var light = Color.White
     private var dark = Color.Black
+    private var haloDark = Color.Black
+    private var haloLight = Color.White
+
+    // The halo's layers (D-A52): the glyphs recorded once, and a blurred, tinted copy of them; made on first need.
+    private var glyphLayer: GraphicsLayer? = null
+    private var haloLayer: GraphicsLayer? = null
+    private var haloBlurPx = -1f
     private var tokens: GlassTokens? = null
 
     // Draw state reused every frame: one paint, one 0..1 gradient re-aimed by a local matrix.
@@ -330,6 +369,14 @@ private class AuroraInkNode(
 
     override fun onDetach() {
         easing = null
+        if (isAttached && (glyphLayer != null || haloLayer != null)) {
+            val context = requireGraphicsContext()
+            glyphLayer?.let(context::releaseGraphicsLayer)
+            haloLayer?.let(context::releaseGraphicsLayer)
+        }
+        glyphLayer = null
+        haloLayer = null
+        haloBlurPx = -1f
     }
 
     override fun onObservedReadsChanged() {
@@ -362,6 +409,8 @@ private class AuroraInkNode(
         val t = tokens ?: return
         light = t.onPhoto
         dark = t.inkDark
+        haloDark = t.inkHaloDark
+        haloLight = t.inkHaloLight
     }
 
     /** Samples the targets at the current placement from the cached inputs and starts easing toward them. */
@@ -388,8 +437,11 @@ private class AuroraInkNode(
             yTop = m.holdY(x, yTop)
             yBottom = m.holdY(x, yBottom)
         }
-        val mixTopRaw = AdaptiveInk.mix(m.luminanceAt(x, yTop, overlay))
-        val mixBottomRaw = AdaptiveInk.mix(m.luminanceAt(x, yBottom, overlay))
+        val lumTopRaw = m.luminanceAt(x, yTop, overlay)
+        val lumBottomRaw = m.luminanceAt(x, yBottom, overlay)
+        val mixTopRaw = AdaptiveInk.mix(lumTopRaw)
+        val mixBottomRaw = AdaptiveInk.mix(lumBottomRaw)
+        lumTarget = (lumTopRaw + lumBottomRaw) / 2f
         // The mapping is continuous (D-A48): the ink follows the aurora through grey and may rest there; the low-pass
         // below smooths it in time. A short block (a line or two) takes one value from its centre, so it never
         // shades top-light / bottom-dark within a line.
@@ -405,13 +457,14 @@ private class AuroraInkNode(
             // The first sample lands at once: a title doesn't fade in from white on every screen it opens.
             mixTop = targetTop
             mixBottom = targetBottom
+            lum = lumTarget
             active = true
             settled = true
             invalidateDraw()
             return
         }
         // Read by the frame loop below on its next tick; while it runs, a scroll only moves the targets.
-        if (abs(targetTop - mixTop) < SNAP && abs(targetBottom - mixBottom) < SNAP) return
+        if (abs(targetTop - mixTop) < SNAP && abs(targetBottom - mixBottom) < SNAP && abs(lumTarget - lum) < LUM_SNAP) return
         if (easing?.isActive == true) return
         easing = coroutineScope.launch {
             var last = withFrameNanos { it }
@@ -422,25 +475,55 @@ private class AuroraInkNode(
                 last = now
                 mixTop += (targetTop - mixTop) * k
                 mixBottom += (targetBottom - mixBottom) * k
-                val done = abs(targetTop - mixTop) < SNAP && abs(targetBottom - mixBottom) < SNAP
+                lum += (lumTarget - lum) * k
+                val done = abs(targetTop - mixTop) < SNAP && abs(targetBottom - mixBottom) < SNAP && abs(lumTarget - lum) < LUM_SNAP
                 if (done) {
                     mixTop = targetTop
                     mixBottom = targetBottom
+                    lum = lumTarget
                 }
                 // Repaint (and so re-render the node's offscreen layer) only once the ink has moved half an 8-bit
                 // step of the ramp, or to land: smaller moves draw the same pixels.
-                if (done || abs(mixTop - drawnTop) >= SNAP || abs(mixBottom - drawnBottom) >= SNAP) invalidateDraw()
+                if (done || abs(mixTop - drawnTop) >= SNAP || abs(mixBottom - drawnBottom) >= SNAP || abs(lum - drawnLum) >= LUM_SNAP) invalidateDraw()
                 if (done) break
             }
         }
     }
 
     override fun ContentDrawScope.draw() {
-        drawContent()
-        if (!active || size.width <= 0f || size.height <= 0f) return
+        if (!active || size.width <= 0f || size.height <= 0f) {
+            drawContent()
+            return
+        }
+        drawnLum = lum
+        // D-A52: how far the ink (its middle, for a shaded block) falls short of the target contrast here.
+        val mid = (mixTop + mixBottom) / 2f
+        val inkColor = AdaptiveInk.ink(mid, light, dark)
+        val strength = AdaptiveInk.haloStrength(AdaptiveInk.relativeLuminance(inkColor.red, inkColor.green, inkColor.blue), lum)
+        if (strength < HALO_MIN) {
+            drawContent()
+            drawInk()
+            sheen?.let { drawSheen(it.value) }
+            return
+        }
+        val context = requireGraphicsContext()
+        val glyphs = glyphLayer ?: context.createGraphicsLayer().also { glyphLayer = it }
+        glyphs.record { this@draw.drawContent() }
+        drawLayer(glyphs)
         drawInk()
-        val phase = sheen ?: return
-        drawSheen(phase.value)
+        sheen?.let { drawSheen(it.value) }
+        // The halo under everything drawn so far: the same glyphs, blurred, in the tone opposite the ink.
+        val halo = haloLayer ?: context.createGraphicsLayer().also { haloLayer = it }
+        val blur = HALO_BLUR_DP * density
+        if (blur != haloBlurPx) {
+            halo.renderEffect = BlurEffect(blur, blur, TileMode.Decal)
+            halo.blendMode = BlendMode.DstOver
+            haloBlurPx = blur
+        }
+        val tone = lerp(haloDark, haloLight, mid)
+        halo.colorFilter = ColorFilter.tint(tone.copy(alpha = HALO_MAX_ALPHA * strength), BlendMode.SrcIn)
+        halo.record { drawLayer(glyphs) }
+        drawLayer(halo)
     }
 
     private fun ContentDrawScope.drawInk() {
@@ -516,6 +599,16 @@ private class AuroraInkNode(
 
         /** Top and bottom inks this close draw as one flat colour, no shader. */
         const val FLAT = 1f / 256f
+
+        /** Backdrop luminance steps below this don't change the halo visibly. */
+        const val LUM_SNAP = 1f / 256f
+
+        /** Below this halo strength nothing extra is drawn (D-A52). */
+        const val HALO_MIN = 0.02f
+
+        /** The halo's opacity at full strength and its blur radius (D-A52): a soft glow, not an outline. */
+        const val HALO_MAX_ALPHA = 0.7f
+        const val HALO_BLUR_DP = 2.5f
 
         /** The band's strength over the ink: a glint that reads on white and on near-black alike. */
         const val SHEEN_ALPHA = 0.85f

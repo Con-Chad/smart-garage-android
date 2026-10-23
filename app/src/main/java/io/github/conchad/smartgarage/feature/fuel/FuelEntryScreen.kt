@@ -1,23 +1,8 @@
 package io.github.conchad.smartgarage.feature.fuel
 
-import android.content.ActivityNotFoundException
-import android.text.format.Formatter as FileSize
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -28,18 +13,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
-import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
@@ -54,7 +34,11 @@ import io.github.conchad.smartgarage.ui.components.forms.FormScreen
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.FormVolumeField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
-import io.github.conchad.smartgarage.ui.files.PickedFile
+import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
+import io.github.conchad.smartgarage.feature.receipts.ScanReceiptButton
+import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
+import io.github.conchad.smartgarage.feature.receipts.messageRes
+import io.github.conchad.smartgarage.feature.receipts.rememberReceiptCamera
 
 /**
  * The gas-station form (D-A20): vehicle, date, then the two big numbers (odometer, volume), price and total side by
@@ -73,15 +57,7 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
     DeniedSnackbar(viewModel, snackbar)
 
     // Receipt scan (D-A27): the camera app writes into a cache file of ours, as on the document form (D-A23).
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture(), viewModel::captured)
-    val launchScan = {
-        try {
-            takePicture.launch(viewModel.startScan())
-        } catch (_: ActivityNotFoundException) {
-            viewModel.captured(false)
-            viewModel.cameraUnavailable()
-        }
-    }
+    val launchScan = rememberReceiptCamera(viewModel::startScan, viewModel::captured, viewModel::cameraUnavailable)
     val scanMessage = state.scanMessage?.let { stringResource(it.messageRes()) }
     LaunchedEffect(scanMessage) {
         if (scanMessage != null) {
@@ -135,10 +111,11 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
             placeholder = stringResource(R.string.form_no_editable_vehicles).takeIf { state.vehicles.isEmpty() },
         )
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
-        // Only servers that announce the scanner get the button; tonight's servers don't, so the form is unchanged.
+        // Only servers that list the "fuel" scan get the button (D-A53); elsewhere the form is unchanged.
         if (state.scannerAvailable && state.canEdit) {
             ScanReceiptButton(scanning = state.scanning, enabled = state.canScan && !state.scanning, onClick = launchScan)
-            state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto) }
+            state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
+            ScanReviewNote(state.scanReview, extra = state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) })
         }
 
         FormDateField(
@@ -232,65 +209,4 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
             onDismiss = { confirmRegression = false },
         )
     }
-}
-
-/**
- * "Scan receipt" on the fill-up form (fuel note 1, D-A27): a full-width outlined button, 48 dp like [ActionButton],
- * with the hint beneath. While the photo is being prepared or read, the icon becomes a spinner and the label says
- * so; the button is disabled meanwhile, so a second tap can't start a second scan.
- */
-@Composable
-private fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        GlassOutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            if (scanning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = glass.sheen)
-            } else {
-                Icon(Icons.Outlined.DocumentScanner, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-            Text(
-                stringResource(if (scanning) R.string.fuel_scan_in_progress else R.string.fuel_scan_receipt),
-                modifier = Modifier.padding(start = 8.dp),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Text(
-            stringResource(R.string.fuel_scan_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = glass.textSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-    }
-}
-
-/** The receipt photo kept on the form after a scan: a plain row on the form's panel (no inner box, D-A32) with a remove control. */
-@Composable
-private fun ReceiptPhotoRow(photo: PickedFile, onRemove: () -> Unit) {
-    val context = LocalContext.current
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Image, contentDescription = null, tint = glass.textSecondary, modifier = Modifier.size(20.dp))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
-            Text(stringResource(R.string.fuel_scan_photo_kept), style = MaterialTheme.typography.bodyMedium)
-            Text(
-                FileSize.formatShortFileSize(context, photo.sizeBytes),
-                style = MaterialTheme.typography.bodySmall,
-                color = glass.textSecondary,
-            )
-        }
-        IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.fuel_scan_remove_photo))
-        }
-    }
-}
-
-private fun ScanMessage.messageRes(): Int = when (this) {
-    ScanMessage.Unavailable -> R.string.fuel_scan_unavailable
-    ScanMessage.ViewOnly -> R.string.view_only
-    ScanMessage.NotFuelReceipt -> R.string.fuel_scan_not_receipt
-    ScanMessage.RateLimited -> R.string.fuel_scan_rate_limited
-    ScanMessage.FileRejected -> R.string.fuel_scan_file_rejected
-    ScanMessage.Unreachable -> R.string.fuel_scan_unreachable
-    ScanMessage.Failed -> R.string.fuel_scan_failed
-    ScanMessage.NoCamera -> R.string.camera_unavailable
 }

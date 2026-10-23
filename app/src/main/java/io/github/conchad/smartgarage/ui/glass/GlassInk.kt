@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 
 /*
  * Pill ink (D-A43): the labels and little arrows of the pills and text actions that sit over the aurora ("View all",
@@ -77,3 +78,22 @@ private const val RIBBON_COVERAGE = 0.82f
 
 /** White pill labels must clear this against the backdrop; below it they go dark. */
 private const val PILL_INK_MIN_CONTRAST = 3f
+
+/**
+ * The fill of an emphasised pill on the aurora with a fixed white label (D-A52, Home's "Add vehicle"): the theme
+ * colour [tint] taken down to at most [EMPHASIS_VALUE] brightness (hue and saturation kept, so it reads as a strong
+ * tint of the aurora rather than a grey hole) at [EMPHASIS_ALPHA], dense enough that [GlassTokens.onPhoto] keeps
+ * 4.5:1 over even the lightest aurora band.
+ */
+fun emphasisPillFill(tint: Color): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(tint.toArgb(), hsv)
+    hsv[2] = minOf(hsv[2], EMPHASIS_VALUE)
+    return Color(android.graphics.Color.HSVToColor(hsv)).copy(alpha = EMPHASIS_ALPHA)
+}
+
+/** The emphasised pill's rim: [GlassTokens.onPhoto] at this opacity, 1.5 dp (D-A52). */
+const val EMPHASIS_RIM_ALPHA = 0.6f
+
+private const val EMPHASIS_VALUE = 0.34f
+private const val EMPHASIS_ALPHA = 0.88f

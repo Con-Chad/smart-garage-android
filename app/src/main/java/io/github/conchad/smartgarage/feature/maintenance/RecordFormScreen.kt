@@ -54,10 +54,20 @@ import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.unitLabel
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
+import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
+import io.github.conchad.smartgarage.feature.receipts.ScanReceiptButton
+import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
+import io.github.conchad.smartgarage.feature.receipts.messageRes
+import io.github.conchad.smartgarage.feature.receipts.rememberReceiptCamera
+import io.github.conchad.smartgarage.ui.navigation.ExpenseFormRoute
 
 /** Log or edit a service (D-A20): vehicle and schedule, date, odometer, cost, shop, notes, then the parts. */
 @Composable
-fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltViewModel()) {
+fun RecordFormScreen(
+    onClose: () -> Unit,
+    onOpenExpense: ((ExpenseFormRoute) -> Unit)? = null,
+    viewModel: RecordFormViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
@@ -66,6 +76,16 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
 
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
+
+    // Receipt scan (D-A53): same camera flow and look as the fill-up form's.
+    val launchScan = rememberReceiptCamera(viewModel::startScan, viewModel::captured, viewModel::cameraUnavailable)
+    val scanMessage = state.scanMessage?.let { stringResource(it.messageRes()) }
+    LaunchedEffect(scanMessage) {
+        if (scanMessage != null) {
+            snackbar.showSnackbar(scanMessage)
+            viewModel.clearScanMessage()
+        }
+    }
 
     val validation = when {
         !state.loaded -> null
@@ -101,6 +121,27 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
             placeholder = stringResource(R.string.form_no_editable_vehicles).takeIf { state.vehicles.isEmpty() },
         )
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
+        // Only servers that list the "service" scan get the button, and only on a new record (D-A53).
+        if (state.scannerAvailable && !state.editing && state.canEdit) {
+            ScanReceiptButton(
+                scanning = state.scanning,
+                enabled = state.canScan && !state.scanning,
+                onClick = launchScan,
+                hint = stringResource(R.string.receipt_scan_service_hint),
+            )
+            state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
+            val extra = listOfNotNull(
+                state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) },
+                state.alsoCovers.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.receipt_scan_also_covers, it.joinToString(", ")) },
+            ).joinToString("\n").ifEmpty { null }
+            ScanReviewNote(state.scanReview, extra = extra)
+            val handoff = state.expenseHandoff
+            if (handoff != null && onOpenExpense != null) {
+                TextButton(onClick = { onOpenExpense(handoff) }, colors = glassTextButtonColors(), modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(R.string.receipt_scan_save_as_expense))
+                }
+            }
+        }
         FormPicker(
             label = stringResource(R.string.field_schedule),
             options = state.schedules,

@@ -30,6 +30,9 @@ import io.github.conchad.smartgarage.ui.components.forms.FormNotesField
 import io.github.conchad.smartgarage.ui.components.forms.FormPicker
 import io.github.conchad.smartgarage.ui.components.forms.FormScreen
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
+import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
+import io.github.conchad.smartgarage.feature.receipts.parseReceiptLocal
+import io.github.conchad.smartgarage.feature.receipts.receiptInstant
 import io.github.conchad.smartgarage.ui.navigation.ExpenseFormRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
@@ -41,6 +44,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 /** The web's expense categories, in its order; "Other" is the default there too. */
@@ -54,6 +59,10 @@ data class ExpenseFormState(
     val date: LocalDate = LocalDate.now(),
     val amount: String = "",
     val description: String = "",
+    /** From a scanned bill (D-A53): its `documentId`, local date-time and currency, sent with the expense. */
+    val receiptDocumentId: String? = null,
+    val receiptTime: LocalDateTime? = null,
+    val receiptCurrency: String? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
     val saving: Boolean = false,
@@ -67,12 +76,30 @@ data class ExpenseFormState(
     val descriptionTooLong: Boolean get() = description.length > 500
     val canSave: Boolean get() = canEdit && amountCents != null && !amountInvalid && !descriptionTooLong && !saving
 
-    fun input(now: Instant = Instant.now()) = ExpenseInput(
+    val foreignCurrency: String? get() = receiptCurrency?.takeIf { !it.equals(formatter.currencyCode, ignoreCase = true) }
+
+    fun input(now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()) = ExpenseInput(
         category = category,
-        occurredAt = formatter.instantFor(date, now).toString(),
+        occurredAt = (receiptTime?.takeIf { it.toLocalDate() == date }?.let { receiptInstant(it, zone) } ?: formatter.instantFor(date, now)).toString(),
         amountCents = amountCents ?: 0,
-        currency = formatter.currencyCode,
+        currency = receiptCurrency ?: formatter.currencyCode,
         description = description.trim().ifEmpty { null },
+        receiptDocumentId = receiptDocumentId,
+    )
+}
+
+/** The form prefilled from [route]'s scanned-bill fields (D-A53); a plain route leaves it as it was. */
+fun ExpenseFormState.withRoute(route: ExpenseFormRoute): ExpenseFormState {
+    val time = parseReceiptLocal(route.date)
+    return copy(
+        category = route.category?.takeIf { it in EXPENSE_CATEGORIES } ?: category,
+        date = time?.toLocalDate() ?: date,
+        receiptTime = time,
+        amount = route.amountCents?.let(formatter::moneyInput) ?: amount,
+        receiptCurrency = route.currency ?: receiptCurrency,
+        description = route.description?.take(500) ?: description,
+        receiptDocumentId = route.receiptDocumentId ?: receiptDocumentId,
+        dirty = dirty || route.receiptDocumentId != null,
     )
 }
 
@@ -93,10 +120,14 @@ class ExpenseFormViewModel @Inject constructor(
             val vehicles = garage.vehicles.first().filter { it.access.canEdit }.sortedWith(GarageMath.vehicleOrder)
             val preselected = route.vehicleId?.takeIf { id -> vehicles.any { it.id == id } } ?: vehicles.firstOrNull()?.id
             form.value = ExpenseFormState(vehicles = vehicles, vehicleId = preselected, date = fmt.today(), formatter = fmt, loaded = true)
+                .withRoute(route)
         }
     }
 
-    fun selectVehicle(id: String) = form.update { it.copy(vehicleId = id, dirty = true) }
+    // A scanned bill belongs to the vehicle it was scanned for; the server refuses its document on another one.
+    fun selectVehicle(id: String) = form.update {
+        it.copy(vehicleId = id, receiptDocumentId = it.receiptDocumentId.takeIf { _ -> id == it.vehicleId }, dirty = true)
+    }
     fun setCategory(category: String) = form.update { it.copy(category = category, dirty = true) }
     fun setDate(date: LocalDate) = form.update { it.copy(date = date, dirty = true) }
     fun setAmount(text: String) = form.update { it.copy(amount = text, dirty = true) }
@@ -172,7 +203,9 @@ fun ExpenseFormScreen(onClose: () -> Unit, viewModel: ExpenseFormViewModel = hil
             fmt = fmt,
             large = true,
             error = if (state.amountInvalid) stringResource(R.string.form_invalid_number) else null,
+            supporting = state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) },
         )
+        if (state.receiptDocumentId != null) ScanReviewNote(review = null, extra = stringResource(R.string.receipt_scan_expense_attached))
         FormNotesField(
             value = state.description,
             onValueChange = viewModel::setDescription,

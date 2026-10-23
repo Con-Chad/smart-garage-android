@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.ui.glass
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
@@ -209,6 +210,9 @@ fun GlassPillButton(
     contentColor: Color = Color.Unspecified,
     /** Pills over the aurora: the label and icon follow it in the adaptive ink (D-A46, [rememberPillInkSpec]). */
     adaptiveInk: AuroraInkSpec? = null,
+    /** The pill's fill and rim; unspecified keeps the glass pill's ([GlassTokens.pill], 1 dp [GlassTokens.pillBorder]). */
+    fill: Color = Color.Unspecified,
+    border: BorderStroke? = null,
 ) {
     val tokens = glass
     val ink = contentColor.takeOrElse { tokens.sheen }
@@ -224,7 +228,7 @@ fun GlassPillButton(
             Modifier
                 .heightIn(min = if (compact) 36.dp else 48.dp)
                 .pressScale(press)
-                .glassPillSurface(tokens, CircleShape, press)
+                .glassPillSurface(tokens, CircleShape, press, fill, border)
                 .indication(interaction, ripple())
                 .padding(horizontal = if (compact) 14.dp else 18.dp)
                 .then(if (adaptiveInk != null) Modifier.auroraInk(adaptiveInk) else Modifier),
@@ -302,8 +306,14 @@ fun GlassStackedPillButton(
  * toggle, and by [GlassPillButton] since D-A40): clipped to [shape], the panel's pill fill and its 1 dp pill border.
  * With [press] the fill brightens while held ([pressGlow]); pair it with [pressScale] before this modifier.
  */
-fun Modifier.glassPillSurface(tokens: GlassTokens, shape: Shape, press: PressFeedback? = null): Modifier = this
+fun Modifier.glassPillSurface(
+    tokens: GlassTokens,
+    shape: Shape,
+    press: PressFeedback? = null,
+    fill: Color = Color.Unspecified,
+    border: BorderStroke? = null,
+): Modifier = this
     .clip(shape)
-    .drawBehind { drawRect(tokens.pill) }
+    .drawBehind { drawRect(fill.takeOrElse { tokens.pill }) }
     .then(if (press != null) Modifier.pressGlow(press) else Modifier)
-    .border(1.dp, tokens.pillBorder, shape)
+    .border(border ?: BorderStroke(1.dp, tokens.pillBorder), shape)

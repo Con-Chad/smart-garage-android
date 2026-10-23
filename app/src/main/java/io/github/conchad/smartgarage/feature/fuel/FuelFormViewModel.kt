@@ -17,10 +17,17 @@ import io.github.conchad.smartgarage.core.model.FuelEntry
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
-import io.github.conchad.smartgarage.core.network.ReceiptScanError
+import io.github.conchad.smartgarage.core.network.ReceiptScanResponse
 import io.github.conchad.smartgarage.core.network.ReceiptScanResult
 import io.github.conchad.smartgarage.core.network.ReceiptScanner
-import io.github.conchad.smartgarage.ui.files.CameraCapture
+import io.github.conchad.smartgarage.core.network.documentIdOrNull
+import io.github.conchad.smartgarage.feature.receipts.ReceiptCapture
+import io.github.conchad.smartgarage.feature.receipts.ScanMessage
+import io.github.conchad.smartgarage.feature.receipts.ScanReview
+import io.github.conchad.smartgarage.feature.receipts.fuelMessage
+import io.github.conchad.smartgarage.feature.receipts.fuelReview
+import io.github.conchad.smartgarage.feature.receipts.parseReceiptLocal
+import io.github.conchad.smartgarage.feature.receipts.receiptInstant
 import io.github.conchad.smartgarage.ui.files.PickedFile
 import io.github.conchad.smartgarage.ui.navigation.FuelEntryRoute
 import io.github.conchad.smartgarage.ui.sync.SyncControl
@@ -33,26 +40,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.File
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 /** Which money field the user touched last decides which one is recomputed when the volume changes. */
 enum class MoneyField { Price, Total }
-
-/** One-shot outcome of a receipt scan for the snackbar (D-A27); the screen shows it and calls [FuelFormViewModel.clearScanMessage]. */
-enum class ScanMessage {
-    /** The stub, or a server with the feature off (404). */
-    Unavailable,
-    ViewOnly,
-    NotFuelReceipt,
-    RateLimited,
-    FileRejected,
-    Unreachable,
-    Failed,
-    NoCamera,
-}
 
 /**
  * The quick fill-up form (D-A20). Text fields hold what the user typed, in display units; [input] converts to
@@ -76,14 +71,20 @@ data class FuelFormState(
     val lastEntry: FuelEntry? = null,
     /** Settings → Fuel → Track fuel economy (D-A25): off hides the odometer field and sends no reading. */
     val trackOdometer: Boolean = true,
-    /** `/me.features.receiptScanner` of the active server (D-A27): false hides "Scan receipt" altogether. */
+    /** `ServerFeatures.scansFuel` of the active server (D-A27, D-A53): false hides "Scan receipt" altogether. */
     val scannerAvailable: Boolean = false,
     /** The photo is being downscaled or is at the server. */
     val scanning: Boolean = false,
     /** The last receipt photo taken, kept in `cache/captures/` like the document form's (D-A23) for a later attach. */
     val receiptPhoto: PickedFile? = null,
-    /** `documentId` from a successful scan, sent as `receiptDocumentId`; the stub never sets it. */
+    /** `documentId` the scan saved the photo as (also after a 502), sent as `receiptDocumentId` (D-A53). */
     val receiptDocumentId: String? = null,
+    /** Date and time printed on the scanned receipt; used for `filledAt` while the form's date still matches it. */
+    val receiptTime: LocalDateTime? = null,
+    /** The receipt's currency when the scan read one; otherwise the server preference ([Formatter.currencyCode]). */
+    val receiptCurrency: String? = null,
+    /** Fields to check and warnings from the last scan, shown as a short note (D-A53). */
+    val scanReview: ScanReview? = null,
     val scanMessage: ScanMessage? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
@@ -114,15 +115,52 @@ data class FuelFormState(
     /** The button shows only when the server offers the scan and this user may write to the vehicle. */
     val canScan: Boolean get() = scannerAvailable && canEdit && !saving
 
-    fun input(now: Instant = Instant.now()): FuelEntryInput = FuelEntryInput(
-        filledAt = formatter.instantFor(date, now).toString(),
+    /** The receipt's currency when it differs from the one the form shows amounts in. */
+    val foreignCurrency: String? get() = receiptCurrency?.takeIf { !it.equals(formatter.currencyCode, ignoreCase = true) }
+
+    fun input(now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()): FuelEntryInput = FuelEntryInput(
+        filledAt = (receiptTime?.takeIf { it.toLocalDate() == date }?.let { receiptInstant(it, zone) } ?: formatter.instantFor(date, now)).toString(),
         totalCostCents = totalCents ?: 0,
         odometerKm = odometerKm.takeIf { trackOdometer },
         liters = liters,
-        currency = formatter.currencyCode,
+        currency = receiptCurrency ?: formatter.currencyCode,
         stationName = station.trim().ifEmpty { null },
         note = notes.trim().ifEmpty { null },
         receiptDocumentId = receiptDocumentId,
+    )
+}
+
+/**
+ * The form with a fuel scan's draft filled in (D-A53): date (and the printed time for `filledAt`), volume, total,
+ * price per unit, station, currency; grade and address go into the note, since they have no field. Fields the draft
+ * left null keep what the form had; the odometer is never on a fuel receipt and keeps its prefill.
+ */
+fun FuelFormState.withFuelDraft(response: ReceiptScanResponse): FuelFormState {
+    val draft = response.draft ?: return copy(receiptDocumentId = response.documentId, scanReview = null)
+    val fmt = formatter
+    val time = parseReceiptLocal(draft.filledAtLocal)
+    val volume = draft.liters?.let(fmt::volumeInput) ?: volume
+    val total = draft.totalCostCents?.let(fmt::moneyInput) ?: total
+    val price = draft.pricePerLiterCents?.let { fmt.inputNumber(fmt.displayUnitPrice(it), 3) }
+        ?: run {
+            val v = fmt.parseNumber(volume)
+            val t = fmt.parseNumber(total)
+            if (v != null && t != null && v > 0 && draft.totalCostCents != null) fmt.inputNumber(t / v, 3) else price
+        }
+    val extras = listOfNotNull(draft.fuelGrade, draft.stationAddress).map { it.trim() }.filter { it.isNotEmpty() && !notes.contains(it) }
+    return copy(
+        date = time?.toLocalDate() ?: date,
+        receiptTime = time,
+        volume = volume,
+        total = total,
+        price = price,
+        lastMoney = MoneyField.Total,
+        station = draft.stationName?.trim()?.takeIf { it.isNotEmpty() } ?: station,
+        notes = (listOf(notes.trim()).filter { it.isNotEmpty() } + extras).joinToString("\n"),
+        receiptCurrency = draft.currency?.uppercase() ?: receiptCurrency,
+        receiptDocumentId = response.documentId,
+        scanReview = fuelReview(response),
+        dirty = true,
     )
 }
 
@@ -143,14 +181,11 @@ class FuelFormViewModel @Inject constructor(
 
     private var entries: List<FuelEntry> = emptyList()
 
-    /** The camera's target survives the process being killed behind the camera app (as on the document form). */
-    private var capturePath: String?
-        get() = savedStateHandle[CAPTURE_PATH]
-        set(value) = savedStateHandle.set(CAPTURE_PATH, value)
+    private val capture = ReceiptCapture(context, savedStateHandle, CAPTURE_PATH)
 
     init {
         viewModelScope.launch {
-            profiles.state.map { it.active?.features?.receiptScanner == true }.distinctUntilChanged()
+            profiles.state.map { it.active?.features?.scansFuel == true }.distinctUntilChanged()
                 .collect { on -> form.update { it.copy(scannerAvailable = on) } }
         }
         viewModelScope.launch {
@@ -180,6 +215,9 @@ class FuelFormViewModel @Inject constructor(
                 odometer = fmt.distanceInput(vehicle.currentOdometerKm),
                 // A price already on the form survives a vehicle switch; an empty one takes the vehicle's last price.
                 price = if (initial || s.price.isBlank()) prefillPrice else s.price,
+                // A scanned receipt belongs to the vehicle it was scanned for; the server refuses it on another one.
+                receiptDocumentId = s.receiptDocumentId.takeIf { id == s.vehicleId },
+                receiptPhoto = s.receiptPhoto.takeIf { id == s.vehicleId },
                 dirty = !initial,
             ).recompute(changed = null)
         }
@@ -235,77 +273,45 @@ class FuelFormViewModel @Inject constructor(
 
     // ── Receipt scan (D-A27) ─────────────────────────────────────────────────────────────────────────────────
 
-    /** A fresh target for `TakePicture`; a photo still on the form is discarded. */
-    fun startScan(): Uri {
-        capturePath?.let { File(it).delete() }
-        CameraCapture.sweep(context)
-        val target = CameraCapture.newTarget(context)
-        capturePath = target.file.absolutePath
-        return target.uri
-    }
+    /** A fresh target for `TakePicture`. */
+    fun startScan(): Uri = capture.start()
 
-    /** The camera came back: downscale the photo, send it to the [ReceiptScanner] and put the answer into words. */
+    /** The camera came back: downscale the photo, send it to the [ReceiptScanner] and fill the form from the draft. */
     fun captured(success: Boolean) {
-        val path = capturePath ?: return
-        capturePath = null
-        if (!success) {
-            File(path).delete()
+        val file = capture.taken(success) ?: return
+        val vehicleId = form.value.vehicleId ?: run {
+            file.delete()
             return
         }
-        val vehicleId = form.value.vehicleId ?: return
         form.update { it.copy(scanning = true) }
         viewModelScope.launch {
-            val file = File(path)
-            val photo = CameraCapture.finish(context, file, "receipt-${System.currentTimeMillis()}.jpg")
+            val photo = capture.finish(file)
             if (photo == null) {
                 form.update { it.copy(scanning = false, scanMessage = ScanMessage.FileRejected) }
                 return@launch
             }
             // The previous photo makes way for this one; the form keeps at most one.
-            form.value.receiptPhoto?.let { captureFileOf(it)?.takeIf { f -> f != file }?.delete() }
+            form.value.receiptPhoto?.let { capture.fileOf(it)?.takeIf { f -> f != file }?.delete() }
             val result = scanner.scan(vehicleId, file)
             form.update { s ->
-                s.copy(
-                    scanning = false,
-                    receiptPhoto = photo,
-                    receiptDocumentId = result.documentIdOrNull(),
-                    scanMessage = result.message(),
-                )
+                val scanned = s.copy(scanning = false, receiptPhoto = photo, scanMessage = result.fuelMessage())
+                when (result) {
+                    is ReceiptScanResult.Success -> scanned.withFuelDraft(result.response)
+                    // A 502 still saved the photo: keep its id so it is attached to the manual entry.
+                    else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
+                }
             }
         }
     }
 
-    /** Drops the kept photo (and its file) from the form. */
+    /** Drops the kept photo (and its file) from the form; the entry is then saved without a receipt. */
     fun removeReceiptPhoto() {
-        form.value.receiptPhoto?.let { captureFileOf(it)?.delete() }
-        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null) }
+        form.value.receiptPhoto?.let { capture.fileOf(it)?.delete() }
+        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null) }
     }
 
     fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }
     fun clearScanMessage() = form.update { it.copy(scanMessage = null) }
-
-    private fun captureFileOf(file: PickedFile): File? =
-        file.uri.path?.takeIf { it.contains("/captures/") }?.let { File(context.cacheDir, "captures/${it.substringAfterLast('/')}") }
-
-    /** Prefill from a draft is a later step (see [ReceiptScanner]); tonight a success only keeps the document id. */
-    private fun ReceiptScanResult.documentIdOrNull(): String? = when (this) {
-        is ReceiptScanResult.Success -> response.documentId
-        is ReceiptScanResult.Error -> (error as? ReceiptScanError.ExtractionFailed)?.documentId
-        ReceiptScanResult.Unavailable -> null
-    }
-
-    private fun ReceiptScanResult.message(): ScanMessage? = when (this) {
-        ReceiptScanResult.Unavailable -> ScanMessage.Unavailable
-        is ReceiptScanResult.Success -> if (response.isFuelReceipt) null else ScanMessage.NotFuelReceipt
-        is ReceiptScanResult.Error -> when (error) {
-            ReceiptScanError.NotFound -> ScanMessage.Unavailable
-            ReceiptScanError.Forbidden -> ScanMessage.ViewOnly
-            is ReceiptScanError.RateLimited -> ScanMessage.RateLimited
-            ReceiptScanError.FileTooLarge, ReceiptScanError.UnsupportedFile -> ScanMessage.FileRejected
-            is ReceiptScanError.Unreachable -> ScanMessage.Unreachable
-            ReceiptScanError.Unauthorized, is ReceiptScanError.Invalid, is ReceiptScanError.ExtractionFailed -> ScanMessage.Failed
-        }
-    }
 
     private companion object {
         const val CAPTURE_PATH = "receiptCapturePath"

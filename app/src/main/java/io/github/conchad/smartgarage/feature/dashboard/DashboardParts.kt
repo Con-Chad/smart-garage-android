@@ -1,5 +1,6 @@
 package io.github.conchad.smartgarage.feature.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,7 +32,10 @@ import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.EMPHASIS_RIM_ALPHA
 import io.github.conchad.smartgarage.ui.glass.GlassPillButton
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
+import io.github.conchad.smartgarage.ui.glass.emphasisPillFill
 import io.github.conchad.smartgarage.ui.glass.rememberPillInk
 import io.github.conchad.smartgarage.ui.glass.rememberPillInkSpec
 import io.github.conchad.smartgarage.ui.glass.MetallicText
@@ -67,7 +72,26 @@ internal fun OdometerReminderRow(reminder: OdometerReminder.Reminder, onUpdate: 
  * The label size is a step down from the card pills so it fits beside the title at font scale 1.3; 48 dp to touch.
  */
 @Composable
-internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () -> Unit) {
+internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () -> Unit, emphasized: Boolean = false) {
+    if (emphasized) {
+        // D-A52 ("Add vehicle"): a fixed white label on a strong, dark tint of the theme colour with a 1.5 dp light rim,
+        // instead of the adaptive ink on the faint glass pill, so the one call to action on an empty garage stands out.
+        val tokens = glass
+        val tint = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
+        val fill = remember(tint) { emphasisPillFill(tint) }
+        GlassPillButton(
+            label = label,
+            onClick = onClick,
+            icon = icon,
+            compact = true,
+            textStyle = MaterialTheme.typography.labelMedium,
+            contentColor = tokens.onPhoto,
+            fill = fill,
+            border = BorderStroke(1.5.dp, tokens.onPhoto.copy(alpha = EMPHASIS_RIM_ALPHA)),
+            modifier = Modifier.padding(start = 8.dp, end = 12.dp),
+        )
+        return
+    }
     GlassPillButton(
         label = label,
         onClick = onClick,

@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.core.network
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -53,6 +54,12 @@ sealed interface ApiResult<out T> {
 
     /** The request never got a Smart Garage answer. */
     data class Failed(val problem: ServerProblem) : ApiResult<Nothing>
+}
+
+/** A JSON answer of any status, or why there was none (see [ApiClient.postMultipartJson]). */
+sealed interface JsonAnswer {
+    data class Answered(val status: Int, val body: JsonObject, val retryAfterSeconds: Long?) : JsonAnswer
+    data class Failed(val problem: ServerProblem) : JsonAnswer
 }
 
 sealed interface HealthResult {
@@ -206,19 +213,66 @@ class ApiClient @Inject constructor(@PublishedApi internal val http: HttpClient)
         method = HttpMethod.Post
         url(connection.url(path))
         header(IDEMPOTENCY_KEY, idempotencyKey)
-        setBody(
-            MultiPartFormDataContent(
-                formData {
-                    fields.forEach { (name, value) -> append(name, value) }
-                    val partHeaders = Headers.build {
-                        append(HttpHeaders.ContentType, mimeType)
-                        append(HttpHeaders.ContentDisposition, "filename=\"${fileName.replace("\"", "")}\"")
-                    }
-                    append("file", bytes, partHeaders)
-                },
-            ),
-        )
+        setBody(multipartBody(fields, fileName, mimeType, bytes))
     }
+
+    /**
+     * A multipart upload whose JSON answer the caller reads itself, error bodies included (D-A53): the receipt
+     * scan's 502 carries the saved photo's `documentId` next to `error`, which [ApiResult.HttpError] would drop.
+     * [timeoutMillis] replaces the client's request timeout for this one call.
+     */
+    suspend fun postMultipartJson(
+        connection: ServerConnection,
+        path: String,
+        idempotencyKey: String,
+        fields: Map<String, String>,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+        timeoutMillis: Long,
+    ): JsonAnswer {
+        val response: HttpResponse = try {
+            http.request {
+                method = HttpMethod.Post
+                url(connection.url(path))
+                header(IDEMPOTENCY_KEY, idempotencyKey)
+                timeout {
+                    requestTimeoutMillis = timeoutMillis
+                    socketTimeoutMillis = timeoutMillis
+                }
+                setBody(multipartBody(fields, fileName, mimeType, bytes))
+                applyHeaders(connection)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return JsonAnswer.Failed(ServerProblem.Unreachable(e.toNetworkFailure()))
+        }
+        if (!response.isJson()) return JsonAnswer.Failed(response.classifyForeign())
+        return try {
+            JsonAnswer.Answered(
+                status = response.status.value,
+                body = response.body<JsonObject>(),
+                retryAfterSeconds = response.headers[HttpHeaders.RetryAfter]?.trim()?.toLongOrNull(),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            JsonAnswer.Failed(ServerProblem.Unexpected(response.status.value, null))
+        }
+    }
+
+    private fun multipartBody(fields: Map<String, String>, fileName: String, mimeType: String, bytes: ByteArray) =
+        MultiPartFormDataContent(
+            formData {
+                fields.forEach { (name, value) -> append(name, value) }
+                val partHeaders = Headers.build {
+                    append(HttpHeaders.ContentType, mimeType)
+                    append(HttpHeaders.ContentDisposition, "filename=\"${fileName.replace("\"", "")}\"")
+                }
+                append("file", bytes, partHeaders)
+            },
+        )
 
     private suspend fun sendWrite(
         connection: ServerConnection,

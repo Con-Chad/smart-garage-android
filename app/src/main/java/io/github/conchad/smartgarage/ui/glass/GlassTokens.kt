@@ -97,6 +97,24 @@ data class GlassTokens(
      * Pixel's lightest green aurora (L 0.54) and 7.7:1 on the light theme's page. Shared by both sets.
      */
     val inkDark: Color,
+    /**
+     * The halo under adaptive ink that falls short of 4.5:1 on its backdrop (D-A52): [inkHaloDark] behind light ink,
+     * [inkHaloLight] behind dark ink, blended with the ink's own mix and scaled by the shortfall. Shared by both sets.
+     */
+    val inkHaloDark: Color,
+    val inkHaloLight: Color,
+
+    /**
+     * Frosted glass on a glass card (D-A52): the quick-action buttons. Denser than [panel], so the buttons read as a
+     * second sheet sitting on the card rather than holes in it; [textPrimary] on it clears 4.5:1 whatever the aurora.
+     */
+    val frost: Color,
+    /**
+     * The bevelled rim of raised glass (D-A52, the owner pill and the frosted buttons): light along the top edge,
+     * shade along the bottom, so the edge reads as a lit, three-dimensional lip.
+     */
+    val rimLight: Color,
+    val rimShade: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
@@ -114,6 +132,8 @@ private val OnPhoto = Color(0xFFF4F6FB)
 private val OnPhotoSecondary = Color(0xFFC7CCDB)
 private val OnPale = Color(0xFF1B2130)
 private val InkDark = Color(0xFF474B54)
+private val InkHaloDark = Color(0xFF000000)
+private val InkHaloLight = Color(0xFFFFFFFF)
 
 val DarkGlassTokens = GlassTokens(
     dark = true,
@@ -150,6 +170,11 @@ val DarkGlassTokens = GlassTokens(
     onPhotoSecondary = OnPhotoSecondary,
     onPale = OnPale,
     inkDark = InkDark,
+    inkHaloDark = InkHaloDark,
+    inkHaloLight = InkHaloLight,
+    frost = Color(0xC7262A3A),
+    rimLight = Color(0x99FFFFFF),
+    rimShade = Color(0x73000000),
 )
 
 val LightGlassTokens = GlassTokens(
@@ -187,6 +212,11 @@ val LightGlassTokens = GlassTokens(
     onPhotoSecondary = OnPhotoSecondary,
     onPale = OnPale,
     inkDark = InkDark,
+    inkHaloDark = InkHaloDark,
+    inkHaloLight = InkHaloLight,
+    frost = Color(0xD9FFFFFF),
+    rimLight = Color(0xFFFFFFFF),
+    rimShade = Color(0x47141826),
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }
@@ -222,3 +252,23 @@ val AuroraPresets: List<Int> = listOf(
     0xFFD0302C, 0xFFE87A2A, 0xFFD4AF37, 0xFFE8C62A, 0xFF2E9A55, 0xFF1F8A8A,
     0xFF7CB8E8, 0xFF2F6FD6, 0xFF1F3A7A, 0xFF7A3AB8, 0xFFD03A8C, 0xFF9FB3C8,
 ).map { it.toInt() }
+
+/**
+ * Car paint swatches for the vehicle form's colour picker (D-A52), packed ARGB: what the paint looks like, not the
+ * aurora tint [VehicleTint] derives from its name (which maps neutrals to steel).
+ */
+object CarPaints {
+    const val BLACK: Int = 0xFF141518.toInt()
+    const val WHITE: Int = 0xFFF2F2EE.toInt()
+    const val SILVER: Int = 0xFFC3C7CC.toInt()
+    const val GREY: Int = 0xFF6D7278.toInt()
+    const val BLUE: Int = 0xFF2F5FB8.toInt()
+    const val RED: Int = 0xFFB8202A.toInt()
+    const val GREEN: Int = 0xFF2E7D4A.toInt()
+    const val YELLOW: Int = 0xFFE8C62A.toInt()
+    const val ORANGE: Int = 0xFFE87A2A.toInt()
+    const val BROWN: Int = 0xFF6E4A2E.toInt()
+    const val BEIGE: Int = 0xFFD2BD9A.toInt()
+    const val GOLD: Int = 0xFFC9A43A.toInt()
+    const val PURPLE: Int = 0xFF6A3A9A.toInt()
+}

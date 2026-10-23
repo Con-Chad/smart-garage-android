@@ -66,7 +66,22 @@ data class MeResponse(
 data class MeFeatures(
     /** `POST /api/v1/fuel/receipt-scan` is enabled and the server has a model key (docs/mobile/RECEIPT-SCANNER.md). */
     val receiptScanner: Boolean = false,
-)
+    /**
+     * Which scan endpoints exist (D-044): `fuel`, `service`. Null on servers before D-044, which only had the fuel
+     * scan; see [scannerKinds].
+     */
+    val receiptScannerKinds: List<String>? = null,
+) {
+    /** The kinds to offer: the listed ones, or `fuel` alone when an older server only says `receiptScanner: true`. */
+    fun scannerKinds(): List<String> = when {
+        !receiptScanner -> emptyList()
+        receiptScannerKinds == null -> listOf(RECEIPT_KIND_FUEL)
+        else -> receiptScannerKinds.filter { it == RECEIPT_KIND_FUEL || it == RECEIPT_KIND_SERVICE }.distinct()
+    }
+}
+
+const val RECEIPT_KIND_FUEL = "fuel"
+const val RECEIPT_KIND_SERVICE = "service"
 
 /** Display preferences; every value the API returns stays metric (km, liters, cents). */
 @Serializable

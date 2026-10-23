@@ -1,5 +1,7 @@
 package io.github.conchad.smartgarage.core.data
 
+import io.github.conchad.smartgarage.core.network.RECEIPT_KIND_FUEL
+import io.github.conchad.smartgarage.core.network.RECEIPT_KIND_SERVICE
 import kotlinx.serialization.Serializable
 import java.net.URI
 
@@ -70,9 +72,20 @@ fun Account.withLocalName(name: String?): Account = name?.trim()?.takeIf { it.is
 /** Optional features of a server, from `/me.features`; false for servers that don't report them (D-A27). */
 @Serializable
 data class ServerFeatures(
-    /** Shows "Scan receipt" on the fill-up form. */
+    /** The server has a receipt scanner at all. */
     val receiptScanner: Boolean = false,
-)
+    /**
+     * Which scans it offers (D-A53): `fuel`, `service`. Null for profiles stored before D-A53, which knew only the
+     * fuel scan; [scansFuel] treats that as fuel-only.
+     */
+    val receiptScannerKinds: List<String>? = null,
+) {
+    /** Shows "Scan receipt" on the fill-up form. */
+    val scansFuel: Boolean get() = receiptScanner && (receiptScannerKinds?.contains(RECEIPT_KIND_FUEL) ?: true)
+
+    /** Shows "Scan receipt" on the service-record form. */
+    val scansService: Boolean get() = receiptScanner && receiptScannerKinds?.contains(RECEIPT_KIND_SERVICE) == true
+}
 
 /**
  * Push state of one profile (D-A29). Every field has a default so profiles stored before CP12 keep parsing.

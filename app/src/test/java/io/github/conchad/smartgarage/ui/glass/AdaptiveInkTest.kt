@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** D-A46, D-A48, D-A49: the backdrop luminance → ink mapping and the aurora colour map. */
+/** D-A46, D-A48, D-A49, D-A52: the backdrop luminance → ink mapping, the halo and the aurora colour map. */
 class AdaptiveInkTest {
     private val light = DarkGlassTokens.onPhoto
     private val dark = DarkGlassTokens.inkDark
@@ -23,7 +23,10 @@ class AdaptiveInkTest {
     }
 
     @Test
-    fun `grey span is centred on 0_40 on the contrast axis (D-A48)`() {
+    fun `grey span is centred on the equal-contrast point (D-A52)`() {
+        // Where white and the dark grey contrast equally with the backdrop.
+        val crossover = kotlin.math.sqrt((lightLum + 0.05f) * (darkLum + 0.05f)) - 0.05f
+        assertEquals(crossover, AdaptiveInk.CENTER, 0.01f)
         val lo = AdaptiveInk.BAND_LO
         val hi = AdaptiveInk.BAND_HI
         assertTrue(lo < AdaptiveInk.CENTER && AdaptiveInk.CENTER < hi)
@@ -45,21 +48,50 @@ class AdaptiveInkTest {
     }
 
     @Test
-    fun `dark end is the dark grey, at least 4_5 to 1 wherever it is fully applied (D-A49)`() {
+    fun `dark end is the dark grey, applied fully from the band's top (D-A49)`() {
         assertEquals(Color(0xFF474B54), dark)
         var l = AdaptiveInk.BAND_HI
         while (l <= 1f) {
             assertEquals(dark, inkOn(l))
-            assertTrue("contrast at $l", (l + 0.05f) / (darkLum + 0.05f) >= 4.5f)
             l += 0.01f
         }
     }
 
     @Test
-    fun `white holds past the old 0_20 crossover`() {
-        // D-A46 turned dark from about 0.21; the user wanted white further up the gradient.
-        assertEquals(0f, AdaptiveInk.mix(0.25f))
-        assertEquals(0f, AdaptiveInk.mix(0.30f))
+    fun `outside the cross-fade the ink is whichever end contrasts more (D-A52)`() {
+        var l = 0f
+        while (l <= 1f) {
+            if (l <= AdaptiveInk.BAND_LO || l >= AdaptiveInk.BAND_HI) {
+                val chosen = inkOn(l).luminance()
+                val other = if (inkOn(l) == light) darkLum else lightLum
+                assertTrue("at $l", AdaptiveInk.contrast(chosen, l) >= AdaptiveInk.contrast(other, l) - 0.05f)
+            }
+            l += 0.01f
+        }
+        // Never rests in a wide mid-grey span any more: D-A48's grey at 0.40 is now fully dark.
+        assertEquals(1f, AdaptiveInk.mix(0.40f))
+    }
+
+    @Test
+    fun `a halo makes up any shortfall from 4_5 to 1, and only then (D-A52)`() {
+        var l = 0f
+        while (l <= 1f) {
+            val ink = inkOn(l).luminance()
+            val c = AdaptiveInk.contrast(ink, l)
+            val halo = AdaptiveInk.haloStrength(ink, l)
+            if (c >= AdaptiveInk.MIN_CONTRAST) assertEquals("at $l", 0f, halo) else assertTrue("at $l", halo > 0f)
+            l += 0.005f
+        }
+        // Full strength at or below 2:1; continuous (no step bigger than a few percent per 0.001 of luminance).
+        assertEquals(1f, AdaptiveInk.haloStrength(0.5f, 0.5f))
+        var previous = AdaptiveInk.haloStrength(inkOn(0f).luminance(), 0f)
+        l = 0.001f
+        while (l <= 1f) {
+            val h = AdaptiveInk.haloStrength(inkOn(l).luminance(), l)
+            assertTrue("jump at $l", kotlin.math.abs(h - previous) < 0.05f)
+            previous = h
+            l += 0.001f
+        }
     }
 
     @Test

@@ -186,16 +186,15 @@ private fun VehicleListCard(
             ) {
                 Box(Modifier.fillMaxSize().combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })) {
                     VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
-                    VehiclePhotoTitle(cardActions.titleOf(vehicle), if (nickname != null) vehicle.displayName else null, titleMaxLines = 2, Modifier.align(Alignment.BottomStart))
+                    VehiclePhotoTitle(cardActions.titleOf(vehicle), if (nickname != null) vehicle.displayName else null, titleMaxLines = 2, Modifier.align(Alignment.BottomStart), plate = vehicle.licensePlate)
                 }
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onClick)
             }
         }
-        val plate = vehicle.licensePlate?.takeIf { it.isNotBlank() }
-        if (plate != null || vehicle.access.isShared) {
+        // D-A52: the plate is a badge on the photo ([VehiclePhotoTitle]); only "Shared by" stays under it.
+        if (vehicle.access.isShared) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                plate?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
+                SharedBy(vehicle.owner?.name)
             }
         }
         // The mileage over the status chip, the pills beside them, as on the home card (D-A41, user-set).
@@ -203,7 +202,7 @@ private fun VehicleListCard(
             expanded = expanded,
             onToggle = { expanded = !expanded },
             onViewAll = onClick,
-            modifier = Modifier.padding(top = if (plate != null || vehicle.access.isShared) 8.dp else 16.dp),
+            modifier = Modifier.padding(top = if (vehicle.access.isShared) 8.dp else 16.dp),
         ) {
             MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             VehicleStatusChip(summary)

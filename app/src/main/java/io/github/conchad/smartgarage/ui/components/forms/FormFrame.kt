@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -19,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -51,6 +54,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
@@ -64,8 +69,13 @@ import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.glass
 
 /**
- * Full-screen editor (D-A20): a close button and title on top, the fields in a scrolling column, and a pinned
- * [SaveBar] at the bottom that rises with the keyboard. Back or close with unsaved changes asks first.
+ * Full-screen editor (D-A20): a close button and title on top, the fields in a scrolling column. Back or close with
+ * unsaved changes asks first.
+ *
+ * D-A52: no pinned bar above the keyboard any more (it rode up with the IME and covered the fields and the
+ * autocomplete panel). Save is in two places, both always reachable: a compact Save pill (check + "Save") at the end
+ * of the top bar, and the full [SaveBar] (the reason it is disabled + the big button) inline at the end of the form's
+ * panel. The column itself pads for the keyboard, so a focused field is brought into view above it.
  */
 @Composable
 fun FormScreen(
@@ -93,25 +103,28 @@ fun FormScreen(
         topBar = {
             TopAppBar(
                 // On the aurora: the adaptive ink (D-A46).
-                title = { Text(title, Modifier.auroraInk()) },
+                title = { Text(title, Modifier.auroraInk(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
                 },
+                actions = { TopBarSave(enabled = canSave, saving = saving, onSave = onSave) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
             )
         },
-        bottomBar = { SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation) },
         snackbarHost = { snackbarHost?.let { SnackbarHost(it) } },
     ) { padding ->
         Column(
             Modifier
                 .padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             GlassPanel(Modifier.fillMaxWidth(), contentPadding = 16.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+                SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation, inSheet = true, inset = 0.dp)
             }
         }
     }
@@ -156,6 +169,29 @@ fun FormSheet(
 }
 
 /**
+ * The top bar's Save (D-A52): a compact sheen pill with a check and "Save", so saving never needs the keyboard put
+ * away or the form scrolled to its end. Disabled like [GlassButton] (pill fill, secondary text); a spinner replaces
+ * the check while the write is queued.
+ */
+@Composable
+private fun TopBarSave(enabled: Boolean, saving: Boolean, onSave: () -> Unit) {
+    GlassButton(
+        onClick = onSave,
+        enabled = enabled && !saving,
+        contentPadding = PaddingValues(horizontal = 14.dp),
+        modifier = Modifier.padding(end = 8.dp),
+    ) {
+        if (saving) {
+            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = glass.textSecondary)
+        } else {
+            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.size(6.dp))
+        Text(stringResource(R.string.action_save), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    }
+}
+
+/**
  * The one way a form saves: a full-width button, disabled until the form is valid, with the reason it is disabled
  * (or the first error) in the line above it, so a disabled button never leaves the user guessing. Shows a spinner
  * in place of the label while the write is being queued.
@@ -169,6 +205,8 @@ fun SaveBar(
     modifier: Modifier = Modifier,
     validation: String? = null,
     inSheet: Boolean = false,
+    /** Side inset of the line and the button; 0 inside a panel that already pads (the full-screen form, D-A52). */
+    inset: Dp = 16.dp,
 ) {
     // On the screen, the frosted bar; in a sheet, nothing of its own: the sheet's glass is already behind it (D-A41).
     Surface(color = if (inSheet) Color.Transparent else glass.panel, contentColor = glass.textPrimary, modifier = modifier) {
@@ -181,14 +219,14 @@ fun SaveBar(
                     color = glass.textSecondary,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                        .padding(start = inset, end = inset, top = 12.dp)
                         .semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             GlassButton(
                 onClick = onSave,
                 enabled = enabled && !saving,
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = inset, vertical = 16.dp),
             ) {
                 if (saving) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = glass.textSecondary)
@@ -276,6 +314,6 @@ fun ConfirmDialog(
 @Composable
 fun FormSkeleton() = SkeletonFields(stringResource(R.string.loading))
 
-/** Breathing room at the end of a scrolling form so the last field clears the save bar. */
+/** Breathing room between the last field and the form's inline Save (D-A52). */
 @Composable
 fun FormEndSpacer() = Spacer(Modifier.height(16.dp))

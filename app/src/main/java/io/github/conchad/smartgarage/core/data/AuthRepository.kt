@@ -157,7 +157,7 @@ class AuthRepository @Inject constructor(
                     )
                 } ?: profile.preferences,
                 serverVersion = me.server?.version ?: profile.serverVersion,
-                features = ServerFeatures(receiptScanner = me.features.receiptScanner),
+                features = ServerFeatures(receiptScanner = me.features.receiptScanner, receiptScannerKinds = me.features.scannerKinds()),
             )
         }
     }

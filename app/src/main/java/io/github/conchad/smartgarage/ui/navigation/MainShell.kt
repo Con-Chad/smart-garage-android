@@ -342,7 +342,16 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             composable<FuelEntryRoute> { entry ->
                                 FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = entry.toRoute<FuelEntryRoute>().scan)
                             }
-                            composable<RecordFormRoute> { RecordFormScreen(onClose = navController::popBackStack) }
+                            composable<RecordFormRoute> {
+                                RecordFormScreen(
+                                    onClose = navController::popBackStack,
+                                    // "Save as expense instead" (D-A53): the expense form replaces this one.
+                                    onOpenExpense = { route ->
+                                        navController.popBackStack()
+                                        navController.navigate(route)
+                                    },
+                                )
+                            }
                             composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
                             composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
                             composable<ExpenseFormRoute> { ExpenseFormScreen(onClose = navController::popBackStack) }

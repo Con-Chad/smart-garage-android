@@ -1,8 +1,6 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.heightIn
@@ -19,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
@@ -59,6 +56,9 @@ import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.HeroContent
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
+import io.github.conchad.smartgarage.ui.glass.bevelFill
+import io.github.conchad.smartgarage.ui.glass.bevelRim
+import io.github.conchad.smartgarage.ui.glass.glassShadow
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
 import io.github.conchad.smartgarage.ui.glass.TiltPhotoFrame
@@ -96,7 +96,7 @@ internal fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions, modifi
                             .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
                     ) {
                         VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 72.dp)
-                        VehiclePhotoTitle(cardActions.titleOf(vehicle), if (nickname != null) vehicle.displayName else null, titleMaxLines = 2, Modifier.align(Alignment.BottomStart))
+                        VehiclePhotoTitle(cardActions.titleOf(vehicle), if (nickname != null) vehicle.displayName else null, titleMaxLines = 2, Modifier.align(Alignment.BottomStart), plate = vehicle.licensePlate)
                     }
                     VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
                 }
@@ -119,9 +119,12 @@ internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetai
         Row(
             Modifier
                 .weight(1f, fill = false)
+                // D-A52: raised glass, so it stands off the aurora: a soft lift shadow, the panel fill under a top
+                // gloss, and a 1.5 dp bevelled rim (lit top edge, shaded bottom edge).
+                .glassShadow(CircleShape, elevation = 6.dp, color = tokens.shadow)
                 .clip(CircleShape)
-                .background(tokens.panel)
-                .border(1.dp, tokens.panelBorder, CircleShape)
+                .bevelFill(tokens, tokens.panel)
+                .bevelRim(tokens, CircleShape)
                 // D-A43: a long-press edits the name shown here (local only); a tap does nothing, as before.
                 .then(
                     if (onLongPress == null) {
@@ -169,8 +172,8 @@ internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetai
 private class GlanceTile(val icon: ImageVector, val label: String, val value: String, val badge: ImageBitmap? = null)
 
 /**
- * The four figures wanted at a glance (note 14): mileage, the insurer in force, the plate and this year's money,
- * two by two. Each tile is one TalkBack item ("Mileage, 123,456 km").
+ * The figures wanted at a glance (note 14): mileage, the insurer in force and this year's money, two by two (the
+ * last one full width). D-A52: the plate moved onto the photo card as a badge. Each tile is one TalkBack item ("Mileage, 123,456 km").
  */
 @Composable
 internal fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
@@ -178,7 +181,6 @@ internal fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
     val tiles = listOf(
         GlanceTile(Icons.Outlined.Speed, stringResource(R.string.vehicle_mileage), fmt.distance(vehicle.currentOdometerKm)),
         GlanceTile(Icons.Outlined.Shield, stringResource(R.string.vehicle_insurance_plan), detail.currentPolicy?.provider ?: "—", rememberInsurerIcon(detail.currentPolicy?.provider)),
-        GlanceTile(Icons.Outlined.Badge, stringResource(R.string.field_plate), vehicle.licensePlate ?: "—"),
         // The sum is fuel + service + expenses, each stored in the server's preferred currency (D-A20), so it is
         // labelled with that currency, not the vehicle's purchaseCurrency, which the server may default differently.
         GlanceTile(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents)),

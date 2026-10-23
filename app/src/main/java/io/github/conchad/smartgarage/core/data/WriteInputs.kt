@@ -33,6 +33,8 @@ data class ExpenseInput(
     val odometerKm: Int? = null,
     val maintenanceRecordId: String? = null,
     val description: String? = null,
+    /** A scanned receipt's `documentId` (D-A53); the server links that document to the new expense. */
+    val receiptDocumentId: String? = null,
 )
 
 @Serializable
@@ -83,6 +85,11 @@ data class RecordInput(
     val items: List<MaintenanceItem>? = null,
     /** Also store these items as the schedule's default parts. */
     val saveAsDefault: Boolean? = null,
+    /**
+     * A scanned receipt's `documentId` (D-A53); the server links it to the new record. The server also books a
+     * `MAINTENANCE` expense for any record with a cost, so the app never posts a second expense for the receipt.
+     */
+    val receiptDocumentId: String? = null,
 )
 
 @Serializable

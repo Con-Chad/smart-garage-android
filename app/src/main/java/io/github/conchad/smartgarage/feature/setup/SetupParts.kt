@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -53,7 +52,11 @@ import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.glass
 
-/** Setup screen frame: top bar, scrolling form, and an action bar that rides above the keyboard. */
+/**
+ * Setup screen frame: top bar, scrolling form, and the step's actions in a row at the end of the form. D-A52: the
+ * actions no longer sit in a frosted bar pinned above the keyboard (it covered the fields); the column pads for the
+ * keyboard instead, so the focused field and the actions scroll into view above it.
+ */
 @Composable
 internal fun StepScaffold(
     title: String,
@@ -63,7 +66,7 @@ internal fun StepScaffold(
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     // On the aurora (D-A30: AppRoot draws one behind the setup flows, the shell behind "add a server"); the form
-    // sits on a glass panel and the action bar on the same frosted fill.
+    // sits on a glass panel with the actions at its end (D-A52).
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = Color.Transparent,
@@ -81,26 +84,24 @@ internal fun StepScaffold(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
             )
         },
-        bottomBar = {
-            Surface(color = glass.panel) {
-                Row(
-                    Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) { bottomBar() }
-            }
-        },
     ) { padding: PaddingValues ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             GlassPanel(Modifier.widthIn(max = 560.dp).fillMaxWidth(), contentPadding = 16.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { bottomBar() }
             }
         }
     }

@@ -123,20 +123,12 @@ internal fun VehicleCard(
                     ) {
                         VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
                         // Name over a bottom scrim, placed exactly as on the vehicle page (D-A45).
-                        VehiclePhotoTitle(title, if (nickname != null) vehicle.displayName else null, titleMaxLines = 1, Modifier.align(Alignment.BottomStart))
+                        VehiclePhotoTitle(title, if (nickname != null) vehicle.displayName else null, titleMaxLines = 1, Modifier.align(Alignment.BottomStart), plate = vehicle.licensePlate)
                     }
                     VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
                 }
             }
-            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let {
-                MetallicText(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp),
-                )
-            }
+            // D-A52: the plate is a badge on the photo now ([VehiclePhotoTitle]), not a line under it.
             // The mileage over the status chip on the left, "View all" and "Quick info" beside them (D-A41, user-set).
             VehicleCardFooter(
                 expanded = expanded,

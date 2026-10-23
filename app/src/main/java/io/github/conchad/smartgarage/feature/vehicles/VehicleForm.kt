@@ -51,6 +51,7 @@ import io.github.conchad.smartgarage.ui.components.bodyTypeLabel
 import io.github.conchad.smartgarage.ui.components.driveTypeLabel
 import io.github.conchad.smartgarage.ui.components.forms.FormDisclosure
 import io.github.conchad.smartgarage.ui.components.forms.FormDistanceField
+import io.github.conchad.smartgarage.ui.components.forms.CarColorPicker
 import io.github.conchad.smartgarage.ui.components.forms.FormEndSpacer
 import io.github.conchad.smartgarage.ui.components.forms.FormMoneyField
 import io.github.conchad.smartgarage.ui.components.forms.FormNotesField
@@ -426,12 +427,11 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
                 error = if (state.tsnInvalid) stringResource(R.string.vehicle_form_tsn_invalid) else null,
             )
         }
-        FormTextField(
+        // D-A52: one paint per car, so a single-select swatch grid instead of free text (same stored string).
+        CarColorPicker(
             value = state.color,
             onValueChange = viewModel::setColor,
             label = stringResource(R.string.field_color),
-            capitalizeWords = true,
-            error = if (state.colorTooLong) pluralStringResource(R.plurals.form_too_long, 50, 50) else null,
         )
 
         if (state.isEdit) {

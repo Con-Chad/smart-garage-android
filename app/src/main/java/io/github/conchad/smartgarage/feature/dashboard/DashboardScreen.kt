@@ -283,7 +283,7 @@ private fun DashboardContent(
                     onClick = { scope.launch { pagerState.animateScrollToPage((page + 1) % vehicles.size) } },
                 )
             } else {
-                VehiclesHeaderPill(stringResource(R.string.action_add_vehicle_short), Icons.Outlined.Add, onClick = onAddVehicle)
+                VehiclesHeaderPill(stringResource(R.string.action_add_vehicle_short), Icons.Outlined.Add, onClick = onAddVehicle, emphasized = true)
             }
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {

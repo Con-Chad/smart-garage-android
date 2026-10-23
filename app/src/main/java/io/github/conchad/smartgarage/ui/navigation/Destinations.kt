@@ -45,7 +45,21 @@ import kotlinx.serialization.Serializable
 @Serializable data class RecordFormRoute(val recordId: String? = null, val scheduleId: String? = null, val vehicleId: String? = null)
 
 /** Add an expense; [vehicleId] preselects the vehicle. */
-@Serializable data class ExpenseFormRoute(val vehicleId: String? = null)
+/**
+ * The expense form; the optional rest prefills it from a scanned bill (D-A53, "Save as expense instead" on the
+ * service form): an `ExpenseCategory` name, the receipt's local date-time (`YYYY-MM-DDTHH:MM:SS`), integer cents,
+ * ISO currency, a description of at most 500 characters and the scan's `documentId`.
+ */
+@Serializable
+data class ExpenseFormRoute(
+    val vehicleId: String? = null,
+    val category: String? = null,
+    val date: String? = null,
+    val amountCents: Long? = null,
+    val currency: String? = null,
+    val description: String? = null,
+    val receiptDocumentId: String? = null,
+)
 
 /** New note, or edit [noteId]; [vehicleId] preselects the vehicle for a new one. */
 @Serializable data class NoteFormRoute(val noteId: String? = null, val vehicleId: String? = null)

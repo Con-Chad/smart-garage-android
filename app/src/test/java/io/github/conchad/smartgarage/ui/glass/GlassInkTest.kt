@@ -42,8 +42,10 @@ class GlassInkTest {
             // A grey: neutral-ish, clearly above near-black, clearly below mid-grey.
             assertThat(ink.luminance()).isGreaterThan(0.05f)
             assertThat(ink.luminance()).isLessThan(0.10f)
-            // 4.5:1 from the luminance where the ink first turns fully dark, and on the light theme's page.
-            assertThat((AdaptiveInk.BAND_HI + 0.05f) / (ink.luminance() + 0.05f)).isAtLeast(4.5f)
+            // D-A52: ≥ 3:1 where the ink first turns fully dark (the halo covers the rest up to 4.5:1), 4.5:1 from L 0.50,
+            // and on the light theme's page.
+            assertThat((AdaptiveInk.BAND_HI + 0.05f) / (ink.luminance() + 0.05f)).isAtLeast(3f)
+            assertThat((0.50f + 0.05f) / (ink.luminance() + 0.05f)).isAtLeast(4.5f)
         }
         assertThat(contrastRatio(LightGlassTokens.inkDark, LightGlassTokens.pageBackground)).isAtLeast(4.5f)
     }
