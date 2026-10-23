@@ -509,6 +509,13 @@
     <string name="form_date_clear">Clear %1$s</string>
     <string name="form_expanded">Expanded</string>
     <string name="form_collapsed">Collapsed</string>
+    <string name="form_suggestion_other">Other…</string>
+    <string name="form_suggestion_other_keep">Keep “%1$s”</string>
+    <string name="form_suggestion_other_description">Other: keep “%1$s” as typed</string>
+    <plurals name="form_suggestions_count">
+        <item quantity="one">%1$d suggestion</item>
+        <item quantity="other">%1$d suggestions</item>
+    </plurals>
 
     <string name="expense_form_title">Add expense</string>
     <string name="expense_form_needs_amount">Enter the amount.</string>

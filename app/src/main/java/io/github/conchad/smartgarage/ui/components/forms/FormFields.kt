@@ -447,7 +447,7 @@ fun FormSwitchRow(
     }
 }
 
-private fun supportingText(error: String?, supporting: String?): (@Composable () -> Unit)? = when {
+internal fun supportingText(error: String?, supporting: String?): (@Composable () -> Unit)? = when {
     error != null -> { { Text(error) } }
     supporting != null -> { { Text(supporting) } }
     else -> null

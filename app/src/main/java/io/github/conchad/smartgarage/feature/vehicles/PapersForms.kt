@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.feature.vehicles
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -35,6 +37,7 @@ import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.coverageLabel
+import io.github.conchad.smartgarage.ui.components.forms.FormAutocompleteField
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
 import io.github.conchad.smartgarage.ui.components.forms.FormEndSpacer
 import io.github.conchad.smartgarage.ui.components.forms.FormMoneyField
@@ -47,7 +50,9 @@ import io.github.conchad.smartgarage.ui.components.forms.FormSwitchRow
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.inspectionLabel
+import io.github.conchad.smartgarage.ui.links.InsuranceProviders
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
+import io.github.conchad.smartgarage.ui.links.rememberInsurerIcon
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.links.renewalCalendarEvent
 import io.github.conchad.smartgarage.ui.navigation.InspectionFormRoute
@@ -413,12 +418,16 @@ fun InsuranceFormScreen(onClose: () -> Unit, viewModel: InsuranceFormViewModel =
             Text(vehicle.displayName, style = MaterialTheme.typography.titleMedium)
             if (!vehicle.access.canEdit) ViewOnlyNote(vehicle.owner?.name)
         }
-        FormTextField(
+        // D-A50: suggests known insurers as the user types; any other name stays free text.
+        FormAutocompleteField(
             value = state.provider,
             onValueChange = viewModel::setProvider,
             label = stringResource(R.string.insurance_provider),
+            suggest = InsuranceProviders::suggest,
             capitalizeWords = true,
             error = if (state.providerTooLong) pluralStringResource(R.plurals.form_too_long, 120, 120) else null,
+            fallbackIcon = Icons.Outlined.Shield,
+            icon = { rememberInsurerIcon(it) },
         )
         val coverageLabels = COVERAGE_TYPES.associateWith { coverageLabel(it) }
         FormPicker(

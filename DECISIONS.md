@@ -1548,3 +1548,22 @@ App decisions use the `D-A` prefix.
     edge, and `AuroraLumaMap.holdY` makes content above a column's lightest band take the lightest row between it and
     the band (precomputed per map, 12 × 96). The held value only grows as text rises, so there is no jitter. Bar titles
     still ink by what is behind them. Screenrecord: "Vehicle details" stays dark grey all the way up and under the bar.
+- **D-A50 (2026-10-23) — Insurer autocomplete in the insurance form.**
+  - **List**: `ui/links/InsuranceProviders.names`, 62 built-in names (52 US incl. a generic "Farm Bureau" for the
+    state bureaus besides Texas Farm Bureau; 10 German: HUK-COBURG, Allianz, ERGO, DEVK, R+V, AXA, Generali, VHV,
+    Signal Iduna, HDI), brand-cased. It is the one list for suggestions; icons still come from
+    `InsuranceApps.packageFor` on the same name (a test checks every `InsuranceApps` entry resolves from a listed
+    name). No new packages/manifest `<queries>` were added, so icons show only for the 14 apps already in the table
+    and only when installed; others get the Shield glyph so names line up.
+  - **Filter** (`InsuranceProviders.suggest`, unit-tested): lower-case, punctuation folded to spaces, a leading
+    "The" ignored on both sides (but "the"/"t" alone still reach The General/Hanover/Hartford as word-start hits).
+    Tier 0 = the folded name starts with the query (also with spaces dropped: "rv" → R+V, "hukcoburg"); tier 1 =
+    a later word starts it ("farm" → State Farm). Alphabetical by folded name within a tier. Mid-word never matches.
+  - **UI**: new `FormAutocompleteField` (ui/components/forms/FormAutocomplete.kt): the field plus an inline glass
+    panel under it (in the form's column, so it scrolls with the form and is brought into view above the keyboard;
+    page colour at 94 % under the frosted fill, like the menus). ~6.5 rows (48 dp each, growing with font scale)
+    then scrolls; "Other… / Keep “typed”" pinned at the bottom keeps the free text. Opens while focused with
+    non-blank text and ≥ 1 match; closes on pick, Other, IME Done (field now uses Done, which also hides the
+    keyboard), Back, focus loss; typing reopens. Expand + fade on `Motion.gentleSpring`/`SHORT_MS`, none under
+    reduced motion. TalkBack: the panel is a pane titled "N suggestions" with collection info; rows are buttons.
+    Saved values not on the list load and save unchanged (the ViewModel still holds a plain string).
