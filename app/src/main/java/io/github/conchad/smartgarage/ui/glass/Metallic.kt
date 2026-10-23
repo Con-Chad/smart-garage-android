@@ -39,7 +39,7 @@ private val wipeEasing = CubicBezierEasing(0.5f, 0f, 0.18f, 1f)
 /**
  * Starts the sheen sweep for [content] (D-A24): the "Gradient Wipe" loop, a hold before the light arrives, then the
  * eased sweep. D-A38 slowed it: the sweep 2.95 → 3.25 s (+10 %) and the hold 0.65 → 1.51 s, so the time the band
- * is off the text between glints grows 3.18 → 4.29 s (+35 %); the loop is 4.76 s. Static when motion is reduced or the screen isn't resumed. The phase is derived from
+ * is off the text between glints grows 3.18 → 4.29 s (+35 %); the loop is 4.76 s. D-A47 (user): speed −40 % (sweep 3.25 → 5.41 s) and hold +50 % (1.51 → 2.27 s), loop 7.68 s. Static when motion is reduced or the screen isn't resumed. The phase is derived from
  * the shared ambient clock at up to 60 Hz (the reference CSS ran at that), so a 120 Hz panel repaints every title
  * half as often, and every title on the screen advances on the same tick.
  */
@@ -60,8 +60,8 @@ fun MetallicSheenHost(content: @Composable () -> Unit) {
 }
 
 private const val SHEEN_FRAME_MS = 16L
-private const val SHEEN_HOLD_MS = 1_510
-private const val SHEEN_SWEEP_MS = 3_247
+private const val SHEEN_HOLD_MS = 2_265
+private const val SHEEN_SWEEP_MS = 5_412
 private const val SHEEN_PERIOD_MS = SHEEN_HOLD_MS + SHEEN_SWEEP_MS
 private const val SHEEN_HOLD_END = 0.075f
 
