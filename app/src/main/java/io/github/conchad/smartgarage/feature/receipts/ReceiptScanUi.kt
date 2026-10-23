@@ -15,6 +15,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import io.github.conchad.smartgarage.ui.components.DetailSheet
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Image
@@ -80,7 +90,7 @@ fun rememberReceiptGallery(onPicked: (Uri) -> Unit, onUnavailable: () -> Unit): 
  * receipt" takes a new photo with the camera, "Pick from gallery" uses an existing one through the Photo Picker.
  * Both are outlined, 48 dp, side by side with equal width, with [hint] beneath. While the photo is being prepared
  * or read, both are disabled (a second tap can't start a second scan) and the hint line becomes a spinner with
- * "Reading the receipt…".
+ * "Reading the receipt…" ("…on this phone" while it is read on the device, D-A63).
  */
 @Composable
 fun ReceiptScanButtons(
@@ -89,6 +99,8 @@ fun ReceiptScanButtons(
     onCamera: () -> Unit,
     onGallery: () -> Unit,
     hint: String = stringResource(R.string.receipt_scan_fuel_hint_both),
+    /** The photo is being read on the phone (D-A63), not by the server: the progress line says so. */
+    onDevice: Boolean = false,
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -102,7 +114,7 @@ fun ReceiptScanButtons(
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = glass.sheen)
                 Text(
-                    stringResource(R.string.fuel_scan_in_progress),
+                    stringResource(if (onDevice) R.string.receipt_scan_reading_device else R.string.fuel_scan_in_progress),
                     style = MaterialTheme.typography.bodySmall,
                     color = glass.textSecondary,
                     modifier = Modifier.padding(start = 8.dp),
@@ -184,6 +196,7 @@ fun ScanReviewNote(review: ScanReview?, extra: String? = null) {
 private fun ScanField.labelRes(): Int = when (this) {
     ScanField.Date -> R.string.field_date
     ScanField.Volume -> R.string.fuel_volume
+    ScanField.Price -> R.string.receipt_field_price
     ScanField.Total -> R.string.fuel_form_total
     ScanField.Station -> R.string.fuel_station
     ScanField.Odometer -> R.string.field_odometer
@@ -219,4 +232,86 @@ fun ScanMessage.messageRes(): Int = when (this) {
     ScanMessage.FailedPhotoKept -> R.string.receipt_scan_failed_kept
     ScanMessage.NoCamera -> R.string.camera_unavailable
     ScanMessage.NoGallery -> R.string.receipt_scan_no_gallery
+    ScanMessage.NoText -> R.string.receipt_scan_no_text
+    ScanMessage.DeviceOutOfMemory -> R.string.receipt_scan_device_memory
+    ScanMessage.DeviceFailed -> R.string.receipt_scan_device_failed
+}
+
+/**
+ * The note after a receipt was read on the phone (D-A63): "Read on this phone. Check the values: …" naming every
+ * field it filled (nothing it read is trusted unchecked), the parser's warnings in words, then [extra]. Below it,
+ * "Show recognised text" opens a sheet with the lines it read; the sheet opens by itself when nothing could be used.
+ */
+@Composable
+fun DeviceReviewNote(review: DeviceReview, extra: String? = null) {
+    var showText by rememberSaveable(review) { mutableStateOf(review.nothingFilled && review.lines.isNotEmpty()) }
+    val fields = review.filled.map { stringResource(it.labelRes()) }.joinToString(", ")
+    val lines = buildList {
+        add(
+            when {
+                review.nothingFilled && review.serverTried -> stringResource(R.string.receipt_device_nothing_after_server)
+                review.nothingFilled -> stringResource(R.string.receipt_device_nothing)
+                review.serverTried -> stringResource(R.string.receipt_device_read_after_server, fields)
+                else -> stringResource(R.string.receipt_device_read, fields)
+            },
+        )
+        review.warnings.forEach { add(stringResource(it.messageRes())) }
+        extra?.let(::add)
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 4.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(Icons.Outlined.PhoneAndroid, contentDescription = null, tint = glass.sheen, modifier = Modifier.size(20.dp))
+            Text(
+                lines.joinToString("\n"),
+                style = MaterialTheme.typography.bodySmall,
+                color = glass.textSecondary,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+        if (review.lines.isNotEmpty()) {
+            TextButton(
+                onClick = { showText = true },
+                colors = glassTextButtonColors(),
+                modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(R.string.receipt_device_show_text))
+            }
+        }
+    }
+    if (showText) RecognisedTextSheet(review.lines, onDismiss = { showText = false })
+}
+
+/**
+ * The lines the phone recognised, top to bottom, selectable so a value can be copied into a field by hand. Kept
+ * free of the forms so the standalone text scanner can show its text the same way.
+ */
+@Composable
+fun RecognisedTextSheet(lines: List<String>, onDismiss: () -> Unit) {
+    DetailSheet(
+        icon = Icons.AutoMirrored.Outlined.TextSnippet,
+        title = stringResource(R.string.receipt_device_text_title),
+        subtitle = stringResource(R.string.receipt_device_text_subtitle),
+        onDismiss = onDismiss,
+    ) {
+        SelectionContainer {
+            Text(
+                lines.joinToString("\n"),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+        }
+    }
+}
+
+private fun DeviceWarning.messageRes(): Int = when (this) {
+    DeviceWarning.TotalUnlabelled -> R.string.receipt_device_warn_total_unlabelled
+    DeviceWarning.AmountsMismatch -> R.string.receipt_warn_amounts
+    DeviceWarning.PriceDerived -> R.string.receipt_device_warn_price_derived
+    DeviceWarning.FromGallons -> R.string.receipt_device_warn_gallons
+    DeviceWarning.DateAmbiguous -> R.string.receipt_device_warn_date_ambiguous
+    DeviceWarning.HardToRead -> R.string.receipt_device_warn_hard_to_read
+    DeviceWarning.FuelReceipt -> R.string.receipt_scan_is_fuel
 }

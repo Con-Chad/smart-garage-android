@@ -21,7 +21,15 @@ import io.github.conchad.smartgarage.core.network.ReceiptScanResponse
 import io.github.conchad.smartgarage.core.network.ReceiptScanResult
 import io.github.conchad.smartgarage.core.network.ReceiptScanner
 import io.github.conchad.smartgarage.core.network.documentIdOrNull
+import io.github.conchad.smartgarage.feature.receipts.DeviceReview
 import io.github.conchad.smartgarage.feature.receipts.ReceiptCapture
+import io.github.conchad.smartgarage.feature.receipts.ReceiptRead
+import io.github.conchad.smartgarage.feature.receipts.ReceiptReading
+import io.github.conchad.smartgarage.feature.receipts.ScanField
+import io.github.conchad.smartgarage.feature.receipts.deviceWarnings
+import io.github.conchad.smartgarage.feature.receipts.fillField
+import io.github.conchad.smartgarage.feature.receipts.message
+import io.github.conchad.smartgarage.feature.receipts.ocr.DeviceRead
 import io.github.conchad.smartgarage.feature.receipts.ScanMessage
 import io.github.conchad.smartgarage.feature.receipts.ScanReview
 import io.github.conchad.smartgarage.feature.receipts.fuelMessage
@@ -39,6 +47,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
@@ -72,10 +81,15 @@ data class FuelFormState(
     val lastEntry: FuelEntry? = null,
     /** Settings → Fuel → Track fuel economy (D-A25): off hides the odometer field and sends no reading. */
     val trackOdometer: Boolean = true,
-    /** `ServerFeatures.scansFuel` of the active server (D-A27, D-A53): false hides "Scan receipt" altogether. */
+    /**
+     * `ServerFeatures.scansFuel` of the active server (D-A27, D-A53): the photo goes to the server first. Without it
+     * the scan buttons still show and the photo is read on the phone (D-A63).
+     */
     val scannerAvailable: Boolean = false,
-    /** The photo is being downscaled or is at the server. */
+    /** The photo is being downscaled, is at the server or is being read on the phone. */
     val scanning: Boolean = false,
+    /** The scan has moved on to the phone (D-A63); the progress line says so. */
+    val readingOnDevice: Boolean = false,
     /** The last receipt photo taken, kept in `cache/captures/` like the document form's (D-A23) for a later attach. */
     val receiptPhoto: PickedFile? = null,
     /** `documentId` the scan saved the photo as (also after a 502), sent as `receiptDocumentId` (D-A53). */
@@ -86,6 +100,10 @@ data class FuelFormState(
     val receiptCurrency: String? = null,
     /** Fields to check and warnings from the last scan, shown as a short note (D-A53). */
     val scanReview: ScanReview? = null,
+    /** The note after a receipt read on the phone (D-A63); replaces [scanReview] then. */
+    val deviceReview: DeviceReview? = null,
+    /** Fields the user typed in; a phone read leaves those alone unless they are empty (D-A63). */
+    val typed: Set<ScanField> = emptySet(),
     val scanMessage: ScanMessage? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
@@ -113,8 +131,8 @@ data class FuelFormState(
     val canSave: Boolean
         get() = canEdit && totalCents != null && !odometerInvalid && !volumeInvalid && !priceInvalid && !totalInvalid && !saving && !scanning
 
-    /** The button shows only when the server offers the scan and this user may write to the vehicle. */
-    val canScan: Boolean get() = scannerAvailable && canEdit && !saving
+    /** Scanning needs write access; with or without the server's scanner (D-A63). */
+    val canScan: Boolean get() = canEdit && !saving
 
     /** The receipt's currency when it differs from the one the form shows amounts in. */
     val foreignCurrency: String? get() = receiptCurrency?.takeIf { !it.equals(formatter.currencyCode, ignoreCase = true) }
@@ -165,6 +183,58 @@ fun FuelFormState.withFuelDraft(response: ReceiptScanResponse): FuelFormState {
     )
 }
 
+/**
+ * The form with a receipt read on the phone (D-A63): date (and printed time), volume, total, price per unit,
+ * station (the vendor line), currency; grade and address go into the note. Unlike [withFuelDraft], a field the user
+ * typed in keeps its text unless it is empty; the last price and today's date prefilled by the form don't count as
+ * typed. When the receipt printed no price, volume × price = total is restored from what is on the form.
+ */
+fun FuelFormState.withDeviceRead(read: DeviceRead.Text, serverTried: Boolean): FuelFormState {
+    val p = read.receipt
+    val fmt = formatter
+    val filled = mutableListOf<ScanField>()
+    val newDate = p.date?.takeIf { ScanField.Date !in typed }?.also { filled += ScanField.Date }
+    val volume = fillField(ScanField.Volume, volume, p.volumeLiters, typed, filled, fmt::volumeInput)
+    val price = fillField(ScanField.Price, price, p.pricePerLiterCents, typed, filled) { fmt.inputNumber(fmt.displayUnitPrice(it), 3) }
+    val total = fillField(ScanField.Total, total, p.totalCents, typed, filled, fmt::moneyInput)
+    val station = fillField(ScanField.Station, station, p.vendor?.trim()?.ifEmpty { null }, typed, filled) { it }
+    val extras = listOfNotNull(p.fuelGrade, p.address).map { it.trim() }.filter { it.isNotEmpty() && !notes.contains(it) }
+    val next = copy(
+        date = newDate ?: date,
+        receiptTime = newDate?.let { d -> p.time?.let { d.atTime(it) } } ?: receiptTime.takeIf { newDate == null },
+        volume = volume,
+        price = price,
+        total = total,
+        lastMoney = if (ScanField.Total in filled) MoneyField.Total else lastMoney,
+        station = station,
+        notes = (listOf(notes.trim()).filter { it.isNotEmpty() } + extras).joinToString("\n"),
+        receiptCurrency = p.currency ?: receiptCurrency,
+        scanReview = null,
+        deviceReview = DeviceReview(filled, deviceWarnings(p, filled, fuelForm = true), read.lines, serverTried),
+        dirty = dirty || filled.isNotEmpty() || extras.isNotEmpty(),
+    )
+    return if (ScanField.Price in filled) next else next.recompute(changed = null)
+}
+
+/**
+ * Keeps volume × price = total. After a money field changes, the other money field follows when the volume is
+ * known; otherwise the volume follows (the web's quick add: amount ÷ price). After a volume change, the money
+ * field the user touched last stays and the other is recomputed.
+ */
+internal fun FuelFormState.recompute(changed: MoneyField?): FuelFormState {
+    val fmt = formatter
+    val v = fmt.parseNumber(volume)
+    val p = fmt.parseNumber(price)
+    val t = fmt.parseNumber(total)
+    val keep = changed ?: lastMoney
+    return when {
+        keep == MoneyField.Price && v != null && p != null -> copy(total = fmt.inputNumber(v * p, 2, minFraction = 2))
+        keep == MoneyField.Total && v != null && t != null && v > 0 -> copy(price = fmt.inputNumber(t / v, 3))
+        changed != null && v == null && p != null && t != null && p > 0 && volume.isBlank() -> copy(volume = fmt.inputNumber(t / p, 2))
+        else -> this
+    }
+}
+
 @HiltViewModel
 class FuelFormViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -174,6 +244,7 @@ class FuelFormViewModel @Inject constructor(
     control: SyncControl,
     writer: GarageWriter,
     private val scanner: ReceiptScanner,
+    private val reading: ReceiptReading,
     @ApplicationContext private val context: Context,
 ) : WritingViewModel(control, writer) {
     private val route = savedStateHandle.toRoute<FuelEntryRoute>()
@@ -224,40 +295,21 @@ class FuelFormViewModel @Inject constructor(
         }
     }
 
-    fun setDate(date: LocalDate) = form.update { it.copy(date = date, dirty = true) }
+    fun setDate(date: LocalDate) = form.update { it.copy(date = date, typed = it.typed + ScanField.Date, dirty = true) }
     fun setOdometer(text: String) = form.update { it.copy(odometer = text, dirty = true) }
-    fun setStation(text: String) = form.update { it.copy(station = text, dirty = true) }
+    fun setStation(text: String) = form.update { it.copy(station = text, typed = it.typed + ScanField.Station, dirty = true) }
     fun setNotes(text: String) = form.update { it.copy(notes = text, dirty = true) }
 
     fun setVolume(text: String) = form.update { s ->
-        s.copy(volume = text, dirty = true).recompute(changed = null)
+        s.copy(volume = text, typed = s.typed + ScanField.Volume, dirty = true).recompute(changed = null)
     }
 
     fun setPrice(text: String) = form.update { s ->
-        s.copy(price = text, lastMoney = MoneyField.Price, dirty = true).recompute(changed = MoneyField.Price)
+        s.copy(price = text, lastMoney = MoneyField.Price, typed = s.typed + ScanField.Price, dirty = true).recompute(changed = MoneyField.Price)
     }
 
     fun setTotal(text: String) = form.update { s ->
-        s.copy(total = text, lastMoney = MoneyField.Total, dirty = true).recompute(changed = MoneyField.Total)
-    }
-
-    /**
-     * Keeps volume × price = total. After a money field changes, the other money field follows when the volume is
-     * known; otherwise the volume follows (the web's quick add: amount ÷ price). After a volume change, the money
-     * field the user touched last stays and the other is recomputed.
-     */
-    private fun FuelFormState.recompute(changed: MoneyField?): FuelFormState {
-        val fmt = formatter
-        val v = fmt.parseNumber(volume)
-        val p = fmt.parseNumber(price)
-        val t = fmt.parseNumber(total)
-        val keep = changed ?: lastMoney
-        return when {
-            keep == MoneyField.Price && v != null && p != null -> copy(total = fmt.inputNumber(v * p, 2, minFraction = 2))
-            keep == MoneyField.Total && v != null && t != null && v > 0 -> copy(price = fmt.inputNumber(t / v, 3))
-            changed != null && v == null && p != null && t != null && p > 0 && volume.isBlank() -> copy(volume = fmt.inputNumber(t / p, 2))
-            else -> this
-        }
+        s.copy(total = text, lastMoney = MoneyField.Total, typed = s.typed + ScanField.Total, dirty = true).recompute(changed = MoneyField.Total)
     }
 
     /** Queues the fill-up; the screen confirms an odometer regression first (see [FuelFormState.odometerBelowCurrent]). */
@@ -277,7 +329,10 @@ class FuelFormViewModel @Inject constructor(
     /** A fresh target for `TakePicture`. */
     fun startScan(): Uri = capture.start()
 
-    /** The camera came back: downscale the photo, send it to the [ReceiptScanner] and fill the form from the draft. */
+    /**
+     * The camera came back: downscale the photo, send it to the [ReceiptScanner] and fill the form from the draft;
+     * read it on the phone instead when the server can't (D-A63).
+     */
     fun captured(success: Boolean) {
         val file = capture.taken(success) ?: return
         scan { file }
@@ -299,13 +354,23 @@ class FuelFormViewModel @Inject constructor(
             }
             // The previous photo makes way for this one; the form keeps at most one.
             form.value.receiptPhoto?.let { capture.fileOf(it)?.takeIf { f -> f != file }?.delete() }
-            val result = scanner.scan(vehicleId, file)
+            val read = reading.read(form.value.scannerAvailable, file, onDevice = { form.update { it.copy(readingOnDevice = true) } }) {
+                scanner.scan(vehicleId, it)
+            }
+            ensureActive()
             form.update { s ->
-                val scanned = s.copy(scanning = false, receiptPhoto = photo, scanMessage = result.fuelMessage())
-                when (result) {
-                    is ReceiptScanResult.Success -> scanned.withFuelDraft(result.response)
-                    // A 502 still saved the photo: keep its id so it is attached to the manual entry.
-                    else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
+                val base = s.copy(scanning = false, readingOnDevice = false, receiptPhoto = photo, deviceReview = null)
+                when (read) {
+                    is ReceiptRead.Server -> read.result.let { result ->
+                        val scanned = base.copy(scanMessage = result.fuelMessage())
+                        when (result) {
+                            is ReceiptScanResult.Success -> scanned.withFuelDraft(result.response)
+                            else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
+                        }
+                    }
+                    // A 502 still saved the photo: keep its id so it is attached to the entry.
+                    is ReceiptRead.OnDevice -> base.copy(receiptDocumentId = read.serverDocumentId, scanReview = null, scanMessage = read.read.message())
+                        .let { if (read.read is DeviceRead.Text && !read.read.noText) it.withDeviceRead(read.read, read.serverTried) else it }
                 }
             }
         }
@@ -314,7 +379,7 @@ class FuelFormViewModel @Inject constructor(
     /** Drops the kept photo (and its file) from the form; the entry is then saved without a receipt. */
     fun removeReceiptPhoto() {
         form.value.receiptPhoto?.let { capture.fileOf(it)?.delete() }
-        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null) }
+        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null, deviceReview = null) }
     }
 
     fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }

@@ -34,10 +34,18 @@ enum class ScanMessage {
     NoCamera,
     /** Neither the Photo Picker nor a document picker is available (D-A56). */
     NoGallery,
+    /** Read on the phone (D-A63): the photo has no text it could find. */
+    NoText,
+    DeviceOutOfMemory,
+    /** The phone's text recognition failed (a damaged model or ONNX Runtime error). */
+    DeviceFailed,
 }
 
-/** A form field the model read with confidence below [LOW_CONFIDENCE], so the user should look at it. */
-enum class ScanField { Date, Volume, Total, Station, Odometer, Vendor, ServiceType }
+/**
+ * A form field the model read with confidence below [LOW_CONFIDENCE], so the user should look at it; also a field a
+ * phone read filled, and a field the user typed in (D-A63).
+ */
+enum class ScanField { Date, Volume, Price, Total, Station, Odometer, Vendor, ServiceType }
 
 /** The contract's warning codes, folded into what the user can act on. */
 enum class ScanWarning {

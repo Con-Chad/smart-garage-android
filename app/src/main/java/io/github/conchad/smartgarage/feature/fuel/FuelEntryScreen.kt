@@ -35,6 +35,7 @@ import io.github.conchad.smartgarage.ui.components.forms.FormTextField
 import io.github.conchad.smartgarage.ui.components.forms.FormVolumeField
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
+import io.github.conchad.smartgarage.feature.receipts.DeviceReviewNote
 import io.github.conchad.smartgarage.feature.receipts.ReceiptScanButtons
 import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
 import io.github.conchad.smartgarage.feature.receipts.messageRes
@@ -73,14 +74,12 @@ fun FuelEntryScreen(
             viewModel.clearScanMessage()
         }
     }
-    val scanUnavailable = stringResource(R.string.fuel_scan_unavailable)
     val viewOnly = stringResource(R.string.view_only)
     LaunchedEffect(state.loaded) {
         if (!scanPending || !state.loaded) return@LaunchedEffect
         scanPending = false
         when {
             state.canScan -> if (scanFromGallery) pickPhoto() else launchScan()
-            !state.scannerAvailable -> snackbar.showSnackbar(scanUnavailable)
             else -> snackbar.showSnackbar(viewOnly)
         }
     }
@@ -119,11 +118,18 @@ fun FuelEntryScreen(
             placeholder = stringResource(R.string.form_no_editable_vehicles).takeIf { state.vehicles.isEmpty() },
         )
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
-        // Only servers that list the "fuel" scan get the button (D-A53); elsewhere the form is unchanged.
-        if (state.scannerAvailable && state.canEdit) {
-            ReceiptScanButtons(scanning = state.scanning, enabled = state.canScan, onCamera = launchScan, onGallery = pickPhoto)
+        // Always offered (D-A63): the server's scanner when it lists "fuel" (D-A53), else the phone reads the photo.
+        if (state.canEdit) {
+            ReceiptScanButtons(
+                scanning = state.scanning,
+                enabled = state.canScan,
+                onCamera = launchScan,
+                onGallery = pickPhoto,
+                onDevice = state.readingOnDevice,
+            )
             state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
-            ScanReviewNote(state.scanReview, extra = state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) })
+            val currency = state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) }
+            state.deviceReview?.let { DeviceReviewNote(it, extra = currency) } ?: ScanReviewNote(state.scanReview, extra = currency)
         }
 
         FormDateField(

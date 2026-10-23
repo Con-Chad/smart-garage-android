@@ -445,6 +445,24 @@
     <string name="receipt_scan_no_gallery">No photo picker is available on this phone.</string>
     <string name="receipt_scan_save_as_record">Log as service record instead</string>
     <string name="receipt_warn_suggest_record">This looks like a workshop service; you can log it as a service record instead.</string>
+    <!-- On-device receipt reading, the fallback when the server can't scan (D-A63). -->
+    <string name="receipt_field_price">Price per unit</string>
+    <string name="receipt_scan_reading_device">Reading the receipt on this phone…</string>
+    <string name="receipt_device_read">Read on this phone. Check the values: %1$s.</string>
+    <string name="receipt_device_read_after_server">The server couldn\'t read it, so this phone did. Check the values: %1$s.</string>
+    <string name="receipt_device_nothing">This phone read the photo but found nothing to fill in.</string>
+    <string name="receipt_device_nothing_after_server">The server couldn\'t read it, and this phone found nothing to fill in.</string>
+    <string name="receipt_device_show_text">Show recognised text</string>
+    <string name="receipt_device_text_title">Text on the photo</string>
+    <string name="receipt_device_text_subtitle">Read on this phone. Long-press to copy.</string>
+    <string name="receipt_device_warn_total_unlabelled">No total was labelled; the largest amount was taken.</string>
+    <string name="receipt_device_warn_price_derived">The price per unit was worked out from total and volume.</string>
+    <string name="receipt_device_warn_gallons">The receipt was in US gallons and has been converted.</string>
+    <string name="receipt_device_warn_date_ambiguous">The date can be read two ways; check day and month.</string>
+    <string name="receipt_device_warn_hard_to_read">Much of the photo was hard to read; check every value.</string>
+    <string name="receipt_scan_no_text">No text found on the photo. Try again with a sharper, well-lit shot.</string>
+    <string name="receipt_scan_device_memory">Not enough memory to read the photo. Fill in the form by hand.</string>
+    <string name="receipt_scan_device_failed">Text recognition on this phone failed. Fill in the form by hand.</string>
     <string name="fuel_delete_title">Delete this fill-up?</string>
     <string name="fuel_delete_body">The entry is removed from this vehicle\'s fuel history. This can\'t be undone.</string>
     <string name="odometer_form_title">Update odometer</string>

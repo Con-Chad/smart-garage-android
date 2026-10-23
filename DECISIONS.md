@@ -1799,3 +1799,41 @@ App decisions use the `D-A` prefix.
   - The session (pages, corners, turns, filter, name, open page) is written to the form's `SavedStateHandle`
     (`ScanSession.encode`), so a multi-page scan survives the process being killed behind the camera app.
   - Tests: `ScanGeometryTest`, `ScanFiltersTest`, `JpegPdfTest`, `ScanSessionTest`.
+- **D-A63 (2026-10-23) — Receipt scan always offered: the server's AI scanner first, the phone's own OCR as fallback;
+  native libs stored compressed.** User-approved (CP7 of the on-device OCR plan). Built, unit-tested and linted; the
+  :ocr smoke tests pass on the Pixel, the form flow itself not yet tried there.
+  - **Buttons always visible**: "Scan receipt" / "Pick from gallery" now show on the fill-up form, on new service
+    records and on the expense form for anyone who may write to the vehicle, whatever `/me.features` says.
+    `ServerFeatures.scansFuel` / `scansService` now only decide whether the server is asked first. The Home fan's
+    scan petal no longer says "not available on this server".
+  - **Order** (`ReceiptReading`, `feature/receipts/ReceiptReading.kt`): with the server's scanner on, the photo goes
+    there as before (D-A53, D-A56); any failure except 403 (view-only) — off/404, unreachable, 401, 413/415, 429, 502,
+    malformed — is retried on the phone with the **same** downscaled photo (no second capture). A successful answer
+    is final, also "not a receipt" (the model reads better than the phone). A 502's saved `documentId` stays on the
+    entry. With the scanner off, the phone reads straight away. The progress line says "Reading the receipt on this
+    phone…" once it moves to the phone.
+  - **On the phone** (`OcrReceiptTextReader`, bound in `di/OcrModule.kt`): `OcrEngine.recognize(uri)` →
+    `toOcrLines()` (reading order, box centre and height so labels pair with right-hand amounts) →
+    `ReceiptTextParser.parse(lines, Locale.getDefault())`. The decoded bitmap is recycled at once; only the text is
+    kept. Runs in `viewModelScope`, so leaving the form cancels it (the engine stops the inference).
+  - **Filling** (`withDeviceRead` on each form state): only fields that are empty or that the user hasn't typed in
+    (`typed`, set by the field setters) are filled; prefills (today's date, the last price, the current reading)
+    count as untyped. Unlike the server path, nothing typed is overwritten. Fuel: date (+ printed time for
+    `filledAt`), volume (`volumeInput`, litres stored; gallons shown when the display says so), price per unit
+    (`displayUnitPrice`), total (integer cents), station (vendor line), currency; grade and address appended to the
+    note; with no printed price, volume × price = total is restored from the form (`recompute`, now top-level).
+    Service record: date/time, total cost, vendor, currency (schedule, parts, odometer untouched). Expense:
+    date/time, amount, currency, vendor appended to the description, category Fuel for a fuel receipt unless the
+    user picked one.
+  - **Review** (`DeviceReviewNote`): "Read on this phone. Check the values: Date, Volume, …" (every field it filled;
+    "The server couldn't read it, so this phone did…" after a server failure), then the parser's warnings that apply
+    to what was filled (no total label, amounts don't add up, price worked out, US gallons converted, date ambiguous,
+    hard to read; "that's a fuel receipt" on the service form). "Show recognised text" opens `RecognisedTextSheet`
+    (selectable lines in a `DetailSheet`); it opens by itself when text was found but nothing could be filled.
+  - **Errors** as snackbars: no text → "No text found on the photo…", unreadable image → the existing "photo couldn't
+    be used", out of memory / model or ONNX failure → "fill in the form by hand"; a cancelled read says nothing.
+  - **APK**: `packaging.jniLibs.useLegacyPackaging = true` (user's choice): `libonnxruntime.so` is deflated in the
+    APK (34.2 MB → 12.9 MB) and extracted at install (`extractNativeLibs="true"` in the merged manifest). Release APK
+    59,652,162 → 38,216,506 bytes, at the cost of the extracted copy on the phone.
+  - Not done here: the standalone "Scan text" tool (CP8); `RecognisedTextSheet` and `OcrReceiptTextReader` /
+    `toOcrLines` are written to be reused there. Tests: `DeviceReadTest`.

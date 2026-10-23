@@ -434,6 +434,24 @@
     <string name="receipt_scan_no_gallery">Auf diesem Telefon ist keine Fotoauswahl verfügbar.</string>
     <string name="receipt_scan_save_as_record">Stattdessen als Wartung eintragen</string>
     <string name="receipt_warn_suggest_record">Das sieht nach einer Werkstattleistung aus; du kannst es stattdessen als Wartung eintragen.</string>
+    <!-- On-device receipt reading, the fallback when the server can't scan (D-A63). -->
+    <string name="receipt_field_price">Preis pro Einheit</string>
+    <string name="receipt_scan_reading_device">Beleg wird auf diesem Telefon gelesen…</string>
+    <string name="receipt_device_read">Auf diesem Telefon gelesen. Bitte prüfen: %1$s.</string>
+    <string name="receipt_device_read_after_server">Der Server konnte ihn nicht lesen, deshalb hat dieses Telefon ihn gelesen. Bitte prüfen: %1$s.</string>
+    <string name="receipt_device_nothing">Dieses Telefon hat das Foto gelesen, aber nichts zum Ausfüllen gefunden.</string>
+    <string name="receipt_device_nothing_after_server">Der Server konnte ihn nicht lesen, und dieses Telefon hat nichts zum Ausfüllen gefunden.</string>
+    <string name="receipt_device_show_text">Erkannten Text zeigen</string>
+    <string name="receipt_device_text_title">Text auf dem Foto</string>
+    <string name="receipt_device_text_subtitle">Auf diesem Telefon gelesen. Lange drücken zum Kopieren.</string>
+    <string name="receipt_device_warn_total_unlabelled">Keine Summe beschriftet; der größte Betrag wurde genommen.</string>
+    <string name="receipt_device_warn_price_derived">Der Preis pro Einheit wurde aus Summe und Menge berechnet.</string>
+    <string name="receipt_device_warn_gallons">Der Beleg war in US-Gallonen und wurde umgerechnet.</string>
+    <string name="receipt_device_warn_date_ambiguous">Das Datum ist mehrdeutig; prüfe Tag und Monat.</string>
+    <string name="receipt_device_warn_hard_to_read">Vieles auf dem Foto war schwer zu lesen; prüfe bitte alle Werte.</string>
+    <string name="receipt_scan_no_text">Kein Text auf dem Foto gefunden. Versuche es mit einer schärferen, gut beleuchteten Aufnahme.</string>
+    <string name="receipt_scan_device_memory">Nicht genug Speicher, um das Foto zu lesen. Fülle das Formular von Hand aus.</string>
+    <string name="receipt_scan_device_failed">Die Texterkennung auf diesem Telefon ist fehlgeschlagen. Fülle das Formular von Hand aus.</string>
     <string name="fuel_delete_title">Diesen Tankvorgang löschen?</string>
     <string name="fuel_delete_body">Der Eintrag wird aus dem Tankverlauf des Fahrzeugs entfernt. Das lässt sich nicht rückgängig machen.</string>
     <string name="odometer_form_title">Kilometerstand aktualisieren</string>

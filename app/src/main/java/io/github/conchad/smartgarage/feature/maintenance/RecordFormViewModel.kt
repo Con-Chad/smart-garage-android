@@ -24,7 +24,15 @@ import io.github.conchad.smartgarage.core.network.ReceiptScanResult
 import io.github.conchad.smartgarage.core.network.ReceiptScanner
 import io.github.conchad.smartgarage.core.network.ServiceReceiptScanResponse
 import io.github.conchad.smartgarage.core.network.documentIdOrNull
+import io.github.conchad.smartgarage.feature.receipts.DeviceReview
 import io.github.conchad.smartgarage.feature.receipts.ReceiptCapture
+import io.github.conchad.smartgarage.feature.receipts.ReceiptRead
+import io.github.conchad.smartgarage.feature.receipts.ReceiptReading
+import io.github.conchad.smartgarage.feature.receipts.ScanField
+import io.github.conchad.smartgarage.feature.receipts.deviceWarnings
+import io.github.conchad.smartgarage.feature.receipts.fillField
+import io.github.conchad.smartgarage.feature.receipts.message
+import io.github.conchad.smartgarage.feature.receipts.ocr.DeviceRead
 import io.github.conchad.smartgarage.feature.receipts.ScanMessage
 import io.github.conchad.smartgarage.feature.receipts.ScanReview
 import io.github.conchad.smartgarage.feature.receipts.decodeScanHandoff
@@ -45,6 +53,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
@@ -109,9 +118,14 @@ data class RecordFormState(
     val items: List<ItemDraft> = emptyList(),
     val saveAsDefault: Boolean = false,
     val currentOdometerKm: Int? = null,
-    /** `/me.features.receiptScannerKinds` contains `service` (D-A53): shows "Scan receipt" on a new record. */
+    /**
+     * `/me.features.receiptScannerKinds` contains `service` (D-A53): the photo goes to the server first; without it
+     * the photo is read on the phone (D-A63). "Scan receipt" shows on every new record either way.
+     */
     val scannerAvailable: Boolean = false,
     val scanning: Boolean = false,
+    /** The scan has moved on to the phone (D-A63). */
+    val readingOnDevice: Boolean = false,
     val receiptPhoto: PickedFile? = null,
     /** `documentId` the scan saved the invoice as (also after a 502), sent as `receiptDocumentId`. */
     val receiptDocumentId: String? = null,
@@ -119,6 +133,10 @@ data class RecordFormState(
     val receiptTime: LocalDateTime? = null,
     val receiptCurrency: String? = null,
     val scanReview: ScanReview? = null,
+    /** The note after an invoice read on the phone (D-A63); replaces [scanReview] then. */
+    val deviceReview: DeviceReview? = null,
+    /** Fields the user typed in; a phone read leaves those alone unless they are empty (D-A63). */
+    val typed: Set<ScanField> = emptySet(),
     /** Other service types the invoice covers, besides the selected schedule's (names as the server gave them). */
     val alsoCovers: List<String> = emptyList(),
     /** The same invoice as an expense, for "Save as expense instead" (the scan's `suggestedTarget` may say so). */
@@ -148,7 +166,7 @@ data class RecordFormState(
     val canSave: Boolean get() = canEdit && scheduleId != null && !odometerInvalid && !costInvalid && !itemsInvalid && !saving && !scanning
 
     /** Only a new record can be scanned into, and only for a chosen vehicle the user may write to. */
-    val canScan: Boolean get() = scannerAvailable && !editing && vehicleId != null && canEdit && !saving
+    val canScan: Boolean get() = !editing && vehicleId != null && canEdit && !saving
 
     val foreignCurrency: String? get() = receiptCurrency?.takeIf { !it.equals(formatter.currencyCode, ignoreCase = true) }
 
@@ -246,6 +264,29 @@ fun RecordFormState.withServiceDraft(response: ServiceReceiptScanResponse, nextK
     )
 }
 
+/**
+ * The form with an invoice read on the phone (D-A63): date (and printed time), total cost, vendor and currency, the
+ * fields a plain text read can find; schedule, parts and odometer stay as they are. A field the user typed in keeps
+ * its text unless it is empty; the prefilled odometer and today's date don't count as typed.
+ */
+fun RecordFormState.withDeviceRead(read: DeviceRead.Text, serverTried: Boolean): RecordFormState {
+    val p = read.receipt
+    val filled = mutableListOf<ScanField>()
+    val newDate = p.date?.takeIf { ScanField.Date !in typed }?.also { filled += ScanField.Date }
+    val cost = fillField(ScanField.Total, cost, p.totalCents, typed, filled, formatter::moneyInput)
+    val vendor = fillField(ScanField.Vendor, vendor, p.vendor?.trim()?.ifEmpty { null }, typed, filled) { it }
+    return copy(
+        date = newDate ?: date,
+        receiptTime = newDate?.let { d -> p.time?.let { d.atTime(it) } } ?: receiptTime.takeIf { newDate == null },
+        cost = cost,
+        vendor = vendor,
+        receiptCurrency = p.currency ?: receiptCurrency,
+        scanReview = null,
+        deviceReview = DeviceReview(filled, deviceWarnings(p, filled, fuelForm = false), read.lines, serverTried),
+        dirty = dirty || filled.isNotEmpty(),
+    )
+}
+
 @HiltViewModel
 class RecordFormViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -254,6 +295,7 @@ class RecordFormViewModel @Inject constructor(
     writer: GarageWriter,
     profiles: ProfileStore,
     private val scanner: ReceiptScanner,
+    private val reading: ReceiptReading,
     @ApplicationContext context: Context,
 ) : WritingViewModel(control, writer) {
     private val route = savedStateHandle.toRoute<RecordFormRoute>()
@@ -338,10 +380,10 @@ class RecordFormViewModel @Inject constructor(
         s.copy(scheduleId = id, items = option.schedule.itemDefaults.map { ItemDraft.of(it, nextKey++, s.formatter) }, dirty = true)
     }
 
-    fun setDate(date: LocalDate) = form.update { it.copy(date = date, dirty = true) }
+    fun setDate(date: LocalDate) = form.update { it.copy(date = date, typed = it.typed + ScanField.Date, dirty = true) }
     fun setOdometer(text: String) = form.update { it.copy(odometer = text, dirty = true) }
-    fun setCost(text: String) = form.update { it.copy(cost = text, dirty = true) }
-    fun setVendor(text: String) = form.update { it.copy(vendor = text, dirty = true) }
+    fun setCost(text: String) = form.update { it.copy(cost = text, typed = it.typed + ScanField.Total, dirty = true) }
+    fun setVendor(text: String) = form.update { it.copy(vendor = text, typed = it.typed + ScanField.Vendor, dirty = true) }
     fun setNotes(text: String) = form.update { it.copy(notes = text, dirty = true) }
     fun setSaveAsDefault(on: Boolean) = form.update { it.copy(saveAsDefault = on, dirty = true) }
 
@@ -389,15 +431,27 @@ class RecordFormViewModel @Inject constructor(
                 return@launch
             }
             form.value.receiptPhoto?.let { capture.fileOf(it)?.takeIf { f -> f != file }?.delete() }
-            val result = scanner.scanService(vehicleId, file)
+            val read = reading.read(form.value.scannerAvailable, file, onDevice = { form.update { it.copy(readingOnDevice = true) } }) {
+                scanner.scanService(vehicleId, it)
+            }
+            ensureActive()
             form.update { s ->
-                val scanned = s.copy(scanning = false, receiptPhoto = photo, scanMessage = result.serviceMessage())
-                when {
-                    // A fuel receipt doesn't belong on a service record; the photo stays unlinked on the server.
-                    result is ReceiptScanResult.Success && "fuel_receipt" in result.response.warnings ->
-                        scanned.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null).also { capture.fileOf(photo)?.delete() }
-                    result is ReceiptScanResult.Success -> scanned.withServiceDraft(result.response) { nextKey++ }
-                    else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
+                val base = s.copy(scanning = false, readingOnDevice = false, receiptPhoto = photo, deviceReview = null)
+                when (read) {
+                    is ReceiptRead.Server -> {
+                        val result = read.result
+                        val scanned = base.copy(scanMessage = result.serviceMessage())
+                        when {
+                            // A fuel receipt doesn't belong on a service record; the photo stays unlinked on the server.
+                            result is ReceiptScanResult.Success && "fuel_receipt" in result.response.warnings ->
+                                scanned.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null).also { capture.fileOf(photo)?.delete() }
+                            result is ReceiptScanResult.Success -> scanned.withServiceDraft(result.response) { nextKey++ }
+                            else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
+                        }
+                    }
+                    // Read on the phone (D-A63); a 502's saved photo stays attached.
+                    is ReceiptRead.OnDevice -> base.copy(receiptDocumentId = read.serverDocumentId, scanReview = null, scanMessage = read.read.message())
+                        .let { if (read.read is DeviceRead.Text && !read.read.noText) it.withDeviceRead(read.read, read.serverTried) else it }
                 }
             }
         }
@@ -405,7 +459,7 @@ class RecordFormViewModel @Inject constructor(
 
     fun removeReceiptPhoto() {
         form.value.receiptPhoto?.let { capture.fileOf(it)?.delete() }
-        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null, expenseHandoff = null, alsoCovers = emptyList()) }
+        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null, deviceReview = null, expenseHandoff = null, alsoCovers = emptyList()) }
     }
 
     fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }

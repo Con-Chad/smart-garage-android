@@ -55,6 +55,7 @@ import io.github.conchad.smartgarage.ui.components.unitLabel
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
+import io.github.conchad.smartgarage.feature.receipts.DeviceReviewNote
 import io.github.conchad.smartgarage.feature.receipts.ReceiptScanButtons
 import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
 import io.github.conchad.smartgarage.feature.receipts.messageRes
@@ -123,14 +124,15 @@ fun RecordFormScreen(
             placeholder = stringResource(R.string.form_no_editable_vehicles).takeIf { state.vehicles.isEmpty() },
         )
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
-        // Only servers that list the "service" scan get the button, and only on a new record (D-A53).
-        if (state.scannerAvailable && !state.editing && state.canEdit) {
+        // On every new record (D-A53): the server's scanner when it lists "service", else the phone reads it (D-A63).
+        if (!state.editing && state.canEdit) {
             ReceiptScanButtons(
                 scanning = state.scanning,
                 enabled = state.canScan,
                 onCamera = launchScan,
                 onGallery = pickPhoto,
                 hint = stringResource(R.string.receipt_scan_service_hint_both),
+                onDevice = state.readingOnDevice,
             )
             state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
             val extra = listOfNotNull(
@@ -139,7 +141,7 @@ fun RecordFormScreen(
                 state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) },
                 state.alsoCovers.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.receipt_scan_also_covers, it.joinToString(", ")) },
             ).joinToString("\n").ifEmpty { null }
-            ScanReviewNote(state.scanReview, extra = extra)
+            state.deviceReview?.let { DeviceReviewNote(it, extra = extra) } ?: ScanReviewNote(state.scanReview, extra = extra)
             val handoff = state.expenseHandoff
             if (handoff != null && onOpenExpense != null) {
                 TextButton(onClick = { onOpenExpense(handoff) }, colors = glassTextButtonColors(), modifier = Modifier.align(Alignment.End)) {
