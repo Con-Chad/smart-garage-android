@@ -99,6 +99,13 @@ class VehicleCardActionsViewModel @Inject constructor(
     fun rename(vehicleId: String, nickname: String?) {
         viewModelScope.launch { prefs.setNickname(vehicleId, nickname) }
     }
+
+    /** The owner's name shown on this phone (D-A43), by vehicle id: a display override, never sent to the server. */
+    val ownerNames: StateFlow<Map<String, String>> = prefs.ownerNames.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun setOwnerName(vehicleId: String, name: String?) {
+        viewModelScope.launch { prefs.setOwnerName(vehicleId, name) }
+    }
 }
 
 /** What a card's long-press menu can start, wired once per screen with [rememberVehicleCardActions]. */
@@ -107,7 +114,15 @@ class VehicleCardActions internal constructor(
     val nicknames: Map<String, String>,
     private val pick: (vehicleId: String) -> Unit,
     private val startRename: (Vehicle) -> Unit,
+    private val ownerNames: Map<String, String> = emptyMap(),
+    private val startOwnerRename: (vehicleId: String, realName: String) -> Unit = { _, _ -> },
 ) {
+    /** The owner's name as shown here (D-A43): this phone's override when set, else [realName]. */
+    fun ownerNameOf(vehicle: Vehicle, realName: String?): String? = ownerNames[vehicle.id] ?: realName
+
+    /** Opens the owner-name editor; [realName] is what clearing it falls back to. */
+    fun renameOwner(vehicle: Vehicle, realName: String) = startOwnerRename(vehicle.id, realName)
+
     fun nicknameOf(vehicle: Vehicle): String? = nicknames[vehicle.id]
 
     /** The card's title: the nickname when set, else the server's "2019 Mazda MX-5". */
@@ -125,6 +140,7 @@ class VehicleCardActions internal constructor(
 @Composable
 fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar: SnackbarHostState): VehicleCardActions {
     val nicknames by viewModel.nicknames.collectAsStateWithLifecycle()
+    val ownerNames by viewModel.ownerNames.collectAsStateWithLifecycle()
     val photoPick by viewModel.photoPick.collectAsStateWithLifecycle()
     DeniedSnackbar(viewModel, snackbar)
 
@@ -162,7 +178,22 @@ fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar:
         )
     }
 
-    return remember(nicknames, picker) {
+    var ownerFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var ownerRealName by rememberSaveable { mutableStateOf("") }
+    val ownerId = ownerFor
+    if (ownerId != null) {
+        OwnerNameDialog(
+            realName = ownerRealName,
+            current = ownerNames[ownerId],
+            onSave = { name ->
+                viewModel.setOwnerName(ownerId, name)
+                ownerFor = null
+            },
+            onDismiss = { ownerFor = null },
+        )
+    }
+
+    return remember(nicknames, ownerNames, picker) {
         VehicleCardActions(
             nicknames = nicknames,
             pick = { vehicleId ->
@@ -172,6 +203,11 @@ fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar:
             startRename = { vehicle ->
                 renamingName = vehicle.displayName
                 renaming = vehicle.id
+            },
+            ownerNames = ownerNames,
+            startOwnerRename = { vehicleId, realName ->
+                ownerRealName = realName
+                ownerFor = vehicleId
             },
         )
     }
@@ -254,6 +290,43 @@ fun RenameVehicleDialog(serverName: String, current: String?, onSave: (String?) 
         dismissButton = {
             if (current != null) {
                 TextButton(onClick = { onSave(null) }, colors = glassTextButtonColors()) { Text(stringResource(R.string.rename_vehicle_clear)) }
+            } else {
+                TextButton(onClick = onDismiss, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
+            }
+        },
+    )
+}
+
+/**
+ * The owner's displayed name on glass (D-A43), opened by a long-press on the vehicle page's owner pill. Local only,
+ * like the nickname: empty (or "Reset") shows the server's owner name again, which the body quotes.
+ */
+@Composable
+fun OwnerNameDialog(realName: String, current: String?, onSave: (String?) -> Unit, onDismiss: () -> Unit) {
+    var text by rememberSaveable(current) { mutableStateOf(current.orEmpty()) }
+    val tokens = glass
+    GlassAlertDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.owner_name_title),
+        text = {
+            Column {
+                Text(stringResource(R.string.owner_name_body, realName), style = MaterialTheme.typography.bodyMedium, color = tokens.textSecondary)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text(stringResource(R.string.owner_name_field)) },
+                    placeholder = { Text(realName) },
+                    singleLine = true,
+                    colors = glassTextFieldColors(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text.trim().ifEmpty { null }) }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = {
+            if (current != null) {
+                TextButton(onClick = { onSave(null) }, colors = glassTextButtonColors()) { Text(stringResource(R.string.owner_name_reset)) }
             } else {
                 TextButton(onClick = onDismiss, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
             }

@@ -27,10 +27,16 @@ import io.github.conchad.smartgarage.R
 
 /**
  * `GroupHeader` for glass screens: the same paddings and optional text action, with an animated metallic title
- * (the sweep tier, D-A24).
+ * (the sweep tier, D-A24). [trailing] puts something else at the end instead (Home's "Swipe to view more" pill, D-A43).
  */
 @Composable
-fun GlassGroupHeader(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: (() -> Unit)? = null) {
+fun GlassGroupHeader(
+    text: String,
+    modifier: Modifier = Modifier,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     Row(
         modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -43,8 +49,10 @@ fun GlassGroupHeader(text: String, modifier: Modifier = Modifier, action: String
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
         )
-        if (onAction != null) {
-            TextButton(onClick = onAction, colors = glassTextButtonColors()) {
+        if (trailing != null) {
+            trailing()
+        } else if (onAction != null) {
+            TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
                 Text(action ?: stringResource(R.string.action_see_all))
             }
         }

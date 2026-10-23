@@ -20,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -29,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.GlassPillButton
+import io.github.conchad.smartgarage.ui.glass.rememberPillInk
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
@@ -56,6 +59,23 @@ internal fun OdometerReminderRow(reminder: OdometerReminder.Reminder, onUpdate: 
             TextButton(onClick = onUpdate, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_update)) }
         }
     }
+}
+
+/**
+ * The small glass pill at the end of Home's "Your vehicles" header (D-A43): "Swipe to view more ›" or "Add vehicle +".
+ * The label size is a step down from the card pills so it fits beside the title at font scale 1.3; 48 dp to touch.
+ */
+@Composable
+internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () -> Unit) {
+    GlassPillButton(
+        label = label,
+        onClick = onClick,
+        icon = icon,
+        compact = true,
+        textStyle = MaterialTheme.typography.labelMedium,
+        contentColor = rememberPillInk(),
+        modifier = Modifier.padding(start = 8.dp, end = 12.dp),
+    )
 }
 
 @Composable

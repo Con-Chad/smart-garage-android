@@ -58,6 +58,7 @@ import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.GlassStackedPillButton
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.rememberPillInk
 import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.glassPillSurface
 import io.github.conchad.smartgarage.ui.glass.orSnap
@@ -145,6 +146,8 @@ private val FooterGap = 8.dp
 @Composable
 fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val tokens = glass
+    // D-A43: white over the aurora, dark on a light backdrop.
+    val ink = rememberPillInk()
     val reduced = rememberReducedMotion()
     val rotation by animateFloatAsState(
         if (expanded) 180f else 0f,
@@ -166,11 +169,11 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1, softWrap = false)
+        Text(stringResource(R.string.card_quick_info), style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1, softWrap = false)
         Icon(
             Icons.Outlined.ExpandCircleDown,
             contentDescription = null,
-            tint = tokens.sheen,
+            tint = ink,
             modifier = Modifier.padding(top = 2.dp).size(24.dp).graphicsLayer { rotationZ = rotation },
         )
     }

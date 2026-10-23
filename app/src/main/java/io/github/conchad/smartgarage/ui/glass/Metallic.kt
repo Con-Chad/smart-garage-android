@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -130,6 +131,11 @@ fun staticMetallicBrush(tokens: GlassTokens): Brush = Brush.linearGradient(
  * snippet's `background-position: 130% → -30%` on a 280 %-wide gradient. The gradient is built once per size, at
  * offset 0; each frame slides the canvas under it rather than creating a new shader, so an animation frame costs
  * no allocation beyond the draw itself.
+ *
+ * Seamless loop (D-A43): the gradient repeats ([TileMode.Repeated]; its ends are the same dim steel) and one loop
+ * slides it by exactly one period along its axis, so the last frame of a loop is the first frame of the next and
+ * the reset has no hard stop. Before, the clamped gradient showed a different slice of steel at each end. The band
+ * itself is off the text at both ends, and phase 0.5 still puts it where it was.
  */
 fun Modifier.metallicSheen(tokens: GlassTokens, phase: State<Float>): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -155,13 +161,15 @@ fun Modifier.metallicSheen(tokens: GlassTokens, phase: State<Float>): Modifier =
             ),
             start = Offset(0f, h / 2f - dy / 2f),
             end = Offset(dx, h / 2f + dy / 2f),
+            tileMode = TileMode.Repeated,
         )
+        // One period of the gradient along its axis, measured along x: what one loop slides it.
+        val travel = (gradientW / cos(angle)).toFloat()
         onDrawWithContent {
             drawContent()
             if (w <= 0f || h <= 0f) return@onDrawWithContent
-            // CSS background-position p: offset = p * (container - image) = -1.8 w p; p runs 1.3 → -0.3.
-            val p = 1.3f - 1.6f * phase.value
-            val offset = -1.8f * w * p
+            // Centred where the CSS background-position 50 % put it (-0.9 w) and sliding one period per loop.
+            val offset = -0.9f * w + travel * (phase.value - 0.5f)
             translate(left = offset) {
                 drawRect(brush, topLeft = Offset(-offset, 0f), size = size, blendMode = BlendMode.SrcIn)
             }

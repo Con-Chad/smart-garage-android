@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +39,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +57,7 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.HeroContent
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
@@ -74,48 +81,50 @@ internal fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions, modifi
     val nickname = cardActions.nicknameOf(vehicle)
     val menuLabel = stringResource(R.string.vehicle_photo_options)
     GlassCard(modifier = modifier, glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)) {
-        Box(Modifier.padding(12.dp)) {
-            TiltPhotoFrame(
-                cornerRadius = tokens.radiusMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
+        HeroContent {
+            Box(Modifier.padding(12.dp)) {
+                TiltPhotoFrame(
+                    cornerRadius = tokens.radiusMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
                 ) {
-                    VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 72.dp)
-                    Column(
+                    Box(
                         Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .background(Brush.verticalGradient(tokens.photoScrim))
-                            .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                            .fillMaxSize()
+                            .combinedClickable(onClick = { menuOpen = true }, onClickLabel = menuLabel, onLongClick = { menuOpen = true }),
                     ) {
-                        Text(
-                            cardActions.titleOf(vehicle),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = tokens.onPhoto,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.tiltLayer(TiltDepths.Title),
-                        )
-                        if (nickname != null) {
+                        VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 72.dp)
+                        Column(
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .background(Brush.verticalGradient(tokens.photoScrim))
+                                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+                        ) {
                             Text(
-                                vehicle.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = tokens.onPhotoSecondary,
-                                maxLines = 1,
+                                cardActions.titleOf(vehicle),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = tokens.onPhoto,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                                modifier = Modifier.tiltLayer(TiltDepths.Title),
                             )
+                            if (nickname != null) {
+                                Text(
+                                    vehicle.displayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = tokens.onPhotoSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                                )
+                            }
                         }
                     }
+                    VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
                 }
-                VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions)
             }
         }
     }
@@ -127,8 +136,10 @@ internal fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions, modifi
  * aurora's bright spot often lands right under the photo and bare text vanished there in dark theme.
  */
 @Composable
-internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail, modifier: Modifier = Modifier) {
+internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetail, modifier: Modifier = Modifier, onLongPress: (() -> Unit)? = null) {
     val tokens = glass
+    val haptics = LocalHapticFeedback.current
+    val longPressLabel = stringResource(R.string.action_edit_owner_name)
     Row(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             Modifier
@@ -136,8 +147,29 @@ internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetai
                 .clip(CircleShape)
                 .background(tokens.panel)
                 .border(1.dp, tokens.panelBorder, CircleShape)
+                // D-A43: a long-press edits the name shown here (local only); a tap does nothing, as before.
+                .then(
+                    if (onLongPress == null) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(onLongPress) {
+                            detectTapGestures(onLongPress = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onLongPress()
+                            })
+                        }
+                    },
+                )
+                .heightIn(min = 48.dp)
                 .padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-                .semantics(mergeDescendants = true) {},
+                .semantics(mergeDescendants = true) {
+                    if (onLongPress != null) {
+                        onLongClick(longPressLabel) {
+                            onLongPress()
+                            true
+                        }
+                    }
+                },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

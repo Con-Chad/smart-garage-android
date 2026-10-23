@@ -1354,3 +1354,72 @@ App decisions use the `D-A` prefix.
     the disconnected popup's Retry) use `glassTextButtonColors()`;
     `GlassIconBadge` draws with `glassPillSurface`. No string was unused (en
     and de match). `Motion.kt` untouched.
+
+- **D-A43: vehicle-page motion retune, reverse pop on Back, header pill, seamless sheen, owner name, pill ink.**
+  - **Opening (user-set)**: the hero starts rising `Motion.HERO_DELAY_MS` = 60 ms
+    after the drawer (was 240, D-A41; 380 ms in all). Opened from a Home card the
+    cards no longer ride the drawer: each pops at its final spot, the first at
+    `POP_WITH_HERO_MS` (= the hero's start), then the 100 ms stagger, and is drawn in
+    the shared-transition overlay above the hero (`renderInSharedTransitionScopeOverlay`,
+    z 1, only while arriving), so the hero rises into place above them and never hides
+    them. Opened any other way, the 48 dp drawer slide stays.
+  - **Back**: the page's cards pop out together (`rememberPopOut`): 1 -> 1.03 in
+    `POP_OUT_BULGE_MS` 70, -> 0 in `POP_OUT_SHRINK_MS` 150, fading below 0.35 scale,
+    while the hero glides home; the drawer stays put; the page's top bar and banner fade
+    with them; the NavHost pop-exit for the vehicle route is `None`. Only on a pop
+    (`isPopped` from the shell), not when a form is pushed over the page. Reduced motion:
+    none of it.
+  - **Hero "shadow flash"**: the hero was scaled to bounds under an overlay clip, which
+    cut its outside-only shadow for the glide and let it snap back at the end. Now
+    `ResizeMode.RemeasureToBounds` (plate, border and shadow drawn at the gliding bounds
+    every frame), content at natural height via `HeroContent` and clipped by the plate;
+    the page card leaves at once on Back (no doubled fill), and the Home card's shadow is
+    off while it fades out on open (`heroShadowOff`). `CardPlateClip` is gone.
+  - **Home header pill**: "Swipe to view more ›" (taps to the next vehicle, wrapping)
+    with 2+ vehicles, "Add vehicle +" (the vehicle form) with one; `GlassGroupHeader`
+    takes a `trailing` slot, `GlassPillButton` a `textStyle` and `contentColor`;
+    labelMedium so it fits beside the title at font scale 1.3.
+  - **Sheen**: the gradient tiles (`TileMode.Repeated`, both ends dim steel) and one loop
+    slides it exactly one period (gradient length / cos 20°), so the loop's last frame is
+    its first; timing (3247 + 1510 ms) and the silver band unchanged, centred as before.
+  - **Owner name**: long-press the owner pill (haptic, TalkBack long-click action "Change
+    owner's name") opens a glass dialog; stored on the phone only
+    (`VehicleLocalPrefs` `ownerName.<id>`), blank or Reset shows the server's name. A tap
+    still does nothing.
+  - **Pill ink**: "View all", "Quick info", the header pill and every group-header
+    action are white (`onPhoto`) instead of the gold sheen, switching to `onPale` when
+    white would fall under 3:1 on the estimated backdrop (`pillInk` in ui/glass/GlassInk:
+    the resolved aurora tint's main ribbon at the ribbons' mean opacity over the page,
+    under the pill fill; follows a user-chosen theme colour). 3:1 rather than 4.5:1 by
+    request, so white stays on mid-tone cars (green estimates ~3.4:1).
+
+- **D-A44: user-chosen aurora (background) color, and a local greeting name.**
+  - **Storage** (device-only, no API or Room change): `AuroraChoice` (`MatchVehicle`
+    | `Custom(argb)`, stored as "match" / "#RRGGBB"). App-wide default in
+    `AppSettings.aurora` (key `aurora_color`, default match). Per-vehicle
+    override in `VehicleLocalPrefs` (`auroraColor.<vehicleId>`, next to the
+    nickname); absent = follow Settings, explicit "match" = keep the car's color
+    even when Settings picked one.
+  - **Resolution** (`AuroraTintResolver.resolve`, unit-tested): vehicle override ->
+    Settings choice -> the car's color (`VehicleTint`) -> theme primary. Picked
+    colors are clamped to HSL lightness 0.28..0.70 (0.70 = the steel white cars
+    already get), so the aurora never blinds or vanishes behind text.
+  - **Where**: the shell provides `LocalAuroraChoices` (from `ShellViewModel`); Home,
+    Vehicles and the vehicle page call `AuroraTint(vehicleId, vehicleColor)`. A
+    Settings pick also replaces the per-tab fallback tints (one background app-wide);
+    "match" keeps the D-A30 per-tab rooms. The vehicle form route now honours a
+    screen tint and previews the pick live. Card glows still use the car's color.
+  - **UI**: `AuroraColorSetting` + `GlassColorPicker` (ui/glass): 12 preset swatches
+    (`AuroraPresets` in GlassTokens), a Canvas hue/saturation wheel with TalkBack
+    custom actions, a brightness slider. Settings debounces drags (250 ms). The
+    form's "Use app setting" drops the override; an edit where only the aurora
+    changed writes no server patch. The aurora tint cross-fade snaps under reduced
+    motion.
+  - **Temp ids**: a vehicle created offline stores its prefs under the temp id;
+    `OutboxReplay.adopt` calls `onVehicleAdopted` (wired by `SyncEngine` to
+    `VehicleLocalPrefs.moveVehicle`), which moves every `<prefix>.<tempId>` key,
+    any prefix and type, to the server id (nickname, owner name, snooze, aurora).
+  - **Greeting name**: `ServerProfile.localName` (Settings > Account, "Your name"),
+    applied by `Account.withLocalName` in `MainShell` and the Settings header, so
+    Home's greeting and avatar initial use it with no dashboard edit. Blank falls
+    back to the server display name, then the username.

@@ -45,6 +45,8 @@
     <string name="dashboard_greeting_afternoon">Guten Tag, %1$s</string>
     <string name="dashboard_greeting_evening">Guten Abend, %1$s</string>
     <string name="dashboard_vehicles">Deine Fahrzeuge</string>
+    <string name="dashboard_swipe_more">Wischen für mehr</string>
+    <string name="action_add_vehicle_short">Neues Fahrzeug</string>
     <string name="dashboard_attention">Braucht Aufmerksamkeit</string>
     <string name="dashboard_all_caught_up">Alles erledigt</string>
     <string name="dashboard_all_caught_up_body">Nichts ist überfällig oder bald fällig.</string>
@@ -753,6 +755,11 @@
     <string name="settings_cleartext_background_sync">Stündlich im Hintergrund synchronisieren</string>
     <string name="settings_cleartext_background_sync_desc">Dieser Server nutzt unverschlüsseltes http. Ausgeschaltet synchronisiert die App nur, während du sie benutzt, damit dein Anmelde-Token in einem fremden Netz nie an das geht, was unter dieser Adresse antwortet.</string>
     <string name="vehicle_owner">Besitzer: %1$s</string>
+    <string name="action_edit_owner_name">Besitzernamen ändern</string>
+    <string name="owner_name_title">Name des Besitzers</string>
+    <string name="owner_name_body">Nur auf diesem Handy. Leer lassen, um %1$s anzuzeigen.</string>
+    <string name="owner_name_field">Angezeigter Name</string>
+    <string name="owner_name_reset">Zurücksetzen</string>
     <string name="vehicle_mileage">Kilometerstand</string>
     <string name="vehicle_insurance_plan">Versicherung</string>
     <string name="vehicle_details_all">Fahrzeugdetails</string>
@@ -818,4 +825,38 @@
     <string name="fab_petal_expense">Ausgabe</string>
     <string name="fab_petal_fuel">Tanken</string>
     <string name="fab_petal_scan">Beleg scannen</string>
+
+    <!-- D-A44: aurora color picker and the local greeting name -->
+    <string name="aurora_title">Hintergrund-Farbton</string>
+    <string name="aurora_match_vehicle">Fahrzeugfarbe übernehmen</string>
+    <string name="settings_aurora_match_desc">Der Hintergrund nimmt die Farbe des angezeigten Autos an</string>
+    <string name="settings_aurora_custom_desc">Ein Hintergrund-Farbton für die ganze App; ein Auto kann trotzdem einen eigenen wählen</string>
+    <string name="vehicle_aurora_match_desc">Der Hintergrund nimmt die Farbe dieses Autos an</string>
+    <string name="vehicle_aurora_custom_desc">Die Seiten dieses Autos nutzen die Farbe unten</string>
+    <string name="vehicle_aurora_follows_app">Folgt der Farbe aus den Einstellungen</string>
+    <string name="aurora_use_app_setting">App-Einstellung verwenden</string>
+    <string name="aurora_presets">Vorlagen</string>
+    <string name="aurora_custom">Beliebiger Farbton</string>
+    <string name="aurora_wheel">Farbrad</string>
+    <string name="aurora_wheel_state">Farbton %1$d Grad, Sättigung %2$d Prozent</string>
+    <string name="aurora_hue_forward">Farbton weiterdrehen</string>
+    <string name="aurora_hue_back">Farbton zurückdrehen</string>
+    <string name="aurora_more_saturated">Kräftiger</string>
+    <string name="aurora_less_saturated">Blasser</string>
+    <string name="aurora_brightness">Helligkeit</string>
+    <string name="aurora_softened">Sehr helle und sehr dunkle Töne werden abgeschwächt, damit Text auf dem Hintergrund lesbar bleibt.</string>
+    <string name="aurora_preset_red">Rot</string>
+    <string name="aurora_preset_orange">Orange</string>
+    <string name="aurora_preset_gold">Gold</string>
+    <string name="aurora_preset_yellow">Gelb</string>
+    <string name="aurora_preset_green">Grün</string>
+    <string name="aurora_preset_teal">Petrol</string>
+    <string name="aurora_preset_sky">Himmelblau</string>
+    <string name="aurora_preset_blue">Blau</string>
+    <string name="aurora_preset_navy">Marineblau</string>
+    <string name="aurora_preset_purple">Lila</string>
+    <string name="aurora_preset_magenta">Magenta</string>
+    <string name="aurora_preset_steel">Stahl</string>
+    <string name="settings_your_name">Dein Name</string>
+    <string name="settings_your_name_desc">Für die Begrüßung auf der Startseite auf diesem Telefon. Leer lassen, um %1$s zu verwenden.</string>
 </resources>

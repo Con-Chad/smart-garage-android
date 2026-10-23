@@ -21,7 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.LocalGasStation
@@ -86,7 +88,6 @@ import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.PagerDots
 import io.github.conchad.smartgarage.ui.glass.RefreshIcon
-import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberDisconnectedState
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
@@ -129,6 +130,7 @@ fun DashboardScreen(
     account: Account,
     onOpenSettings: () -> Unit,
     onOpenVehicle: (String) -> Unit,
+    onAddVehicle: () -> Unit,
     onOpenMaintenance: () -> Unit,
     onOpenFuel: () -> Unit,
     onLogService: (scheduleId: String) -> Unit,
@@ -148,7 +150,7 @@ fun DashboardScreen(
     val vehicles = state.dashboard?.vehicles.orEmpty()
     val pagerState = rememberPagerState(pageCount = { vehicles.size })
     val current = vehicles.getOrNull(pagerState.currentPage)
-    AuroraTint(VehicleTint.color(current?.vehicle?.color, MaterialTheme.colorScheme.primary))
+    AuroraTint(current?.vehicle?.id, current?.vehicle?.color)
     val disconnected = rememberDisconnectedState(state.sync)
     // One gyroscope pointer for the screen (D-A30); the settled page's photo frame follows it.
     val tilt = rememberTilt()
@@ -204,6 +206,7 @@ fun DashboardScreen(
                                         actions = actions,
                                         snackbar = snackbar,
                                         onOpenVehicle = onOpenVehicle,
+                                        onAddVehicle = onAddVehicle,
                                         onOpenMaintenance = onOpenMaintenance,
                                         onOpenFuel = onOpenFuel,
                                         onLogService = onLogService,
@@ -251,6 +254,7 @@ private fun DashboardContent(
     actions: DashboardActions,
     snackbar: SnackbarHostState,
     onOpenVehicle: (String) -> Unit,
+    onAddVehicle: () -> Unit,
     onOpenMaintenance: () -> Unit,
     onOpenFuel: () -> Unit,
     onLogService: (String) -> Unit,
@@ -267,7 +271,18 @@ private fun DashboardContent(
 
     // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan.
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp)) {
-        GlassGroupHeader(stringResource(R.string.dashboard_vehicles))
+        // D-A43: a small pill at the header's end says there is more to swipe to (and steps there), or, with one car, adds the next.
+        GlassGroupHeader(stringResource(R.string.dashboard_vehicles)) {
+            if (vehicles.size > 1) {
+                VehiclesHeaderPill(
+                    stringResource(R.string.dashboard_swipe_more),
+                    Icons.Outlined.ChevronRight,
+                    onClick = { scope.launch { pagerState.animateScrollToPage((page + 1) % vehicles.size) } },
+                )
+            } else {
+                VehiclesHeaderPill(stringResource(R.string.action_add_vehicle_short), Icons.Outlined.Add, onClick = onAddVehicle)
+            }
+        }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             // One card per page, no peeking: the page is the full width and the card keeps the list margin inside it.
             HorizontalPager(state = pagerState, beyondViewportPageCount = 1, verticalAlignment = Alignment.Top) { index ->

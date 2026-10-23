@@ -49,6 +49,8 @@
     <string name="dashboard_greeting_afternoon">Good afternoon, %1$s</string>
     <string name="dashboard_greeting_evening">Good evening, %1$s</string>
     <string name="dashboard_vehicles">Your vehicles</string>
+    <string name="dashboard_swipe_more">Swipe to view more</string>
+    <string name="action_add_vehicle_short">Add vehicle</string>
     <string name="dashboard_attention">Needs attention</string>
     <string name="dashboard_all_caught_up">All caught up</string>
     <string name="dashboard_all_caught_up_body">Nothing is overdue or due soon.</string>
@@ -766,6 +768,11 @@
     <string name="settings_cleartext_background_sync">Sync hourly in the background</string>
     <string name="settings_cleartext_background_sync_desc">This server uses plain http. Off, the app only syncs while you use it, so your login token is never sent to whatever answers at this address on another network.</string>
     <string name="vehicle_owner">Owner: %1$s</string>
+    <string name="action_edit_owner_name">Change owner\'s name</string>
+    <string name="owner_name_title">Owner\'s name</string>
+    <string name="owner_name_body">Only shown on this phone. Leave it empty to show %1$s.</string>
+    <string name="owner_name_field">Shown name</string>
+    <string name="owner_name_reset">Reset</string>
     <string name="vehicle_mileage">Mileage</string>
     <string name="vehicle_insurance_plan">Insurance plan</string>
     <string name="vehicle_details_all">Vehicle details</string>
@@ -831,4 +838,38 @@
     <string name="fab_petal_expense">Expense</string>
     <string name="fab_petal_fuel">Fuel</string>
     <string name="fab_petal_scan">Scan Receipt</string>
+
+    <!-- D-A44: aurora color picker and the local greeting name -->
+    <string name="aurora_title">Background color</string>
+    <string name="aurora_match_vehicle">Match vehicle color</string>
+    <string name="settings_aurora_match_desc">The background takes the color of the car you\'re looking at</string>
+    <string name="settings_aurora_custom_desc">One background color across the app; a car can still pick its own</string>
+    <string name="vehicle_aurora_match_desc">The background takes this car\'s color</string>
+    <string name="vehicle_aurora_custom_desc">This car\'s pages use the color below</string>
+    <string name="vehicle_aurora_follows_app">Following the color chosen in Settings</string>
+    <string name="aurora_use_app_setting">Use app setting</string>
+    <string name="aurora_presets">Presets</string>
+    <string name="aurora_custom">Any shade</string>
+    <string name="aurora_wheel">Color wheel</string>
+    <string name="aurora_wheel_state">Hue %1$d degrees, saturation %2$d percent</string>
+    <string name="aurora_hue_forward">Turn hue forward</string>
+    <string name="aurora_hue_back">Turn hue back</string>
+    <string name="aurora_more_saturated">More saturated</string>
+    <string name="aurora_less_saturated">Less saturated</string>
+    <string name="aurora_brightness">Brightness</string>
+    <string name="aurora_softened">Very light and very dark shades are softened so text on the background stays readable.</string>
+    <string name="aurora_preset_red">Red</string>
+    <string name="aurora_preset_orange">Orange</string>
+    <string name="aurora_preset_gold">Gold</string>
+    <string name="aurora_preset_yellow">Yellow</string>
+    <string name="aurora_preset_green">Green</string>
+    <string name="aurora_preset_teal">Teal</string>
+    <string name="aurora_preset_sky">Sky blue</string>
+    <string name="aurora_preset_blue">Blue</string>
+    <string name="aurora_preset_navy">Navy</string>
+    <string name="aurora_preset_purple">Purple</string>
+    <string name="aurora_preset_magenta">Magenta</string>
+    <string name="aurora_preset_steel">Steel</string>
+    <string name="settings_your_name">Your name</string>
+    <string name="settings_your_name_desc">Used in the Home greeting on this phone. Leave empty to use %1$s.</string>
 </resources>

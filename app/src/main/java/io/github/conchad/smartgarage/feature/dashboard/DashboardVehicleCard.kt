@@ -50,6 +50,8 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.HeroContent
+import io.github.conchad.smartgarage.ui.glass.heroShadowOff
 import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
 import io.github.conchad.smartgarage.ui.glass.heroAnchor
 import io.github.conchad.smartgarage.ui.glass.launch
@@ -101,88 +103,90 @@ internal fun VehicleCard(
         onOpen()
     }
 
-    GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow) {
-        Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
-            TiltPhotoFrame(
-                tilt = rememberCardTilt(followGyro = tiltEnabled),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .vehicleCardSemantics(vehicle, cardActions, onOpen),
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
+    GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow, elevated = !heroShadowOff()) {
+        HeroContent {
+            Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
+                TiltPhotoFrame(
+                    tilt = rememberCardTilt(followGyro = tiltEnabled),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .vehicleCardSemantics(vehicle, cardActions, onOpen),
                 ) {
-                    VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
-                    // Name over a bottom scrim so it reads on any photo; white on ≥ 55 % black clears 4.5:1.
-                    Column(
+                    Box(
                         Modifier
-                            .align(Alignment.BottomStart)
-                            .fillMaxWidth()
-                            .background(Brush.verticalGradient(tokens.photoScrim))
-                            .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
+                            .fillMaxSize()
+                            .combinedClickable(onClick = onOpen, onLongClick = { menuOpen = true }),
                     ) {
-                        Text(
-                            title,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = tokens.onPhoto,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.tiltLayer(TiltDepths.Title),
-                        )
-                        if (nickname != null) {
+                        VehiclePhoto(vehicle, Modifier.fillMaxSize().tiltLayer(TiltDepths.Photo), iconSize = 64.dp)
+                        // Name over a bottom scrim so it reads on any photo; white on ≥ 55 % black clears 4.5:1.
+                        Column(
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .background(Brush.verticalGradient(tokens.photoScrim))
+                                .padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 12.dp),
+                        ) {
                             Text(
-                                vehicle.displayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = tokens.onPhotoSecondary,
+                                title,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = tokens.onPhoto,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                                modifier = Modifier.tiltLayer(TiltDepths.Title),
                             )
+                            if (nickname != null) {
+                                Text(
+                                    vehicle.displayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = tokens.onPhotoSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.tiltLayer(TiltDepths.Subtitle),
+                                )
+                            }
                         }
                     }
+                    VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
                 }
-                VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
             }
-        }
-        vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let {
-            MetallicText(
-                it,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp),
-            )
-        }
-        // The mileage over the status chip on the left, "View all" and "Quick info" beside them (D-A41, user-set).
-        VehicleCardFooter(
-            expanded = expanded,
-            onToggle = { expanded = !expanded },
-            onViewAll = {
-                // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                onOpen()
-            },
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            VehicleStatusChip(summary)
-        }
-        // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
-        AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column {
-                RowDivider()
-                QuickInfoDetails(
-                    vehicle = vehicle,
-                    policy = dashboard.policyByVehicle[vehicle.id],
-                    inspection = dashboard.inspectionByVehicle[vehicle.id],
-                    lastOdometerAt = extras.lastOdometerAt,
-                    fmt = fmt,
-                    actions = actions.quickInfo,
-                    onOpenOdometer = onOpenOdometer,
+            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let {
+                MetallicText(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp),
                 )
+            }
+            // The mileage over the status chip on the left, "View all" and "Quick info" beside them (D-A41, user-set).
+            VehicleCardFooter(
+                expanded = expanded,
+                onToggle = { expanded = !expanded },
+                onViewAll = {
+                    // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onOpen()
+                },
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                VehicleStatusChip(summary)
+            }
+            // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
+            AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Column {
+                    RowDivider()
+                    QuickInfoDetails(
+                        vehicle = vehicle,
+                        policy = dashboard.policyByVehicle[vehicle.id],
+                        inspection = dashboard.inspectionByVehicle[vehicle.id],
+                        lastOdometerAt = extras.lastOdometerAt,
+                        fmt = fmt,
+                        actions = actions.quickInfo,
+                        onOpenOdometer = onOpenOdometer,
+                    )
+                }
             }
         }
     }

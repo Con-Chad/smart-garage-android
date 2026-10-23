@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -78,12 +79,14 @@ import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.drawerSlide
+import io.github.conchad.smartgarage.ui.glass.popOutFade
+import io.github.conchad.smartgarage.ui.glass.rememberPopOut
 import io.github.conchad.smartgarage.ui.glass.popIn
 import io.github.conchad.smartgarage.ui.glass.rememberDrawerSlide
 import io.github.conchad.smartgarage.ui.glass.rememberPopIn
 import io.github.conchad.smartgarage.ui.glass.vehicleHero
-import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import kotlinx.coroutines.delay
@@ -117,6 +120,8 @@ class VehicleActions(
 fun VehicleDetailScreen(
     onBack: () -> Unit,
     actions: VehicleActions,
+    /** True once this page has been popped (Back), as opposed to covered by a pushed screen: its cards then pop out (D-A43). */
+    isPopped: () -> Boolean = { true },
     viewModel: VehicleDetailViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
 ) {
@@ -131,7 +136,7 @@ fun VehicleDetailScreen(
     // Photo picker, rename dialog and their feedback are the home card's (D-A24), hosted once here.
     val cardActions = rememberVehicleCardActions(cardActionsViewModel, snackbar)
     LaunchedEffect(closed) { if (closed) onBack() }
-    AuroraTint(VehicleTint.color(detail?.vehicle?.color, MaterialTheme.colorScheme.primary))
+    AuroraTint(detail?.vehicle?.id, detail?.vehicle?.color)
 
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var spinnerDue by remember { mutableStateOf(false) }
@@ -145,10 +150,13 @@ fun VehicleDetailScreen(
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 1 } }
     // One gyroscope pointer for the photo card and the figure tiles (D-A30).
     val tilt = rememberTilt()
+    // Leaving by Back (D-A43): the cards bulge and shrink away together while the hero glides home; the bar fades with them.
+    val popOut = rememberPopOut(isPopped)
     CompositionLocalProvider(LocalTilt provides tilt) {
         MetallicSheenHost {
             AppScaffold(
                 transparent = true,
+                topBarModifier = Modifier.popOutFade(popOut),
                 title = {
                     val vehicle = detail?.vehicle
                     if (headingGone && vehicle != null) {
@@ -206,7 +214,7 @@ fun VehicleDetailScreen(
                 },
             ) { padding ->
                 Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-                    WriteQueueBanner(sync, viewModel)
+                    WriteQueueBanner(sync, viewModel, modifier = Modifier.popOutFade(popOut))
                     RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                         // Arriving from a card (D-A35): the state is seeded from what Home or the Vehicles tab holds, so it is
                         // loaded in the first frame and LoadedContent opens straight on the content (no cross-fade), with the
@@ -222,6 +230,7 @@ fun VehicleDetailScreen(
                                     cardActions = cardActions,
                                     snackbar = snackbar,
                                     viewModel = viewModel,
+                                    popOut = popOut,
                                 )
                             } else {
                                 EmptyState(
@@ -274,6 +283,7 @@ private fun VehicleDetailContent(
     cardActions: VehicleCardActions,
     snackbar: SnackbarHostState,
     viewModel: VehicleDetailViewModel,
+    popOut: State<Float>?,
 ) {
     val fmt = state.formatter
     val vehicle = detail.vehicle
@@ -291,7 +301,8 @@ private fun VehicleDetailContent(
     // slides up with it as one drawer, on the same tween; the nav transition into this route is `None`.
     val slide = rememberDrawerSlide(vehicle.id)
     // …and each of them pops in after the one above (D-A37): 100 ms apart (D-A40), top to bottom, a small bounce each.
-    val pop = rememberPopIn(staggered = true)
+    // From Home the first starts as the hero starts rising (D-A43), each at its final spot, drawn above the hero.
+    val pop = rememberPopIn(staggered = true, startDelayMs = if (slide.fromHero) Motion.POP_WITH_HERO_MS else 0L, popOut = popOut)
 
     // Every item has a stable key and a content type (D-A42), so a row appearing above (the pending mark) keeps the
     // scroll anchored and only like composes into like. The order is unchanged: the pop-in stagger is claimed in
@@ -301,7 +312,16 @@ private fun VehicleDetailContent(
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.
         item(key = "photo", contentType = DetailItem.Photo) { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id, page = true).then(slide.heroModifier)) }
-        item(key = "owner", contentType = DetailItem.Owner) { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.drawerSlide(slide).popIn(pop)) }
+        item(key = "owner", contentType = DetailItem.Owner) {
+            OwnerLine(
+                cardActions.ownerNameOf(vehicle, state.ownerName),
+                vehicle.access.isShared,
+                detail,
+                Modifier.drawerSlide(slide).popIn(pop),
+                // D-A43: the owner's name as shown on this phone; clearing it falls back to the server's.
+                onLongPress = { cardActions.renameOwner(vehicle, state.ownerName ?: "—") },
+            )
+        }
         item(key = "glance", contentType = DetailItem.Dropdown) {
             GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide).popIn(pop)) {
                 ImmediateInfo(detail, fmt)

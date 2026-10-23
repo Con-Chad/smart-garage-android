@@ -41,6 +41,7 @@ import androidx.navigation.toRoute
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.Account
 import io.github.conchad.smartgarage.core.data.ServerProfile
+import io.github.conchad.smartgarage.core.data.withLocalName
 import io.github.conchad.smartgarage.core.push.PushTarget
 import io.github.conchad.smartgarage.feature.dashboard.DashboardActions
 import io.github.conchad.smartgarage.feature.dashboard.DashboardScreen
@@ -75,6 +76,7 @@ import io.github.conchad.smartgarage.ui.glass.AuroraBackground
 import io.github.conchad.smartgarage.ui.glass.AuroraTintHolder
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraChoices
 import io.github.conchad.smartgarage.ui.glass.LocalNavAnimatedScope
 import io.github.conchad.smartgarage.ui.glass.LocalSharedTransitionScope
 import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
@@ -95,7 +97,8 @@ fun MainShell(profile: ServerProfile, account: Account, shell: ShellViewModel = 
     val photoLoader = remember(profile.id) { PhotoLoader(profile.id, shell.photos) }
 
     CompositionLocalProvider(LocalPhotoLoader provides photoLoader) {
-        Shell(profile, account, shell)
+        // The name set in Settings replaces the server's for the greeting and avatar (D-A44).
+        Shell(profile, account.withLocalName(profile.localName), shell)
     }
 }
 
@@ -126,14 +129,20 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     // may keep (an interrupted cross-fade, predictive back, an entry restored by a tab) — so a tab could stay in the
     // Home car's color. What is drawn is recorded in the holder, so the plates and the fan agree with the aurora.
     val auroraTint = remember { AuroraTintHolder() }
-    val fallbackTint = fallbackTint(destination)
+    // D-A44: a color picked in Settings replaces the per-tab fallbacks too; "match vehicle color" keeps them.
+    val auroraChoices by shell.auroraChoices.collectAsStateWithLifecycle()
+    val fallbackTint = auroraChoices.appTint?.let { Color(it) } ?: fallbackTint(destination)
     val tint = if (destination.honoursScreenTint()) auroraTint.color ?: fallbackTint else fallbackTint
     SideEffect { auroraTint.shown = tint }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
     val heroOrigins = remember { VehicleHeroOrigins() }
     val reduced = rememberReducedMotion()
 
-    CompositionLocalProvider(LocalAuroraTint provides auroraTint, LocalVehicleHeroOrigins provides heroOrigins) {
+    CompositionLocalProvider(
+        LocalAuroraTint provides auroraTint,
+        LocalVehicleHeroOrigins provides heroOrigins,
+        LocalAuroraChoices provides auroraChoices,
+    ) {
         Box(Modifier.fillMaxSize()) {
             AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize())
             Scaffold(
@@ -190,6 +199,8 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             popExitTransition = {
                                 when {
                                     reduced -> ExitTransition.None
+                                    // Back from the vehicle page (D-A43): its cards pop out and its bar fades by themselves.
+                                    initialState.destination.hasRoute<VehicleDetailRoute>() -> ExitTransition.None
                                     initialState.popsIn() -> fadeOut(tween(Motion.QUICK_MS))
                                     targetState.popsIn() -> ExitTransition.None
                                     else -> fadeOut(tween(Motion.NAV_FADE_MS))
@@ -203,6 +214,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                         account = account,
                                         onOpenSettings = { navController.navigate(SettingsRoute) },
                                         onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
+                                        onAddVehicle = { navController.navigate(VehicleFormRoute()) },
                                         onOpenMaintenance = { navController.navigateTopLevel(TopLevel.Maintenance) },
                                         onOpenFuel = { navController.navigateTopLevel(TopLevel.Fuel) },
                                         onLogService = { navController.navigate(RecordFormRoute(scheduleId = it)) },
@@ -237,7 +249,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     )
                                 }
                             }
-                            composable<VehicleDetailRoute> {
+                            composable<VehicleDetailRoute> { entry ->
                                 CompositionLocalProvider(LocalNavAnimatedScope provides this) {
                                     val vehicleActions = remember(navController) {
                                         VehicleActions(
@@ -259,7 +271,12 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                             onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
                                         )
                                     }
-                                    VehicleDetailScreen(onBack = navController::popBackStack, actions = vehicleActions)
+                                    VehicleDetailScreen(
+                                        onBack = navController::popBackStack,
+                                        actions = vehicleActions,
+                                        // Covered by a pushed screen, the page is still the one beneath it; popped, it is neither.
+                                        isPopped = { entry.id != navController.currentBackStackEntry?.id && entry.id != navController.previousBackStackEntry?.id },
+                                    )
                                 }
                             }
                             composable<MaintenanceRoute> {
@@ -349,7 +366,9 @@ private fun NavDestination.isOn(item: TopLevel): Boolean = hierarchy.any { it.ha
 
 /** The glass routes whose screen names the aurora's color (D-A24, D-A26): Home, Vehicles and the vehicle page. Null is the first frame, Home. */
 private fun NavDestination?.honoursScreenTint(): Boolean =
-    this == null || isOn(TopLevel.Dashboard) || isOn(TopLevel.Vehicles) || hasRoute<VehicleDetailRoute>()
+    this == null || isOn(TopLevel.Dashboard) || isOn(TopLevel.Vehicles) || hasRoute<VehicleDetailRoute>() ||
+        // The vehicle form previews the aurora color being picked (D-A44).
+        hasRoute<VehicleFormRoute>()
 
 /** The routes whose cards bubble in (D-A32) and therefore take no nav cross-fade. */
 private fun NavBackStackEntry.popsIn(): Boolean = destination.hasRoute<VehicleDetailRoute>() || destination.hasRoute<VehiclesRoute>()

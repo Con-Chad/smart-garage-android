@@ -98,6 +98,8 @@ fun AppScaffold(
     snackbarHost: @Composable () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = TopAppBarDefaults.pinnedScrollBehavior(),
     transparent: Boolean = true,
+    /** On the top bar alone, e.g. the vehicle page fading its bar while its cards pop out (D-A43). */
+    topBarModifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -106,6 +108,7 @@ fun AppScaffold(
         topBar = {
             TopAppBar(
                 title = title,
+                modifier = topBarModifier,
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {

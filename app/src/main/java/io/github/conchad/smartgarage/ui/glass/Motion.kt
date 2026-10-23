@@ -50,16 +50,11 @@ object Motion {
     const val HERO_MS = 320
 
     /**
-     * Opening the vehicle page, the hero card starts moving up this long before the drawer's slide ends (D-A41,
-     * user-set), making room for the cards popping in under it.
+     * Opening the vehicle page, the drawer leads and the hero card starts rising this long after it (D-A43): just
+     * enough that the drawer is visibly under way first. Was 240 ms (D-A41), which read as the hero waiting. 380 ms
+     * in all.
      */
-    const val HERO_OVERLAP_MS = 80
-
-    /**
-     * Opening the vehicle page, the hero card starts this long after the drawer beneath it: the drawer's duration
-     * less [HERO_OVERLAP_MS], so 240 ms (D-A41, user-set; 400 ms in D-A40 was far too long). 560 ms in all.
-     */
-    const val HERO_DELAY_MS = HERO_MS - HERO_OVERLAP_MS
+    const val HERO_DELAY_MS = 60
 
     /** A slower spin: the refresh icon while a sync runs. */
     const val SPIN_MS = 900
@@ -86,6 +81,18 @@ object Motion {
 
     /** The settle from the overshoot back to 1. */
     const val POP_SETTLE_MS = 90
+
+    /**
+     * Opening the vehicle page from Home (D-A43, user-set): the first card pops the moment the hero starts rising,
+     * at its final spot and drawn above the hero ([drawerSlide]); the stagger follows from here.
+     */
+    const val POP_WITH_HERO_MS = HERO_DELAY_MS.toLong()
+
+    /** Leaving the vehicle page (D-A43): each card bulges to the overshoot in this long… */
+    const val POP_OUT_BULGE_MS = 70
+
+    /** …then shrinks to nothing in this long, all cards together while the hero glides back. */
+    const val POP_OUT_SHRINK_MS = 150
 
     /** The fade in, quicker than the expand so the card is solid well before its peak. */
     const val POP_FADE_MS = 120

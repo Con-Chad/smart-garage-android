@@ -7,8 +7,13 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
@@ -20,18 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /*
@@ -73,7 +70,8 @@ private fun <T> heroSpec(delayMs: Int = 0) = tween<T>(Motion.HERO_MS, delayMilli
 
 /**
  * The card's bounds (D-A40): opening the vehicle page, the drawer slides up first and the card follows
- * [Motion.HERO_DELAY_MS] later, rising off the cards it covered; on Back the card and the drawer move together.
+ * [Motion.HERO_DELAY_MS] later (D-A43: 60 ms, so it rises almost at once); on Back the card glides at once while the
+ * page's cards pop out in place.
  * [page] is the vehicle page's card (entering on open), else Home's (leaving on open); whichever side's transform
  * Compose uses, the delay applies only to the opening.
  */
@@ -84,25 +82,17 @@ private fun heroBounds(nav: AnimatedVisibilityScope, page: Boolean) = BoundsTran
 }
 
 /**
- * Clips the card in the overlay to its plate: the bounds include [GlassCard]'s 16 dp side margins, so the clip is
- * inset by them and rounded like the panel. As the bounds shrink, the Home card's footer slides up under its edge.
- */
-@OptIn(ExperimentalSharedTransitionApi::class)
-private class CardPlateClip(private val margin: Dp, private val corner: Dp) : SharedTransitionScope.OverlayClip {
-    override fun getClipPath(state: SharedTransitionScope.SharedContentState, bounds: Rect, layoutDirection: LayoutDirection, density: Density): Path {
-        val inset = with(density) { margin.toPx() }
-        val radius = with(density) { corner.toPx() }
-        return Path().apply {
-            addRoundRect(RoundRect(bounds.left + inset, bounds.top, bounds.right - inset, bounds.bottom, CornerRadius(radius)))
-        }
-    }
-}
-
-/**
  * Makes this card the hero for [vehicleId]: between Home and the vehicle page it glides from one position and
- * height to the other in [Motion.HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once; the
- * leaving card's content fades in [Motion.QUICK_MS] under or over it, the photos coinciding). Content keeps its own size, top-aligned, so the photo never stretches. No-op under
- * reduced motion or outside the shell.
+ * height to the other in [Motion.HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once;
+ * opening, the Home card's content fades in [Motion.QUICK_MS] over it, the photos coinciding). No-op under reduced
+ * motion or outside the shell.
+ *
+ * D-A43: the card is remeasured to the gliding bounds, so its own plate, border and outside-only shadow are drawn at
+ * those bounds in every frame, exactly as at rest; its content keeps its natural height inside ([HeroContent]),
+ * top-aligned and clipped by the plate, so the photo never stretches. Before, an overlay clip cut the plate out of
+ * the natural-size card, which dropped the shadow for the glide and let it snap back at the end (the "flash"). Going
+ * Back, the vehicle page's card leaves at once rather than fading over the Home card, so there is never a doubled
+ * fill or shadow; opening, the Home card's shadow is off while it fades ([heroShadowOff]).
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -111,20 +101,38 @@ fun Modifier.vehicleHero(vehicleId: String, page: Boolean = false): Modifier {
     val nav = LocalNavAnimatedScope.current ?: return this
     val reduced = rememberReducedMotion()
     if (reduced) return this
-    val corner = glass.radiusLarge
-    val clip = remember(corner) { CardPlateClip(CARD_MARGIN, corner) }
     val bounds = remember(nav, page) { heroBounds(nav, page) }
     return with(shared) {
         sharedBounds(
             sharedContentState = rememberSharedContentState(key = "vehicle-card-$vehicleId"),
             animatedVisibilityScope = nav,
             enter = EnterTransition.None,
-            exit = fadeOut(tween(Motion.QUICK_MS)),
+            exit = if (page) fadeOut(snap()) else fadeOut(tween(Motion.QUICK_MS)),
             boundsTransform = bounds,
-            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.FillWidth, Alignment.TopCenter),
-            clipInOverlayDuringTransition = clip,
+            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
         )
     }
+}
+
+/**
+ * A hero card's content (D-A43): measured at its natural height whatever the gliding bounds are, top-aligned, so
+ * the card's plate clips what doesn't fit instead of the content being squeezed.
+ */
+@Composable
+fun HeroContent(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top, unbounded = true), content = content)
+}
+
+/**
+ * True while this screen's hero card is leaving in a shared glide (Home, opening a vehicle): its own shadow is then
+ * off, so the arriving card's shadow is the only one drawn and the card looks the same in every frame (D-A43).
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun heroShadowOff(): Boolean {
+    val shared = LocalSharedTransitionScope.current ?: return false
+    val nav = LocalNavAnimatedScope.current ?: return false
+    return shared.isTransitionActive && nav.transition.targetState == EnterExitState.PostExit
 }
 
 /** Records this card's bottom edge so a tap can hand it to [VehicleHeroOrigins.launch]. */
@@ -146,8 +154,9 @@ fun VehicleHeroOrigins?.launch(vehicleId: String, anchor: HeroAnchor) {
 
 /**
  * The vehicle page's drawer: every card under the photo slides up from where the Home card's bottom edge was to
- * its place, in step with the hero, with a quick fade; on the way back it slides down the same way. Opened any
- * other way, it rises [DRAWER_FALLBACK_SLIDE]. One per page, from [rememberDrawerSlide].
+ * its place, just ahead of the hero, with a quick fade. Leaving, it stays put (D-A43): the cards pop out in place
+ * instead ([rememberPopOut]). Opened any other way, it rises [DRAWER_FALLBACK_SLIDE]. One per page, from
+ * [rememberDrawerSlide].
  */
 @Stable
 class DrawerSlide internal constructor(
@@ -159,6 +168,9 @@ class DrawerSlide internal constructor(
 ) {
     /** The hero's own bottom edge on this page (root px), from its first layout. */
     private var heroBottom by mutableStateOf<Float?>(null)
+
+    /** Opened from a Home card, so the hero glides in over the drawer (D-A43: the pop-in then waits for it). */
+    val fromHero: Boolean get() = !reduced && originBottom != null
 
     internal val distance: Float?
         get() = when {
@@ -186,7 +198,7 @@ fun rememberDrawerSlide(vehicleId: String): DrawerSlide {
     val progress: State<Float> = if (nav == null || reduced) {
         rememberStatic(0f)
     } else {
-        nav.transition.animateFloat(transitionSpec = { heroSpec() }, label = "drawer") { if (it == EnterExitState.Visible) 0f else 1f }
+        nav.transition.animateFloat(transitionSpec = { heroSpec() }, label = "drawer") { if (it == EnterExitState.PreEnter) 1f else 0f }
     }
     return remember(origin, fallback, progress) { DrawerSlide(reduced, origin, fallback, progress) }
 }
@@ -194,8 +206,30 @@ fun rememberDrawerSlide(vehicleId: String): DrawerSlide {
 /**
  * Slides this card with the page's drawer. Read in `graphicsLayer {}` only, so no frame recomposes. Until the hero
  * has been laid out the travel is unknown and a card still off is kept invisible rather than drawn in place.
+ *
+ * Opened from a Home card (D-A43, user-set) the card doesn't travel: it pops in at its final spot from the moment
+ * the hero starts rising, and is drawn above the gliding hero for the length of the transition, so the hero rises
+ * into place above it and never hides it. Opened any other way, the drawer slide as before.
  */
-fun Modifier.drawerSlide(slide: DrawerSlide): Modifier = if (slide.reduced) this else graphicsLayer {
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun Modifier.drawerSlide(slide: DrawerSlide): Modifier {
+    if (slide.reduced) return this
+    if (slide.fromHero) {
+        val shared = LocalSharedTransitionScope.current ?: return this
+        val nav = LocalNavAnimatedScope.current ?: return this
+        // Only while arriving: going Back the hero glides down over the cards popping out.
+        return with(shared) {
+            renderInSharedTransitionScopeOverlay(
+                renderInOverlay = { isTransitionActive && nav.transition.targetState == EnterExitState.Visible },
+                zIndexInOverlay = ABOVE_HERO_Z,
+            )
+        }
+    }
+    return slidingWithDrawer(slide)
+}
+
+private fun Modifier.slidingWithDrawer(slide: DrawerSlide): Modifier = graphicsLayer {
     val p = slide.offProgress.value
     if (p == 0f) return@graphicsLayer
     val d = slide.distance
@@ -207,11 +241,12 @@ fun Modifier.drawerSlide(slide: DrawerSlide): Modifier = if (slide.reduced) this
     alpha = ((1f - p) * DRAWER_ALPHA_RATE).coerceIn(0f, 1f)
 }
 
+/** The hero's overlay layer is 0; the page's cards draw over it while it glides (D-A43). */
+private const val ABOVE_HERO_Z = 1f
+
 /** How far the drawer rises when there is no Home card to follow. */
 private val DRAWER_FALLBACK_SLIDE = 48.dp
 
 /** The drawer is opaque by 40 % of the way, so it cross-fades with the leaving screen and doesn't flash. */
 private const val DRAWER_ALPHA_RATE = 2.5f
 
-/** [GlassCard]'s side margin. */
-private val CARD_MARGIN = 16.dp

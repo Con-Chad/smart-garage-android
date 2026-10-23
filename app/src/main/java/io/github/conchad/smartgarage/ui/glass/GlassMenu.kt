@@ -38,12 +38,14 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -202,8 +204,12 @@ fun GlassPillButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     compact: Boolean = false,
+    textStyle: TextStyle = MaterialTheme.typography.labelLarge,
+    /** The label and icon colour; [Color.Unspecified] is the sheen. Pills over the aurora pass [rememberPillInk] (D-A43). */
+    contentColor: Color = Color.Unspecified,
 ) {
     val tokens = glass
+    val ink = contentColor.takeOrElse { tokens.sheen }
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressFeedback(interaction)
     Box(
@@ -221,9 +227,9 @@ fun GlassPillButton(
                 .padding(horizontal = if (compact) 14.dp else 18.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = tokens.sheen, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = textStyle, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+                Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.padding(start = 4.dp).size(18.dp))
             }
         }
     }
@@ -248,6 +254,8 @@ fun GlassStackedPillButton(
     icon: ImageVector? = null,
 ) {
     val tokens = glass
+    // D-A43: white over the aurora, dark on a light backdrop.
+    val ink = rememberPillInk()
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressFeedback(interaction)
     val shape = RoundedCornerShape(tokens.radiusMedium)
@@ -273,11 +281,11 @@ fun GlassStackedPillButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(topLine, style = style, color = tokens.sheen, maxLines = 1, softWrap = false)
+            Text(topLine, style = style, color = ink, maxLines = 1, softWrap = false)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(bottomLine, style = style, color = tokens.sheen, maxLines = 1, softWrap = false)
+                Text(bottomLine, style = style, color = ink, maxLines = 1, softWrap = false)
                 if (icon != null) {
-                    Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.padding(start = 2.dp).size(16.dp))
+                    Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.padding(start = 2.dp).size(16.dp))
                 }
             }
         }
