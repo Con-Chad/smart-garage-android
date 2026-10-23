@@ -15,16 +15,12 @@ import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +43,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.GlassButton
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassListItemColors
+import io.github.conchad.smartgarage.ui.glass.glassPillSurface
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import kotlin.math.ceil
 
@@ -65,7 +71,7 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         title = stringResource(R.string.signin_title),
         onBack = onBack,
         bottomBar = {
-            Button(
+            GlassButton(
                 onClick = submit,
                 enabled = !state.signingIn && !state.loading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -74,7 +80,7 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
                     CircularProgressIndicator(
                         Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = glass.textSecondary,
                     )
                 } else {
                     Text(stringResource(R.string.signin_submit))
@@ -93,6 +99,8 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         ServerSummary(state = state, onChange = viewModel::editServer)
 
         OutlinedTextField(
+
+            colors = glassTextFieldColors(),
             value = state.username,
             onValueChange = viewModel::updateUsername,
             label = { Text(stringResource(R.string.signin_username)) },
@@ -116,6 +124,8 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         )
 
         OutlinedTextField(
+
+            colors = glassTextFieldColors(),
             value = state.deviceName,
             onValueChange = viewModel::updateDeviceName,
             label = { Text(stringResource(R.string.signin_device_name)) },
@@ -129,7 +139,7 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         if (reauth) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 if (state.otherProfiles.isNotEmpty()) {
-                    TextButton(onClick = { pickServer = true }) { Text(stringResource(R.string.signin_switch_server)) }
+                    TextButton(onClick = { pickServer = true }, colors = glassTextButtonColors()) { Text(stringResource(R.string.signin_switch_server)) }
                 }
                 TextButton(onClick = { confirmRemove = true }) {
                     Text(stringResource(R.string.signin_remove_server), color = MaterialTheme.colorScheme.error)
@@ -139,9 +149,9 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
     }
 
     if (pickServer) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { pickServer = false },
-            title = { Text(stringResource(R.string.signin_switch_server)) },
+            title = stringResource(R.string.signin_switch_server),
             text = {
                 Column {
                     state.otherProfiles.forEach { profile ->
@@ -149,7 +159,7 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
                             headlineContent = { Text(profile.name) },
                             supportingContent = { Text(profile.hostLabel) },
                             leadingContent = { IconBadge(Icons.Outlined.Dns) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            colors = glassListItemColors(),
                             modifier = Modifier.clickable {
                                 pickServer = false
                                 viewModel.switchTo(profile.id)
@@ -160,24 +170,27 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { pickServer = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { pickServer = false }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
 
     if (confirmRemove) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text(stringResource(R.string.profiles_remove_title, state.serverName)) },
+            title = stringResource(R.string.profiles_remove_title, state.serverName),
             text = { Text(stringResource(R.string.profiles_remove_body)) },
             confirmButton = {
-                TextButton(onClick = {
-                    confirmRemove = false
-                    viewModel.removeThisServer()
-                }) { Text(stringResource(R.string.profiles_remove)) }
+                TextButton(
+                    onClick = {
+                        confirmRemove = false
+                        viewModel.removeThisServer()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.profiles_remove)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { confirmRemove = false }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -185,10 +198,11 @@ internal fun SignInStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
 
 @Composable
 private fun ServerSummary(state: SetupUiState, onChange: () -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth(),
+    val tokens = glass
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassPillSurface(tokens, RoundedCornerShape(tokens.radiusMedium)),
     ) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconBadge(Icons.Outlined.Dns)
@@ -197,10 +211,10 @@ private fun ServerSummary(state: SetupUiState, onChange: () -> Unit) {
                 Text(
                     state.serverAddress,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = glass.textSecondary,
                 )
             }
-            TextButton(onClick = onChange) { Text(stringResource(R.string.action_change)) }
+            TextButton(onClick = onChange, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_change)) }
         }
     }
 }
@@ -242,6 +256,7 @@ internal fun SecretField(
 ) {
     var visible by rememberSaveable { mutableStateOf(false) }
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },

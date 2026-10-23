@@ -13,12 +13,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +27,14 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassButton
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassPillSurface
+import io.github.conchad.smartgarage.ui.glass.glassSwitchColors
+import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.conchad.smartgarage.core.network.HealthResult
 import io.github.conchad.smartgarage.core.network.ServerUrl
 import io.github.conchad.smartgarage.ui.components.IconBadge
@@ -43,18 +48,18 @@ internal fun ServerStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         title = stringResource(R.string.server_title),
         onBack = onBack,
         bottomBar = {
-            OutlinedButton(
+            GlassOutlinedButton(
                 onClick = viewModel::testConnection,
                 enabled = !state.testing,
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
                 if (state.testing) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = glass.sheen)
                 } else {
                     Text(stringResource(R.string.server_test), maxLines = 1)
                 }
             }
-            Button(
+            GlassButton(
                 onClick = viewModel::continueToSignIn,
                 enabled = state.verified && !state.testing,
                 modifier = Modifier.weight(1f).height(52.dp),
@@ -64,10 +69,12 @@ internal fun ServerStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         Text(
             stringResource(R.string.server_intro),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
         )
 
         OutlinedTextField(
+
+            colors = glassTextFieldColors(),
             value = form.url,
             onValueChange = { value -> viewModel.updateForm { it.copy(url = value) } },
             label = { Text(stringResource(R.string.server_url_label)) },
@@ -87,6 +94,8 @@ internal fun ServerStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
         )
 
         OutlinedTextField(
+
+            colors = glassTextFieldColors(),
             value = form.name,
             onValueChange = { value -> viewModel.updateForm { it.copy(name = value.take(40)) } },
             label = { Text(stringResource(R.string.server_name_label)) },
@@ -122,10 +131,11 @@ internal fun ServerStep(state: SetupUiState, viewModel: SetupViewModel, onBack: 
 private fun CloudflareAccessCard(state: SetupUiState, viewModel: SetupViewModel) {
     val form = state.form
     val missing = state.formError == FormError.CfCredentialsMissing
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth(),
+    val tokens = glass
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassPillSurface(tokens, RoundedCornerShape(tokens.radiusMedium)),
     ) {
         Column {
             Row(
@@ -141,10 +151,11 @@ private fun CloudflareAccessCard(state: SetupUiState, viewModel: SetupViewModel)
                     Text(
                         stringResource(R.string.server_cf_body),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = glass.textSecondary,
                     )
                 }
                 Switch(
+                    colors = glassSwitchColors(),
                     checked = form.useCfAccess,
                     onCheckedChange = { checked -> viewModel.updateForm { it.copy(useCfAccess = checked) } },
                 )
@@ -155,6 +166,7 @@ private fun CloudflareAccessCard(state: SetupUiState, viewModel: SetupViewModel)
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedTextField(
+                        colors = glassTextFieldColors(),
                         value = form.cfClientId,
                         onValueChange = { value -> viewModel.updateForm { it.copy(cfClientId = value.trim()) } },
                         label = { Text(stringResource(R.string.server_cf_client_id)) },
@@ -175,7 +187,7 @@ private fun CloudflareAccessCard(state: SetupUiState, viewModel: SetupViewModel)
                     Text(
                         stringResource(if (missing) R.string.server_cf_missing else R.string.server_cf_hint),
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (missing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (missing) MaterialTheme.colorScheme.error else glass.textSecondary,
                     )
                 }
             }

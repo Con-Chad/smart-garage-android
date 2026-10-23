@@ -25,6 +25,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import androidx.compose.material3.ButtonDefaults
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.core.cache.OutboxOp
 import io.github.conchad.smartgarage.core.data.FailedWrite
 import io.github.conchad.smartgarage.core.data.WriteDenied
@@ -141,13 +144,13 @@ private fun FailedWriteRow(write: FailedWrite, onRetry: () -> Unit, onDismiss: (
             )
             Text(stringResource(write.failure.messageRes()), style = MaterialTheme.typography.bodyMedium)
             write.message?.takeIf { it.isNotBlank() }?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(it, style = MaterialTheme.typography.bodySmall, color = glass.textSecondary)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_dismiss)) }
+            TextButton(onClick = onDismiss, colors = ButtonDefaults.textButtonColors(contentColor = glass.textSecondary)) { Text(stringResource(R.string.action_dismiss)) }
             if (write.retryable) {
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+                TextButton(onClick = onRetry, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_retry)) }
             }
         }
     }

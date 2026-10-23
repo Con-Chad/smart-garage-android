@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
 
 /**
  * "Add to calendar" (D-A25): the same outlined, full-width, 48 dp button in every form and sheet that knows a due
@@ -21,7 +21,7 @@ import io.github.conchad.smartgarage.R
  */
 @Composable
 fun AddToCalendarButton(dateText: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    OutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+    GlassOutlinedButton(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Icon(Icons.Outlined.Event, contentDescription = null, modifier = Modifier.size(18.dp))
         Text(stringResource(R.string.calendar_add_dated, dateText), modifier = Modifier.padding(start = 8.dp))
     }

@@ -16,6 +16,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * The search field of a list (D-A23): one line, a search glyph, a clear button once there is text. Filtering
@@ -29,7 +33,7 @@ fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: Str
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
         singleLine = true,
-        placeholder = { Text(placeholder) },
+        placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {
             {
@@ -41,5 +45,8 @@ fun SearchField(query: String, onQueryChange: (String) -> Unit, placeholder: Str
             null
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        // A frosted fill so the hint stays readable over a bright aurora (D-A41).
+        colors = glassTextFieldColors(container = glass.panel),
+        shape = RoundedCornerShape(glass.radiusMedium),
     )
 }

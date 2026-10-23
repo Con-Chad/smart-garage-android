@@ -21,11 +21,9 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.SyncProblem
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -40,7 +38,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import androidx.compose.foundation.shape.RoundedCornerShape
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.GlassPillButton
+import io.github.conchad.smartgarage.ui.glass.SkeletonList
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.onAurora
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 
@@ -66,18 +69,19 @@ fun CantReachState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
         title = stringResource(R.string.cant_reach_title),
         body = stringResource(R.string.cant_reach_body),
         modifier = modifier,
-        action = { Button(onClick = onRetry) { Text(stringResource(R.string.action_retry)) } },
+        action = { GlassPillButton(stringResource(R.string.action_retry), onClick = onRetry) },
     )
 }
 
 /**
  * Loading, can't-reach, or the screen's own [content], decided the same way on every cache-backed screen:
- * - the cache hasn't answered yet, or the first sync is still running: [LoadingState];
+ * - the cache hasn't answered yet, or the first sync is still running: [LoadingState], or with [skeleton] a
+ *   [SkeletonList] shaped like the screen's grouped list (D-A41: the list tabs and the More sections);
  * - the first sync failed and nothing is cached: [CantReachState];
  * - otherwise [content], which handles its own empty state.
  */
 @Composable
-fun LoadedContent(loaded: Boolean, sync: SyncInfo, onRetry: () -> Unit, content: @Composable () -> Unit) {
+fun LoadedContent(loaded: Boolean, sync: SyncInfo, onRetry: () -> Unit, skeleton: Boolean = false, content: @Composable () -> Unit) {
     val phase = when {
         !loaded || sync.firstLoad -> Phase.Loading
         sync.neverSynced -> Phase.CantReach
@@ -85,7 +89,14 @@ fun LoadedContent(loaded: Boolean, sync: SyncInfo, onRetry: () -> Unit, content:
     }
     Crossfade(phase, label = "loaded") { current ->
         when (current) {
-            Phase.Loading -> LoadingState(stringResource(if (sync.firstLoad) R.string.loading_first_sync else R.string.loading))
+            Phase.Loading -> if (skeleton) {
+                SkeletonList(
+                    label = stringResource(R.string.loading),
+                    caption = if (sync.firstLoad) stringResource(R.string.loading_first_sync) else null,
+                )
+            } else {
+                LoadingState(stringResource(if (sync.firstLoad) R.string.loading_first_sync else R.string.loading))
+            }
             Phase.CantReach -> CantReachState(onRetry)
             Phase.Content -> content()
         }
@@ -110,12 +121,12 @@ fun RefreshBox(sync: SyncInfo, onRefresh: () -> Unit, modifier: Modifier = Modif
 
 /**
  * Slim banner under the top bar, hidden in the normal case. It has three things to say, most urgent first:
- * - "N changes couldn't be saved" while writes the server rejected wait to be retried or dismissed (error
- *   container, [onShowFailed] opens the list); screens that can't show the list leave it null and the banner
+ * - "N changes couldn't be saved" while writes the server rejected wait to be retried or dismissed (error tone,
+ *   [onShowFailed] opens the list); screens that can't show the list leave it null and the banner
  *   stays with the sync states;
  * - "Offline · N changes waiting to sync" when the last sync failed after an earlier success and there are queued
  *   writes (neutral), else "Offline · last updated X";
- * - "Sync failed · last updated X" when the server answered with an error (error container).
+ * - "Sync failed · last updated X" when the server answered with an error (error tone).
  * Text always carries the meaning; the icon only decorates.
  *
  * [syncStates] false keeps only the failed-writes message: the home screen shows "can't reach" as its own popup
@@ -140,10 +151,14 @@ fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifie
             offline -> stringResource(R.string.sync_banner_offline, last)
             else -> stringResource(R.string.sync_banner_failed, last)
         }
-        Surface(
-            color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth(),
+        // A glass strip (D-A41), not an opaque bar: the state is in the words and the tinted icon and glow.
+        val tokens = glass
+        val tone = if (error) MaterialTheme.colorScheme.error else tokens.sheen
+        GlassPanel(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(tokens.radiusMedium),
+            glow = tone,
+            elevated = false,
         ) {
             Row(
                 Modifier
@@ -159,13 +174,14 @@ fun SyncBanner(sync: SyncInfo, onRetry: () -> Unit, modifier: Modifier = Modifie
                         else -> Icons.Outlined.SyncProblem
                     },
                     contentDescription = null,
+                    tint = tone,
                     modifier = Modifier.size(20.dp),
                 )
-                Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
+                Text(text, style = MaterialTheme.typography.bodyMedium, color = tokens.textPrimary, modifier = Modifier.weight(1f).padding(horizontal = 12.dp))
                 if (showFailed) {
-                    TextButton(onClick = onShowFailed!!) { Text(stringResource(R.string.action_show)) }
+                    TextButton(onClick = onShowFailed!!, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_show)) }
                 } else {
-                    TextButton(onClick = onRetry, enabled = !sync.status.running) { Text(stringResource(R.string.action_retry)) }
+                    TextButton(onClick = onRetry, enabled = !sync.status.running, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_retry)) }
                 }
             }
         }

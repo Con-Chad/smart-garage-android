@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassButton
+import androidx.compose.foundation.layout.heightIn
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.glass
@@ -96,12 +97,7 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
             verticalArrangement = Arrangement.Center,
         ) {
             Spacer(Modifier.height(48.dp))
-            IconBadge(
-                Icons.Outlined.Garage,
-                size = 104,
-                container = MaterialTheme.colorScheme.primaryContainer,
-                content = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
+            IconBadge(Icons.Outlined.Garage, size = 104)
             Spacer(Modifier.height(24.dp))
             // On the aurora (D-A30): haloed title and body, the three features on a glass panel.
             Text(
@@ -113,7 +109,7 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
             Text(
                 stringResource(R.string.welcome_body),
                 style = MaterialTheme.typography.bodyLarge.onAurora(glass),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(32.dp))
@@ -126,7 +122,7 @@ private fun WelcomeStep(onGetStarted: () -> Unit) {
             }
             Spacer(Modifier.height(24.dp))
         }
-        Button(onClick = onGetStarted, modifier = Modifier.fillMaxWidth().widthIn(max = 420.dp).height(52.dp)) {
+        GlassButton(onClick = onGetStarted, modifier = Modifier.fillMaxWidth().widthIn(max = 420.dp).heightIn(min = 52.dp)) {
             Text(stringResource(R.string.welcome_get_started))
         }
     }
@@ -141,7 +137,7 @@ private fun Feature(icon: ImageVector, title: Int, body: Int) {
             Text(
                 stringResource(body),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
     }

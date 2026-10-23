@@ -30,10 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.enumLabel
 import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
@@ -86,7 +88,7 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         FormPicker(
@@ -131,7 +133,7 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
             supporting = state.itemsTotalCents?.let { stringResource(R.string.record_form_parts_total, fmt.money(it)) },
         )
         if (state.itemsTotalCents != null && state.itemsTotalCents != state.costCents) {
-            TextButton(onClick = viewModel::useItemsTotal, modifier = Modifier.align(Alignment.End)) {
+            TextButton(onClick = viewModel::useItemsTotal, colors = glassTextButtonColors(), modifier = Modifier.align(Alignment.End)) {
                 Text(stringResource(R.string.record_form_use_parts_total))
             }
         }
@@ -149,7 +151,7 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
         FormSection(
             stringResource(R.string.schedule_parts),
             action = {
-                TextButton(onClick = viewModel::addItem) {
+                TextButton(onClick = viewModel::addItem, colors = glassTextButtonColors()) {
                     Icon(Icons.Outlined.Add, contentDescription = null)
                     Text(stringResource(R.string.record_form_add_part), modifier = Modifier.padding(start = 4.dp))
                 }
@@ -159,7 +161,7 @@ fun RecordFormScreen(onClose: () -> Unit, viewModel: RecordFormViewModel = hiltV
             Text(
                 stringResource(R.string.record_form_no_parts),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
         state.items.forEach { item ->
@@ -219,7 +221,7 @@ internal fun ItemEditor(
                 Text(
                     category ?: stringResource(R.string.record_form_part),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = glass.textSecondary,
                     modifier = Modifier.weight(1f),
                 )
                 val removeLabel = stringResource(R.string.record_form_remove_part, item.name.ifBlank { category ?: "" }.trim())

@@ -13,7 +13,6 @@ import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.ChartPoint
 import io.github.conchad.smartgarage.feature.vehicles.StatStrip
@@ -82,13 +84,12 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                 WriteQueueBanner(sync, viewModel)
                 VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
                 RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh, skeleton = true) {
                         if (state.months.isEmpty()) {
                             EmptyState(
                                 modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = Icons.Outlined.LocalGasStation,
                                 title = stringResource(R.string.fuel_empty_title),
-                                body = stringResource(R.string.fuel_empty_body),
                             )
                         } else {
                             LazyColumn(contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
@@ -204,38 +205,26 @@ val FAB_CLEARANCE = 96.dp
 @Composable
 private fun Summary(summary: FuelSummary, fmt: Formatter, showEconomy: Boolean) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (showEconomy) Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
-        ) {
-            Column(Modifier.padding(20.dp)) {
-                Text(
-                    stringResource(R.string.fuel_avg_economy),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+        // The headline figure on a glass card (D-A41): sheen label, metallic value, as StatStrip below it.
+        if (showEconomy) GlassPanel(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, contentPadding = 20.dp) {
+            val tokens = glass
+            Text(stringResource(R.string.fuel_avg_economy), style = MaterialTheme.typography.labelLarge, color = tokens.sheen)
+            Row(verticalAlignment = Alignment.Bottom) {
+                val value = summary.averageConsumption?.let { fmt.economyValue(it) }
+                MetallicText(
+                    value?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                    style = MaterialTheme.typography.displaySmall,
+                    animated = true,
                 )
-                Row(verticalAlignment = Alignment.Bottom) {
-                    val value = summary.averageConsumption?.let { fmt.economyValue(it) }
-                    Text(
-                        value?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        fmt.economyUnit,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
-                    )
-                }
-                if (summary.averageConsumption == null) {
-                    Text(
-                        stringResource(R.string.fuel_avg_needs_two),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
+                Text(
+                    fmt.economyUnit,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = tokens.textSecondary,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+                )
+            }
+            if (summary.averageConsumption == null) {
+                Text(stringResource(R.string.fuel_avg_needs_two), style = MaterialTheme.typography.bodySmall, color = tokens.textSecondary)
             }
         }
         StatStrip(

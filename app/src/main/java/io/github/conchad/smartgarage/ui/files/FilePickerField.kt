@@ -17,7 +17,6 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -28,6 +27,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
+import io.github.conchad.smartgarage.ui.glass.glass
 
 /**
  * The file slot of an upload form (D-A21): a "Choose file" button (and "Take photo" when [onCapture] is given,
@@ -50,17 +51,17 @@ fun FilePickerField(
             Text(
                 stringResource(R.string.capture_processing),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
         } else if (file == null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onPick, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                GlassOutlinedButton(onClick = onPick, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                     Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.file_choose), modifier = Modifier.padding(start = 8.dp), maxLines = 2)
                 }
                 if (onCapture != null) {
-                    OutlinedButton(onClick = onCapture, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                    GlassOutlinedButton(onClick = onCapture, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                         Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.file_take_photo), modifier = Modifier.padding(start = 8.dp), maxLines = 2)
                     }
@@ -74,17 +75,17 @@ fun FilePickerField(
                     file.mimeType?.startsWith("image/") == true -> Icons.Outlined.Image
                     else -> Icons.Outlined.Description
                 }
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = glass.textSecondary, modifier = Modifier.size(20.dp))
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
                     Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
                         listOfNotNull(file.mimeType ?: stringResource(R.string.file_unknown_type), FileSize.formatShortFileSize(context, file.sizeBytes))
                             .joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = glass.textSecondary,
                     )
                 }
-                OutlinedButton(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.action_change)) }
+                GlassOutlinedButton(onClick = onPick, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.action_change)) }
                 if (onCapture != null) {
                     IconButton(onClick = onCapture, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Outlined.PhotoCamera, contentDescription = stringResource(R.string.file_take_photo))
@@ -98,7 +99,7 @@ fun FilePickerField(
                 FileSize.formatShortFileSize(context, FileRules.maxBytes(kind)),
             ),
             style = MaterialTheme.typography.bodySmall,
-            color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (error != null) MaterialTheme.colorScheme.error else glass.textSecondary,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }

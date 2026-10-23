@@ -22,15 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +53,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.GlassBottomSheet
+import io.github.conchad.smartgarage.ui.glass.GlassButton
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
+import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.SkeletonFields
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.glass
 
 /**
@@ -138,9 +140,9 @@ fun FormSheet(
     validation: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding()) {
-            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            MetallicText(title, style = MaterialTheme.typography.titleLarge, animated = true, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             Column(
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -166,28 +168,28 @@ fun SaveBar(
     validation: String? = null,
     inSheet: Boolean = false,
 ) {
-    Surface(color = if (inSheet) MaterialTheme.colorScheme.surfaceContainerLow else glass.panel, modifier = modifier) {
+    // On the screen, the frosted bar; in a sheet, nothing of its own: the sheet's glass is already behind it (D-A41).
+    Surface(color = if (inSheet) Color.Transparent else glass.panel, contentColor = glass.textPrimary, modifier = modifier) {
         Column(Modifier.fillMaxWidth().then(if (inSheet) Modifier else Modifier.navigationBarsPadding().imePadding())) {
-            if (!inSheet) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (!inSheet) HorizontalDivider(color = glass.panelBorder)
             AnimatedVisibility(visible = validation != null) {
                 Text(
                     validation.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = glass.textSecondary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                         .semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
-            Button(
+            GlassButton(
                 onClick = onSave,
                 enabled = enabled && !saving,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).heightIn(min = 48.dp),
-                contentPadding = ButtonDefaults.ContentPadding,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
             ) {
                 if (saving) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = glass.textSecondary)
                     Spacer(Modifier.size(12.dp))
                 }
                 Text(label, style = MaterialTheme.typography.titleMedium)
@@ -196,11 +198,11 @@ fun SaveBar(
     }
 }
 
-/** Small primary label between groups of fields ("Parts and fluids"). */
+/** Small sheen label between groups of fields ("Parts and fluids"). */
 @Composable
 fun FormSection(title: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Row(modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = glass.sheen, modifier = Modifier.weight(1f))
         action?.invoke()
     }
 }
@@ -230,10 +232,10 @@ fun FormDisclosure(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                summary?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text(title, style = MaterialTheme.typography.titleSmall, color = glass.sheen)
+                summary?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = glass.textSecondary) }
             }
-            Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null)
+            Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = glass.sheen)
         }
         AnimatedVisibility(visible = expanded) {
             Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
@@ -251,19 +253,26 @@ fun ConfirmDialog(
     onDismiss: () -> Unit,
     destructive: Boolean = false,
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = title,
         text = { Text(body) },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                colors = if (destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error) else ButtonDefaults.textButtonColors(),
+                colors = if (destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error) else glassTextButtonColors(),
             ) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
+
+/**
+ * Placeholder fields while an editor loads the record it edits (D-A41): field-shaped skeleton bones inside the
+ * form's glass panel instead of a spinner, so the form appears where it will be.
+ */
+@Composable
+fun FormSkeleton() = SkeletonFields(stringResource(R.string.loading))
 
 /** Breathing room at the end of a scrolling form so the last field clears the save bar. */
 @Composable

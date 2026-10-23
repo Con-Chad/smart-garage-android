@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
@@ -26,11 +27,9 @@ import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -49,18 +48,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.BuildConfig
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassListItemColors
+import io.github.conchad.smartgarage.ui.glass.glassSegmentedColors
+import io.github.conchad.smartgarage.ui.glass.glassSwitchColors
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.core.data.DisplayPreferences
 import io.github.conchad.smartgarage.core.data.PushProblem
 import io.github.conchad.smartgarage.core.data.ServerProfile
@@ -95,7 +101,12 @@ fun SettingsScreen(
         onBack = onBack,
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        LazyColumn(contentPadding = padding) {
+        // Below the bar, not under it: the bar's glass is see-through, so rows scrolled under it showed through the
+        // title (D-A41). The bottom padding stays content padding, so the last row still clears the tray.
+        LazyColumn(
+            modifier = Modifier.padding(top = padding.calculateTopPadding()),
+            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+        ) {
             item { SectionLabel(stringResource(R.string.settings_account)) }
             item {
                 GroupCard {
@@ -108,7 +119,7 @@ fun SettingsScreen(
                             leadingContent = { Avatar(account.greetingName, size = 48) },
                             colors = transparentRow(),
                         )
-                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        RowDivider()
                     }
                     NavRow(
                         icon = Icons.Outlined.Dns,
@@ -122,7 +133,7 @@ fun SettingsScreen(
                             headlineContent = { Text(stringResource(R.string.settings_cleartext_background_sync)) },
                             supportingContent = { Text(stringResource(R.string.settings_cleartext_background_sync_desc)) },
                             leadingContent = { IconBadge(Icons.Outlined.Sync) },
-                            trailingContent = { Switch(checked = enabled, onCheckedChange = null) },
+                            trailingContent = { Switch(checked = enabled, onCheckedChange = null, colors = glassSwitchColors()) },
                             colors = transparentRow(),
                             modifier = Modifier.toggleable(
                                 value = enabled,
@@ -135,14 +146,10 @@ fun SettingsScreen(
                         headlineContent = { Text(stringResource(R.string.settings_sign_out)) },
                         supportingContent = account?.let { { Text(stringResource(R.string.settings_device_name, it.deviceName)) } },
                         leadingContent = {
-                            IconBadge(
-                                Icons.AutoMirrored.Outlined.Logout,
-                                container = MaterialTheme.colorScheme.errorContainer,
-                                content = MaterialTheme.colorScheme.onErrorContainer,
-                            )
+                            IconBadge(Icons.AutoMirrored.Outlined.Logout, tint = MaterialTheme.colorScheme.error)
                         },
                         trailingContent = if (state.signingOut) {
-                            { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+                            { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = glass.sheen) }
                         } else {
                             null
                         },
@@ -166,7 +173,7 @@ fun SettingsScreen(
                         headlineContent = { Text(stringResource(R.string.settings_track_fuel_economy)) },
                         supportingContent = { Text(stringResource(R.string.settings_track_fuel_economy_desc)) },
                         leadingContent = { IconBadge(Icons.Outlined.LocalGasStation) },
-                        trailingContent = { Switch(checked = track, onCheckedChange = null) },
+                        trailingContent = { Switch(checked = track, onCheckedChange = null, colors = glassSwitchColors()) },
                         colors = transparentRow(),
                         modifier = Modifier.toggleable(value = track, role = Role.Switch, onValueChange = viewModel::setTrackFuelEconomy),
                     )
@@ -190,7 +197,7 @@ fun SettingsScreen(
                         headlineContent = { Text(stringResource(R.string.settings_dynamic_color)) },
                         supportingContent = { Text(stringResource(R.string.settings_dynamic_color_desc)) },
                         trailingContent = {
-                            Switch(checked = state.appearance.dynamicColor, onCheckedChange = viewModel::setDynamicColor)
+                            Switch(checked = state.appearance.dynamicColor, onCheckedChange = viewModel::setDynamicColor, colors = glassSwitchColors())
                         },
                         colors = transparentRow(),
                         modifier = Modifier.clickable { viewModel.setDynamicColor(!state.appearance.dynamicColor) },
@@ -222,18 +229,18 @@ fun SettingsScreen(
     }
 
     if (confirmSignOut) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmSignOut = false },
-            title = { Text(stringResource(R.string.settings_sign_out_confirm_title)) },
+            title = stringResource(R.string.settings_sign_out_confirm_title),
             text = { Text(stringResource(R.string.settings_sign_out_confirm_body, profile.name)) },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(colors = glassTextButtonColors(), onClick = {
                     confirmSignOut = false
                     viewModel.signOut()
                 }) { Text(stringResource(R.string.settings_sign_out)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmSignOut = false }) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = { confirmSignOut = false }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -272,9 +279,9 @@ private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: Setti
             leadingContent = { IconBadge(Icons.Outlined.NotificationsActive) },
             trailingContent = {
                 if (push.busy) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = glass.sheen)
                 } else {
-                    Switch(checked = settings.enabled, onCheckedChange = null, enabled = profile.pushAllowed)
+                    Switch(checked = settings.enabled, onCheckedChange = null, enabled = profile.pushAllowed, colors = glassSwitchColors())
                 }
             },
             colors = transparentRow(),
@@ -286,14 +293,14 @@ private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: Setti
             ),
         )
         if (settings.enabled) {
-            HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            RowDivider()
             val canTest = settings.registered && !push.sendingTest
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_push_test)) },
                 supportingContent = { Text(stringResource(R.string.settings_push_test_desc)) },
                 leadingContent = { IconBadge(Icons.Outlined.Send) },
                 trailingContent = if (push.sendingTest) {
-                    { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+                    { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = glass.sheen) }
                 } else {
                     null
                 },
@@ -304,7 +311,7 @@ private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: Setti
         Text(
             stringResource(R.string.settings_push_about),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
         )
     }
@@ -312,18 +319,18 @@ private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: Setti
     val choices = push.choices
     if (choices != null) {
         if (choices.isEmpty()) {
-            AlertDialog(
+            GlassAlertDialog(
                 onDismissRequest = viewModel::dismissPushDistributors,
-                title = { Text(stringResource(R.string.settings_push_none_title)) },
+                title = stringResource(R.string.settings_push_none_title),
                 text = { Text(stringResource(R.string.settings_push_none_body)) },
                 confirmButton = {
-                    TextButton(onClick = viewModel::dismissPushDistributors) { Text(stringResource(R.string.action_ok)) }
+                    TextButton(onClick = viewModel::dismissPushDistributors, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_ok)) }
                 },
             )
         } else {
-            AlertDialog(
+            GlassAlertDialog(
                 onDismissRequest = viewModel::dismissPushDistributors,
-                title = { Text(stringResource(R.string.settings_push_pick_title)) },
+                title = stringResource(R.string.settings_push_pick_title),
                 text = {
                     Column {
                         Text(stringResource(R.string.settings_push_pick_body))
@@ -340,7 +347,7 @@ private fun PushCard(profile: ServerProfile, push: PushUiState, viewModel: Setti
                 },
                 confirmButton = {},
                 dismissButton = {
-                    TextButton(onClick = viewModel::dismissPushDistributors) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = viewModel::dismissPushDistributors, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -430,10 +437,10 @@ private fun UnitLine(label: Int, value: String) {
         Text(
             stringResource(label),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
+            color = glass.textSecondary,
+            modifier = Modifier.weight(1f).padding(end = 12.dp),
         )
-        Text(value, style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End)
     }
 }
 
@@ -464,10 +471,11 @@ private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit
                 selected = mode == selected,
                 onClick = { onSelect(mode) },
                 shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
+                colors = glassSegmentedColors(),
             ) { Text(stringResource(labels.getValue(mode))) }
         }
     }
 }
 
 @Composable
-private fun transparentRow() = ListItemDefaults.colors(containerColor = Color.Transparent)
+private fun transparentRow() = glassListItemColors()

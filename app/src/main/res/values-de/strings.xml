@@ -241,7 +241,6 @@
     <string name="fuel_economy">Verbrauch</string>
     <string name="fuel_avg_economy">Durchschnittsverbrauch</string>
     <string name="fuel_empty_title">Noch keine Tankstopps</string>
-    <string name="fuel_empty_body">Tankstopps, die du in Smart Garage erfasst, erscheinen hier mit deinem Verbrauch.</string>
     <string name="fuel_avg_needs_two">Braucht zwei Tankstopps mit Kilometerstand.</string>
     <string name="interval_both">Alle %1$s oder %2$s</string>
     <string name="interval_one">Alle %1$s</string>
@@ -274,9 +273,7 @@
     <string name="maintenance_history">Historie</string>
     <string name="maintenance_later">Später</string>
     <string name="maintenance_no_schedules_title">Keine Wartungspläne</string>
-    <string name="maintenance_no_schedules_body">Lege in Smart Garage im Browser Wartungspläne an, um zu sehen, was ansteht.</string>
     <string name="maintenance_no_records_title">Keine Wartungshistorie</string>
-    <string name="maintenance_no_records_body">Wartungen, die du in Smart Garage erfasst, erscheinen hier.</string>
     <plurals name="due_days_overdue">
         <item quantity="one">%1$d Tag überfällig</item>
         <item quantity="other">%1$d Tage überfällig</item>
@@ -340,30 +337,23 @@
     <string name="doc_category_insurance">Versicherung</string>
     <string name="doc_category_other">Sonstiges</string>
     <string name="reminders_empty_title">Nichts anstehend</string>
-    <string name="reminders_empty_body">Wartungspläne, Prüfungen und Versicherungsverlängerungen erscheinen hier.</string>
     <string name="reminders_soon">Bald fällig</string>
     <string name="reminders_insurance_ends">Police %1$s endet</string>
     <string name="reminders_insurance_renews">Police %1$s verlängert sich</string>
     <string name="history_empty_title">Noch kein Verlauf</string>
-    <string name="history_empty_body">Wartungen, Tankvorgänge, Ausgaben und Kilometerstände erscheinen hier, sobald sie erfasst werden.</string>
     <string name="history_fill_up">Tankvorgang</string>
     <string name="history_odometer">Kilometerstand %1$s</string>
     <string name="odometer_empty_title">Keine Kilometerstände</string>
-    <string name="odometer_empty_body">Im Web oder beim Tanken erfasste Stände erscheinen hier.</string>
     <string name="expenses_empty_title">Keine Ausgaben</string>
-    <string name="expenses_empty_body">Steuern, Parken, Maut und andere Kosten erscheinen hier.</string>
     <string name="documents_empty_title">Keine Dokumente</string>
-    <string name="documents_empty_body">Im Web hochgeladene Belege, Zulassungen und Fotos erscheinen hier.</string>
     <string name="documents_vehicle_photo">Fahrzeugfoto</string>
     <string name="documents_failed">Die Datei konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.</string>
     <string name="documents_no_viewer">Keine App auf diesem Telefon kann diesen Dateityp öffnen.</string>
     <string name="documents_invalid_id">Der Server hat für dieses Dokument eine ungültige ID geschickt, deshalb hat die App es nicht heruntergeladen.</string>
     <string name="notes_empty_title">Keine Notizen</string>
-    <string name="notes_empty_body">Im Web geschriebene Notizen erscheinen hier.</string>
     <string name="notes_pinned">Angeheftet</string>
     <string name="notes_all">Notizen</string>
     <string name="wishlist_empty_title">Wunschliste ist leer</string>
-    <string name="wishlist_empty_body">Geplante Teile und Umbauten erscheinen hier.</string>
     <string name="wishlist_category">Kategorie</string>
     <string name="wishlist_estimate">Geschätzte Kosten</string>
     <string name="wishlist_target">Zieldatum</string>
@@ -691,7 +681,6 @@
     <string name="search_history_hint">Teile, Öl, Filter, Notizen suchen…</string>
     <string name="search_notes_hint">Notizen durchsuchen…</string>
     <string name="search_no_matches_title">Keine Treffer</string>
-    <string name="search_no_matches_body">Versuche andere Wörter oder lösche die Suche und die Filter.</string>
     <string name="note_pin_action">Anheften</string>
     <string name="note_unpin">Lösen</string>
 

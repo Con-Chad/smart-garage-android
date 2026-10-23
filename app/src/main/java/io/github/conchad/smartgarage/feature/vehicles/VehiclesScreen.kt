@@ -221,19 +221,23 @@ private fun VehicleListCard(
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onClick)
             }
         }
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
-            // The mileage sits right above the status chip, as on the home card (D-A38).
-            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.padding(top = 4.dp)) { VehicleStatusChip(summary) }
+        val plate = vehicle.licensePlate?.takeIf { it.isNotBlank() }
+        if (plate != null || vehicle.access.isShared) {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                plate?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                if (vehicle.access.isShared) SharedBy(vehicle.owner?.name)
+            }
         }
-        // "View all" and "Quick info" pills on one line, one height, as on the home card (D-A33, D-A38).
+        // The mileage over the status chip, the pills beside them, as on the home card (D-A41, user-set).
         VehicleCardFooter(
             expanded = expanded,
             onToggle = { expanded = !expanded },
             onViewAll = onClick,
-        )
+            modifier = Modifier.padding(top = if (plate != null || vehicle.access.isShared) 8.dp else 16.dp),
+        ) {
+            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            VehicleStatusChip(summary)
+        }
         // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
         AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column {

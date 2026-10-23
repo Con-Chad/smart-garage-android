@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import io.github.conchad.smartgarage.core.model.ChartMath
+import io.github.conchad.smartgarage.ui.glass.glass
 import kotlin.math.ceil
 
 /**
@@ -49,7 +50,7 @@ fun LineChart(
     modifier: Modifier = Modifier,
     startLabel: String? = null,
     endLabel: String? = null,
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = glass.sheen,
     zeroBased: Boolean = false,
     plotHeight: Dp = 150.dp,
 ) {
@@ -104,7 +105,7 @@ fun BarChart(
     formatValue: (Double) -> String,
     summary: String,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary,
+    color: Color = glass.sheen,
     plotHeight: Dp = 150.dp,
 ) {
     val labelStyle = axisStyle()
@@ -157,7 +158,7 @@ fun BarChart(
 fun ChartTitle(title: String, modifier: Modifier = Modifier, detail: String? = null) {
     Column(modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall)
-        detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = glass.textSecondary) }
     }
 }
 
@@ -167,7 +168,7 @@ fun ChartPlaceholder(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = glass.textSecondary,
         modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 }
@@ -176,7 +177,7 @@ private val AXIS_GAP = 6.dp
 private const val MAX_DOTS = 40
 
 @Composable
-private fun axisStyle(): TextStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun axisStyle(): TextStyle = MaterialTheme.typography.labelSmall.copy(color = glass.textSecondary)
 
 @Composable
 private fun labelLineHeight(style: TextStyle): Dp = with(LocalDensity.current) {

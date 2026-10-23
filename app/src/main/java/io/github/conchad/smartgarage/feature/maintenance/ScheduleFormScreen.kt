@@ -25,9 +25,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.forms.FormDisclosure
 import io.github.conchad.smartgarage.ui.components.forms.FormDistanceField
@@ -81,7 +83,7 @@ fun ScheduleFormScreen(onClose: () -> Unit, viewModel: ScheduleFormViewModel = h
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         FormPicker(
@@ -147,7 +149,7 @@ fun ScheduleFormScreen(onClose: () -> Unit, viewModel: ScheduleFormViewModel = h
         Text(
             stringResource(R.string.schedule_form_interval_hint),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
         )
         FormMoneyField(
             value = state.cost,
@@ -226,23 +228,23 @@ fun ScheduleDefaultsScreen(onClose: () -> Unit, viewModel: ScheduleDefaultsViewM
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         Text(state.name, style = MaterialTheme.typography.titleMedium)
         state.vehicle?.let { vehicle ->
-            Text(vehicle.displayName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(vehicle.displayName, style = MaterialTheme.typography.bodyMedium, color = glass.textSecondary)
             if (!vehicle.access.canEdit) ViewOnlyNote(vehicle.owner?.name)
         }
         Text(
             stringResource(R.string.schedule_defaults_hint),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
         )
         FormSection(
             stringResource(R.string.schedule_parts),
             action = {
-                TextButton(onClick = viewModel::addItem) {
+                TextButton(onClick = viewModel::addItem, colors = glassTextButtonColors()) {
                     Icon(Icons.Outlined.Add, contentDescription = null)
                     Text(stringResource(R.string.record_form_add_part), modifier = Modifier.padding(start = 4.dp))
                 }
@@ -252,7 +254,7 @@ fun ScheduleDefaultsScreen(onClose: () -> Unit, viewModel: ScheduleDefaultsViewM
             Text(
                 stringResource(R.string.schedule_defaults_empty),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
         state.items.forEach { item ->

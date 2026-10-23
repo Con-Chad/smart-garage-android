@@ -958,7 +958,7 @@ fun RecordRow(record: MaintenanceRecord, name: String?, vehicle: Vehicle?, fmt: 
                     record.odometerKm?.let(fmt::distance),
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )

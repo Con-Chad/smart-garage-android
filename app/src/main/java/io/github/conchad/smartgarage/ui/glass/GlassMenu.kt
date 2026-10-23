@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -131,7 +132,7 @@ fun GlassMenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
 @Composable
 fun GlassAlertDialog(
     onDismissRequest: () -> Unit,
-    title: String,
+    title: String?,
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)? = null,
     text: @Composable (() -> Unit)? = null,
@@ -140,7 +141,7 @@ fun GlassAlertDialog(
     val shape = RoundedCornerShape(tokens.radiusLarge)
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { MetallicText(title, style = MaterialTheme.typography.headlineSmall, animated = true) },
+        title = title?.let { { MetallicText(it, style = MaterialTheme.typography.headlineSmall, animated = true) } },
         text = text,
         confirmButton = confirmButton,
         dismissButton = dismissButton,
@@ -158,9 +159,11 @@ fun glassTextButtonColors(): ButtonColors = ButtonDefaults.textButtonColors(cont
 
 /** Outlined fields on glass: sheen focus ring and cursor, panel border at rest, glass text colours. */
 @Composable
-fun glassTextFieldColors(): TextFieldColors {
+fun glassTextFieldColors(container: Color = Color.Transparent): TextFieldColors {
     val tokens = glass
     return OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = container,
+        unfocusedContainerColor = container,
         focusedBorderColor = tokens.sheen,
         unfocusedBorderColor = tokens.panelBorder,
         focusedLabelColor = tokens.sheen,
@@ -168,6 +171,21 @@ fun glassTextFieldColors(): TextFieldColors {
         cursorColor = tokens.sheen,
         focusedTextColor = tokens.textPrimary,
         unfocusedTextColor = tokens.textPrimary,
+        // D-A41: the forms, search and setup fields take these too; icons, placeholder and hints in glass greys.
+        focusedLeadingIconColor = tokens.sheen,
+        unfocusedLeadingIconColor = tokens.textSecondary,
+        focusedTrailingIconColor = tokens.textSecondary,
+        unfocusedTrailingIconColor = tokens.textSecondary,
+        focusedPlaceholderColor = tokens.textSecondary,
+        unfocusedPlaceholderColor = tokens.textSecondary,
+        focusedSupportingTextColor = tokens.textSecondary,
+        unfocusedSupportingTextColor = tokens.textSecondary,
+        disabledTextColor = tokens.textSecondary,
+        disabledBorderColor = tokens.panelBorder.copy(alpha = 0.5f),
+        disabledLabelColor = tokens.textSecondary,
+        disabledTrailingIconColor = tokens.textSecondary.copy(alpha = 0.6f),
+        disabledLeadingIconColor = tokens.textSecondary.copy(alpha = 0.6f),
+        disabledSupportingTextColor = tokens.textSecondary,
     )
 }
 

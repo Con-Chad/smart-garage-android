@@ -21,6 +21,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.InspectionInput
@@ -33,7 +34,6 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AddToCalendarButton
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.coverageLabel
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
 import io.github.conchad.smartgarage.ui.components.forms.FormEndSpacer
@@ -192,7 +192,7 @@ fun InspectionFormScreen(onClose: () -> Unit, viewModel: InspectionFormViewModel
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         state.vehicle?.let { vehicle ->
@@ -406,7 +406,7 @@ fun InsuranceFormScreen(onClose: () -> Unit, viewModel: InsuranceFormViewModel =
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         state.vehicle?.let { vehicle ->

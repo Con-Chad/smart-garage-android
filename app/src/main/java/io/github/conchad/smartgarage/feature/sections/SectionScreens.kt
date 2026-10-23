@@ -32,13 +32,9 @@ import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.UploadFile
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -100,6 +96,12 @@ import io.github.conchad.smartgarage.ui.components.wishlistCategoryLabel
 import io.github.conchad.smartgarage.ui.components.wishlistEstimate
 import io.github.conchad.smartgarage.ui.components.wishlistStatusLabel
 import io.github.conchad.smartgarage.ui.navigation.Section
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.GlassFilterChip
+import io.github.conchad.smartgarage.ui.components.EmptyAction
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import androidx.compose.foundation.shape.CircleShape
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -161,7 +163,6 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.NotificationsActive,
         emptyTitle = stringResource(R.string.reminders_empty_title),
-        emptyBody = stringResource(R.string.reminders_empty_body),
         actions = {
             // A schedule is a setting, not a log entry, so it hangs off the bar rather than a FAB (D-A20).
             if (state.loaded && state.canEditAny) {
@@ -171,7 +172,7 @@ private fun RemindersScreen(onBack: () -> Unit, actions: SectionActions, viewMod
             }
         },
         emptyAction = if (state.loaded && state.canEditAny) {
-            { Button(onClick = addSchedule) { Text(stringResource(R.string.action_add_schedule)) } }
+            { EmptyAction(stringResource(R.string.action_add_schedule), Icons.Outlined.Add, onClick = addSchedule) }
         } else {
             null
         },
@@ -280,7 +281,11 @@ private fun HistoryScreen(onBack: () -> Unit, actions: SectionActions, viewModel
         isEmpty = state.data.events.isEmpty(),
         emptyIcon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
         emptyTitle = stringResource(if (searching) R.string.search_no_matches_title else R.string.history_empty_title),
-        emptyBody = stringResource(if (searching) R.string.search_no_matches_body else R.string.history_empty_body),
+        emptyAction = if (searching) {
+            { EmptyAction(stringResource(R.string.search_clear), Icons.Outlined.Close, onClick = { viewModel.search("") }) }
+        } else {
+            null
+        },
         filters = {
             if (state.loaded && state.data.unfiltered > 0 || state.query.isNotEmpty()) {
                 SearchField(state.query, viewModel::search, stringResource(R.string.search_history_hint), Modifier.padding(bottom = 8.dp))
@@ -383,7 +388,6 @@ private fun OdometerScreen(onBack: () -> Unit, viewModel: OdometerViewModel = hi
         isEmpty = state.data.logs.isEmpty(),
         emptyIcon = Icons.Outlined.Speed,
         emptyTitle = stringResource(R.string.odometer_empty_title),
-        emptyBody = stringResource(R.string.odometer_empty_body),
     ) {
         item(key = "chart") { OdometerChart(state.data.series, state.vehicles.size, fmt) }
         byMonth(state.data.logs, fmt.zone) { it.recordedAt.toInstantOrNull() }.forEach { (month, logs) ->
@@ -456,7 +460,6 @@ private fun ExpensesScreen(onBack: () -> Unit, actions: SectionActions, viewMode
         isEmpty = state.data.isEmpty,
         emptyIcon = Icons.AutoMirrored.Outlined.ReceiptLong,
         emptyTitle = stringResource(R.string.expenses_empty_title),
-        emptyBody = stringResource(R.string.expenses_empty_body),
         floatingActionButton = {
             if (state.loaded && state.canEditAny) AddFab(stringResource(R.string.action_add_expense), onClick = add)
         },
@@ -539,11 +542,15 @@ private fun ExpensesOverview(data: ExpensesData, fmt: Formatter) {
                                 Text(expenseCategoryLabel(row.category), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                                 Text(fmt.money(row.cents, data.currency), style = MaterialTheme.typography.bodyMedium)
                             }
-                            Row(Modifier.fillMaxWidth().height(6.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.fillMaxWidth(fraction = (row.cents.toFloat() / total).coerceIn(0.02f, 1f)).height(6.dp),
-                                ) {}
+                            // A glass track with a sheen fill (D-A41), not opaque Material bars.
+                            Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(glass.pill)) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth(fraction = (row.cents.toFloat() / total).coerceIn(0.02f, 1f))
+                                        .height(6.dp)
+                                        .clip(CircleShape)
+                                        .background(glass.sheen),
+                                )
                             }
                         }
                     }
@@ -579,7 +586,6 @@ private fun DocumentsScreen(onBack: () -> Unit, actions: SectionActions, viewMod
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.Description,
         emptyTitle = stringResource(R.string.documents_empty_title),
-        emptyBody = stringResource(R.string.documents_empty_body),
         floatingActionButton = {
             if (state.loaded && state.canEditAny) {
                 AddFab(stringResource(R.string.action_add_document), onClick = add, icon = Icons.Outlined.UploadFile)
@@ -659,9 +665,10 @@ private fun ImageViewer(image: DocumentOpen.Image, onDismiss: () -> Unit) {
 
 @Composable
 private fun InfoDialog(text: String, onDismiss: () -> Unit) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_ok)) } },
+        title = null,
+        confirmButton = { TextButton(onClick = onDismiss, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_ok)) } },
         text = { Text(text) },
     )
 }
@@ -690,8 +697,18 @@ private fun NotesScreen(onBack: () -> Unit, actions: SectionActions, viewModel: 
         isEmpty = state.data.isEmpty,
         emptyIcon = if (narrowed) Icons.Outlined.Search else Icons.AutoMirrored.Outlined.StickyNote2,
         emptyTitle = stringResource(if (narrowed) R.string.search_no_matches_title else R.string.notes_empty_title),
-        emptyBody = stringResource(if (narrowed) R.string.search_no_matches_body else R.string.notes_empty_body),
         floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_new_note), onClick = add) },
+        // The FAB is the "New note" verb; the empty state only offers to undo a search or tag that found nothing.
+        emptyAction = if (narrowed) {
+            {
+                EmptyAction(stringResource(R.string.search_clear), Icons.Outlined.Close) {
+                    viewModel.search("")
+                    viewModel.selectTag(null)
+                }
+            }
+        } else {
+            null
+        },
         filters = {
             if (state.loaded && state.data.unfiltered > 0 || state.query.isNotEmpty()) {
                 SearchField(state.query, viewModel::search, stringResource(R.string.search_notes_hint))
@@ -705,7 +722,7 @@ private fun NotesScreen(onBack: () -> Unit, actions: SectionActions, viewModel: 
                 ) {
                     items(state.data.tags, key = { it }) { tag ->
                         val selected = state.data.selectedTag == tag
-                        FilterChip(selected = selected, onClick = { viewModel.selectTag(if (selected) null else tag) }, label = { Text("#$tag", maxLines = 1) })
+                        GlassFilterChip(selected = selected, onClick = { viewModel.selectTag(if (selected) null else tag) }, label = "#$tag")
                     }
                 }
             }
@@ -779,7 +796,6 @@ private fun WishlistScreen(onBack: () -> Unit, actions: SectionActions, viewMode
         isEmpty = state.data.isEmpty(),
         emptyIcon = Icons.Outlined.ShoppingBag,
         emptyTitle = stringResource(R.string.wishlist_empty_title),
-        emptyBody = stringResource(R.string.wishlist_empty_body),
         floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_wishlist_item), onClick = add) },
     ) {
         state.data.groupBy { it.status }

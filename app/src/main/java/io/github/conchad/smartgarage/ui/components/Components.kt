@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,6 +41,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isFinite
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassButton
+import io.github.conchad.smartgarage.ui.glass.GlassIconBadge
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.onAurora
 
@@ -131,17 +131,20 @@ fun AppScaffold(
 }
 
 /**
- * Icon in a tonal circle, title and explanation; used for empty and not-yet-built screens. Centered in the space it
- * is given but scrollable, so it still reaches the top at large font sizes and still answers pull-to-refresh.
+ * Icon in a glass circle, one line saying what is missing, an optional explanation and the action that fills it
+ * (D-A41: the list screens pass just the line and a [GlassPillButton]). Centered in the space it is given but
+ * scrollable, so it still reaches the top at large font sizes and still answers pull-to-refresh. On the aurora,
+ * not on a panel: the text carries the glass halo (D-A30).
  */
 @Composable
 fun EmptyState(
     icon: ImageVector,
     title: String,
-    body: String,
     modifier: Modifier = Modifier,
+    body: String? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
+    val tokens = glass
     BoxWithConstraints(modifier.fillMaxSize()) {
         val viewport = maxHeight
         Box(
@@ -162,19 +165,25 @@ fun EmptyState(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.semantics(mergeDescendants = true) {},
                 ) {
-                    IconBadge(icon = icon, size = 72)
+                    GlassIconBadge(icon = icon, size = 72.dp)
                     Spacer(Modifier.height(4.dp))
-                    // On the aurora, not on a panel: a halo keeps the text readable over a bright ribbon (D-A30).
-                    Text(title, style = MaterialTheme.typography.titleLarge.onAurora(glass), textAlign = TextAlign.Center)
                     Text(
-                        body,
-                        style = MaterialTheme.typography.bodyMedium.onAurora(glass),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        title,
+                        style = MaterialTheme.typography.titleMedium.onAurora(tokens),
+                        color = tokens.textPrimary,
                         textAlign = TextAlign.Center,
                     )
+                    if (body != null) {
+                        Text(
+                            body,
+                            style = MaterialTheme.typography.bodyMedium.onAurora(tokens),
+                            color = tokens.textSecondary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
                 if (action != null) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     action()
                 }
             }
@@ -182,31 +191,33 @@ fun EmptyState(
     }
 }
 
+/**
+ * An empty state's action (D-A41): the solid [GlassButton] (sheen fill, dark ink), which stays readable over any
+ * aurora where a translucent pill would not. Only where no FAB already offers the verb (one "Add" per screen, D-A20).
+ */
 @Composable
-fun IconBadge(
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    size: Int = 40,
-    container: Color = MaterialTheme.colorScheme.secondaryContainer,
-    content: Color = MaterialTheme.colorScheme.onSecondaryContainer,
-) {
-    Surface(shape = CircleShape, color = container, contentColor = content, modifier = modifier.size(size.dp)) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size((size * 0.5f).dp))
-        }
+fun EmptyAction(label: String, icon: ImageVector, onClick: () -> Unit) {
+    GlassButton(onClick = onClick) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 8.dp), maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 
+/** An icon in a small glass circle, the sheen by default ([GlassIconBadge], D-A41; a tonal disc before). */
+@Composable
+fun IconBadge(icon: ImageVector, modifier: Modifier = Modifier, size: Int = 40, tint: Color = glass.sheen) =
+    GlassIconBadge(icon, modifier, size.dp, tint)
+
 /**
- * Small primary-colored label above a group of settings-style rows (More, Settings, Profiles), as in system
- * Settings. Data screens use [GroupHeader] instead, which is larger and can carry a "See all" action.
+ * Small label above a group of settings-style rows (More, Settings, Profiles), as in system Settings, in the
+ * glass sheen (D-A41). Data screens use [GroupHeader] instead, which is larger and can carry a "See all" action.
  */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge.onAurora(glass),
-        color = MaterialTheme.colorScheme.primary,
+        color = glass.sheen,
         modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
     )
 }

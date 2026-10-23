@@ -16,10 +16,8 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.ShoppingBag
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +31,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import androidx.compose.foundation.layout.FlowRow
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
+import io.github.conchad.smartgarage.ui.glass.GlassPillBackground
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Document
 import io.github.conchad.smartgarage.core.model.Expense
@@ -70,7 +72,7 @@ fun ExpenseSheet(
             Text(
                 stringResource(R.string.expense_from_service),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
@@ -249,10 +251,15 @@ fun NoteSheet(
         onDismiss,
     ) {
         if (note.tags.isNotEmpty()) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Glass pills that wrap onto more lines at large font sizes (D-A41).
+            FlowRow(
+                Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 note.tags.forEach { tag ->
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
-                        Text("#$tag", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                    GlassPillBackground {
+                        Text("#$tag", style = MaterialTheme.typography.labelLarge, color = glass.sheen)
                     }
                 }
             }
@@ -307,7 +314,7 @@ fun WishlistSheet(
         DetailRow(stringResource(R.string.wishlist_target), item.targetDate.toInstantOrNull()?.let(fmt::date))
         DetailRow(stringResource(R.string.wishlist_description), item.description)
         item.url?.takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let { url ->
-            FilledTonalButton(
+            GlassOutlinedButton(
                 onClick = { runCatching { uriHandler.openUri(url) } },
                 modifier = Modifier.padding(16.dp).fillMaxWidth(),
             ) {

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -45,7 +44,9 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.forms.PendingMark
 import io.github.conchad.smartgarage.ui.glass.GlassCard
+import io.github.conchad.smartgarage.ui.glass.GlassFilterChip
 import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -78,7 +79,7 @@ fun RowDivider() {
 fun DetailRow(label: String, value: String?, modifier: Modifier = Modifier) {
     if (value.isNullOrBlank()) return
     val labelStyle = MaterialTheme.typography.bodyMedium
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelColor = glass.textSecondary
     val stackAfter = (STACK_AFTER / LocalDensity.current.fontScale).toInt()
     val rowModifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {}
     if (value.length > stackAfter || '\n' in value) {
@@ -103,7 +104,7 @@ fun DueRow(item: DueItem, fmt: Formatter, onClick: () -> Unit, showVehicle: Bool
     val tint = when (item.status) {
         DueStatus.OVERDUE -> colors.overdue
         DueStatus.DUE_SOON -> colors.dueSoon
-        DueStatus.OK -> MaterialTheme.colorScheme.onSurfaceVariant
+        DueStatus.OK -> glass.textSecondary
     }
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
@@ -117,7 +118,7 @@ fun DueRow(item: DueItem, fmt: Formatter, onClick: () -> Unit, showVehicle: Bool
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             // Due text first, in the status color; the vehicle after it in the usual secondary color.
-            val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+            val secondary = glass.textSecondary
             val due = dueText(item, fmt)
             Text(
                 buildAnnotatedString {
@@ -156,7 +157,7 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
                     economy,
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -168,7 +169,7 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
                 Text(
                     fmt.volume(it),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = glass.textSecondary,
                     textAlign = TextAlign.End,
                 )
             }
@@ -176,7 +177,7 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
     }
 }
 
-/** "All vehicles" plus one chip per vehicle; hidden when there is only one vehicle. */
+/** "All vehicles" plus one glass chip per vehicle (D-A41); hidden when there is only one vehicle. */
 @Composable
 fun VehicleFilterRow(vehicles: List<Vehicle>, selectedId: String?, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
     if (vehicles.size < 2) return
@@ -186,14 +187,10 @@ fun VehicleFilterRow(vehicles: List<Vehicle>, selectedId: String?, onSelect: (St
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            FilterChip(selected = selectedId == null, onClick = { onSelect(null) }, label = { Text(stringResource(R.string.filter_all_vehicles)) })
+            GlassFilterChip(selected = selectedId == null, onClick = { onSelect(null) }, label = stringResource(R.string.filter_all_vehicles))
         }
         items(vehicles, key = { it.id }) { vehicle ->
-            FilterChip(
-                selected = selectedId == vehicle.id,
-                onClick = { onSelect(vehicle.id) },
-                label = { Text(vehicle.shortName, maxLines = 1) },
-            )
+            GlassFilterChip(selected = selectedId == vehicle.id, onClick = { onSelect(vehicle.id) }, label = vehicle.shortName)
         }
     }
 }

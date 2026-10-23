@@ -42,6 +42,12 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import io.github.conchad.smartgarage.core.network.NetworkFailure
 import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
@@ -110,20 +116,23 @@ enum class Tone { Success, Error, Info }
 internal fun StatusPanel(tone: Tone, title: String, body: String?, modifier: Modifier = Modifier) {
     val bringIntoView = remember { BringIntoViewRequester() }
     LaunchedEffect(title, body) { bringIntoView.bringIntoView() }
-    val colors = MaterialTheme.colorScheme
-    val (container, content) = when (tone) {
-        Tone.Success -> colors.tertiaryContainer to colors.onTertiaryContainer
-        Tone.Error -> colors.errorContainer to colors.onErrorContainer
-        Tone.Info -> colors.secondaryContainer to colors.onSecondaryContainer
+    // Inside the form's glass panel (D-A41): a tone-tinted wash and border rather than an opaque tonal box; the tone
+    // is also in the icon and the words, never colour alone.
+    val tokens = glass
+    val toneColor = when (tone) {
+        Tone.Success -> LocalStatusColors.current.ok
+        Tone.Error -> MaterialTheme.colorScheme.error
+        Tone.Info -> tokens.sheen
     }
-    Surface(
-        color = container,
-        contentColor = content,
-        shape = MaterialTheme.shapes.large,
-        modifier = modifier
+    val shape = RoundedCornerShape(tokens.radiusMedium)
+    Box(
+        modifier
             .fillMaxWidth()
             .bringIntoViewRequester(bringIntoView)
-            .semantics { liveRegion = LiveRegionMode.Polite },
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .clip(shape)
+            .background(toneColor.copy(alpha = 0.12f))
+            .border(1.dp, toneColor.copy(alpha = 0.5f), shape),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Icon(
@@ -133,10 +142,11 @@ internal fun StatusPanel(tone: Tone, title: String, body: String?, modifier: Mod
                     Tone.Info -> Icons.Outlined.Info
                 },
                 contentDescription = null,
+                tint = toneColor,
             )
             Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall)
-                if (body != null) Text(body, style = MaterialTheme.typography.bodyMedium)
+                Text(title, style = MaterialTheme.typography.titleSmall, color = tokens.textPrimary)
+                if (body != null) Text(body, style = MaterialTheme.typography.bodyMedium, color = tokens.textPrimary)
             }
         }
     }

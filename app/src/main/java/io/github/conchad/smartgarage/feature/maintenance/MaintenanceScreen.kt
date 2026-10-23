@@ -10,7 +10,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.PrimaryTabRow
@@ -31,6 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.EmptyAction
+import io.github.conchad.smartgarage.ui.glass.glass
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.ui.unit.Dp
 import io.github.conchad.smartgarage.core.model.DueItem
 import io.github.conchad.smartgarage.core.model.DueStatus
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
@@ -100,9 +106,35 @@ fun MaintenanceScreen(
         ) { padding ->
             Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                 WriteQueueBanner(sync, viewModel)
-                PrimaryTabRow(selectedTabIndex = tab, containerColor = Color.Transparent) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.maintenance_upcoming)) })
-                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.maintenance_history)) })
+                // Tabs on glass (D-A41): sheen for the selected label and its indicator, glass greys for the rest.
+                val tokens = glass
+                PrimaryTabRow(
+                    selectedTabIndex = tab,
+                    containerColor = Color.Transparent,
+                    contentColor = tokens.sheen,
+                    indicator = {
+                        TabRowDefaults.PrimaryIndicator(
+                            Modifier.tabIndicatorOffset(tab, matchContentSize = true),
+                            width = Dp.Unspecified,
+                            color = tokens.sheen,
+                        )
+                    },
+                    divider = { HorizontalDivider(color = tokens.panelBorder) },
+                ) {
+                    Tab(
+                        selected = tab == 0,
+                        onClick = { tab = 0 },
+                        selectedContentColor = tokens.sheen,
+                        unselectedContentColor = tokens.textSecondary,
+                        text = { Text(stringResource(R.string.maintenance_upcoming)) },
+                    )
+                    Tab(
+                        selected = tab == 1,
+                        onClick = { tab = 1 },
+                        selectedContentColor = tokens.sheen,
+                        unselectedContentColor = tokens.textSecondary,
+                        text = { Text(stringResource(R.string.maintenance_history)) },
+                    )
                 }
                 VehicleFilterRow(
                     state.vehicles,
@@ -116,15 +148,14 @@ fun MaintenanceScreen(
                 }
                 val searching = state.query.isNotBlank() && state.unfilteredRecords > 0
                 RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
+                    LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh, skeleton = true) {
                         when {
                             tab == 0 && state.due.isEmpty() -> EmptyState(
                                 modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = Icons.Outlined.Build,
                                 title = stringResource(R.string.maintenance_no_schedules_title),
-                                body = stringResource(R.string.maintenance_no_schedules_body),
                                 action = if (state.canAddSchedule) {
-                                    { Button(onClick = { onAddSchedule(state.selectedVehicleId) }) { Text(stringResource(R.string.action_add_schedule)) } }
+                                    { EmptyAction(stringResource(R.string.action_add_schedule), Icons.Outlined.Add) { onAddSchedule(state.selectedVehicleId) } }
                                 } else {
                                     null
                                 },
@@ -134,7 +165,12 @@ fun MaintenanceScreen(
                                 modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                                 icon = if (searching) Icons.Outlined.Search else Icons.Outlined.History,
                                 title = stringResource(if (searching) R.string.search_no_matches_title else R.string.maintenance_no_records_title),
-                                body = stringResource(if (searching) R.string.search_no_matches_body else R.string.maintenance_no_records_body),
+                                // "Log service" is the FAB's; here only undoing a search that found nothing.
+                                action = if (searching) {
+                                    { EmptyAction(stringResource(R.string.search_clear), Icons.Outlined.Close) { viewModel.search("") } }
+                                } else {
+                                    null
+                                },
                             )
                             else -> History(state, pendingIds, onOpen = { open = SheetTarget.Record(it) })
                         }

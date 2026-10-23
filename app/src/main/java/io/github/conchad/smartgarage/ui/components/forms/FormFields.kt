@@ -48,6 +48,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassDatePickerColors
+import io.github.conchad.smartgarage.ui.glass.glassSwitchColors
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.conchad.smartgarage.core.format.Formatter
 import java.time.Instant
 import java.time.LocalDate
@@ -72,6 +79,7 @@ fun FormTextField(
     imeAction: ImeAction = ImeAction.Next,
 ) {
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
@@ -108,6 +116,7 @@ fun FormNumberField(
 ) {
     val style: TextStyle = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = value,
         onValueChange = { text -> onValueChange(text.filter { it.isDigit() || it == '.' || it == ',' || it == ' ' }) },
         label = { Text(label) },
@@ -205,6 +214,7 @@ fun FormNotesField(
     enabled: Boolean = true,
 ) {
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
@@ -245,6 +255,7 @@ fun FormDateField(
     }
     val text = fmt.date(date.atStartOfDay(fmt.zone).toInstant())
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = text,
         onValueChange = {},
         readOnly = true,
@@ -276,10 +287,13 @@ fun FormDateField(
                         open = false
                     },
                     enabled = state.selectedDateMillis != null,
+                    colors = glassTextButtonColors(),
                 ) { Text(stringResource(R.string.action_ok)) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } },
-        ) { DatePicker(state) }
+            dismissButton = { TextButton(onClick = { open = false }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) } },
+            shape = RoundedCornerShape(glass.radiusLarge),
+            colors = glassDatePickerColors(),
+        ) { DatePicker(state, colors = glassDatePickerColors()) }
     }
 }
 
@@ -306,6 +320,7 @@ fun FormOptionalDateField(
     }
     val text = date?.let { fmt.date(it.atStartOfDay(fmt.zone).toInstant()) }.orEmpty()
     OutlinedTextField(
+        colors = glassTextFieldColors(),
         value = text,
         onValueChange = {},
         readOnly = true,
@@ -345,10 +360,13 @@ fun FormOptionalDateField(
                         open = false
                     },
                     enabled = state.selectedDateMillis != null,
+                    colors = glassTextButtonColors(),
                 ) { Text(stringResource(R.string.action_ok)) }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } },
-        ) { DatePicker(state) }
+            dismissButton = { TextButton(onClick = { open = false }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) } },
+            shape = RoundedCornerShape(glass.radiusLarge),
+            colors = glassDatePickerColors(),
+        ) { DatePicker(state, colors = glassDatePickerColors()) }
     }
 }
 
@@ -369,6 +387,7 @@ fun <T> FormPicker(
     var expanded by rememberSaveable { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {
         OutlinedTextField(
+            colors = glassTextFieldColors(),
             value = selected?.let(optionLabel) ?: "",
             onValueChange = {},
             readOnly = true,
@@ -380,7 +399,14 @@ fun <T> FormPicker(
             supportingText = supportingText(error, supporting),
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled),
         )
-        ExposedDropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+        // The opaque glass menu (D-A41): page colour, panel border, the medium radius; menus keep their shadow.
+        ExposedDropdownMenu(
+            expanded = expanded && enabled,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(glass.radiusMedium),
+            containerColor = glass.pageBackground,
+            border = BorderStroke(1.dp, glass.panelBorder),
+        ) {
             options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(optionLabel(option)) },
@@ -415,9 +441,9 @@ fun FormSwitchRow(
     ) {
         Column(Modifier.weight(1f).padding(end = 16.dp)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
-            supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = glass.textSecondary) }
         }
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled, colors = glassSwitchColors())
     }
 }
 

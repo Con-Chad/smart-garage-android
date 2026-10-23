@@ -515,16 +515,16 @@ private fun VehicleCard(
                 VehicleCardMenu(vehicle, expanded = menuOpen, onDismiss = { menuOpen = false }, actions = cardActions, onOpen = onOpen)
             }
         }
-        Column(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let { MetallicText(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            // The mileage sits right above the status chip (D-A38), out of the footer.
-            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            VehicleStatusChip(summary)
+        vehicle.licensePlate?.takeIf { it.isNotBlank() }?.let {
+            MetallicText(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp),
+            )
         }
-        // "View all" and "Quick info" pills on one line, one height (D-A33, D-A38).
+        // The mileage over the status chip on the left, "View all" and "Quick info" beside them (D-A41, user-set).
         VehicleCardFooter(
             expanded = expanded,
             onToggle = { expanded = !expanded },
@@ -533,8 +533,11 @@ private fun VehicleCard(
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 onOpen()
             },
-            modifier = Modifier.padding(top = 4.dp),
-        )
+            modifier = Modifier.padding(top = 12.dp),
+        ) {
+            MetallicText(fmt.distance(vehicle.currentOdometerKm), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            VehicleStatusChip(summary)
+        }
         // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
         AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column {

@@ -15,15 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.LocalGasStation
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +35,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.glass.GlassBottomSheet
+import io.github.conchad.smartgarage.ui.glass.GlassButton
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
+import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.DueItem
 import io.github.conchad.smartgarage.core.model.DueStatus
@@ -63,14 +64,15 @@ fun DetailSheet(
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    // On glass (D-A41): the glass sheet, the icon in a glass circle and a metallic title, like the dialogs.
+    GlassBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(icon, size = 48)
                 Column(Modifier.padding(start = 16.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge)
+                    MetallicText(title, style = MaterialTheme.typography.titleLarge, animated = true)
                     subtitle?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(it, style = MaterialTheme.typography.bodyMedium, color = glass.textSecondary)
                     }
                 }
             }
@@ -105,14 +107,14 @@ fun SheetActions(
             return@Column
         }
         primary?.let { (label, action) ->
-            Button(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
+            GlassButton(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
         secondary?.let { (label, action) ->
-            OutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(label) }
+            GlassOutlinedButton(onClick = action, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             onEdit?.let {
-                OutlinedButton(onClick = it, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(R.string.action_edit)) }
+                GlassOutlinedButton(onClick = it, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.action_edit)) }
             }
             onDelete?.let {
                 TextButton(
@@ -323,7 +325,7 @@ private fun ItemRow(item: MaintenanceItem, fmt: Formatter, currency: String) {
                 item.specification,
             ).joinToString(" · ")
             if (detail.isNotEmpty()) {
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = glass.textSecondary)
             }
         }
         Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 12.dp)) {
@@ -332,7 +334,7 @@ private fun ItemRow(item: MaintenanceItem, fmt: Formatter, currency: String) {
                 Text(
                     listOfNotNull(NumberFormat.getNumberInstance().format(quantity), item.customUnit ?: item.unit?.let { unitLabel(it) }).joinToString(" "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = glass.textSecondary,
                 )
             }
         }

@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
 import io.github.conchad.smartgarage.core.data.ExpenseInput
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
@@ -21,7 +22,6 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.GarageMath
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.expenseCategoryLabel
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
 import io.github.conchad.smartgarage.ui.components.forms.FormEndSpacer
@@ -143,7 +143,7 @@ fun ExpenseFormScreen(onClose: () -> Unit, viewModel: ExpenseFormViewModel = hil
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         FormPicker(

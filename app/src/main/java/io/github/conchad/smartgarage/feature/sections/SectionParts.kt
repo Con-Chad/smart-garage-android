@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -29,13 +31,13 @@ import io.github.conchad.smartgarage.feature.fuel.FAB_CLEARANCE
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.EmptyState
-import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.VehicleFilterRow
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.forms.PendingMark
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import java.time.YearMonth
@@ -63,7 +65,7 @@ fun SectionScaffold(
     isEmpty: Boolean,
     emptyIcon: ImageVector,
     emptyTitle: String,
-    emptyBody: String,
+    emptyBody: String? = null,
     snackbar: SnackbarHostState = remember { SnackbarHostState() },
     actions: @Composable () -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
@@ -86,9 +88,15 @@ fun SectionScaffold(
                 VehicleFilterRow(vehicles, selectedVehicleId, onSelectVehicle, Modifier.padding(bottom = 4.dp))
                 filters()
                 RefreshBox(sync, onRefresh = onRefresh, modifier = Modifier.weight(1f)) {
-                    LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh) {
+                    LoadedContent(loaded = loaded, sync = sync, onRetry = onRefresh, skeleton = true) {
                         if (isEmpty) {
-                            EmptyState(icon = emptyIcon, title = emptyTitle, body = emptyBody, action = emptyAction)
+                            EmptyState(
+                                icon = emptyIcon,
+                                title = emptyTitle,
+                                body = emptyBody,
+                                action = emptyAction,
+                                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
+                            )
                         } else {
                             LazyColumn(
                                 contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
@@ -104,7 +112,7 @@ fun SectionScaffold(
 }
 
 /**
- * A list row: icon badge, title, up to two lines of detail, and an optional trailing value with its own detail line.
+ * A list row: a sheen icon (the vehicle page's row icon, D-A41), title, up to two lines of detail, and an optional trailing value with its own detail line.
  * The title column takes whatever width the trailing value leaves, so large fonts wrap the title, never the amount.
  * A row without [onClick] is still read as one item by TalkBack.
  */
@@ -119,6 +127,7 @@ fun SectionRow(
     trailingColor: Color = Color.Unspecified,
     pending: Boolean = false,
 ) {
+    val tokens = glass
     Row(
         Modifier
             .fillMaxWidth()
@@ -126,14 +135,14 @@ fun SectionRow(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconBadge(icon)
+        Icon(icon, contentDescription = null, tint = tokens.sheen, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!detail.isNullOrEmpty()) {
                 Text(
                     detail,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = tokens.textSecondary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -149,7 +158,7 @@ fun SectionRow(
                     Text(
                         it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = tokens.textSecondary,
                         textAlign = TextAlign.End,
                     )
                 }

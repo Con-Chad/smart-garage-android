@@ -251,7 +251,6 @@
     <string name="fuel_economy">Fuel economy</string>
     <string name="fuel_avg_economy">Average economy</string>
     <string name="fuel_empty_title">No fill-ups yet</string>
-    <string name="fuel_empty_body">Fill-ups you log in Smart Garage show up here with your fuel economy.</string>
     <string name="fuel_avg_needs_two">Needs two fill-ups with odometer readings.</string>
     <string name="interval_both">Every %1$s or %2$s</string>
     <string name="interval_one">Every %1$s</string>
@@ -284,9 +283,7 @@
     <string name="maintenance_history">History</string>
     <string name="maintenance_later">Later</string>
     <string name="maintenance_no_schedules_title">No service schedules</string>
-    <string name="maintenance_no_schedules_body">Add schedules for your vehicles in Smart Garage on the web to see what\'s coming up.</string>
     <string name="maintenance_no_records_title">No service history</string>
-    <string name="maintenance_no_records_body">Services you record in Smart Garage show up here.</string>
     <plurals name="due_days_overdue">
         <item quantity="one">%1$d day overdue</item>
         <item quantity="other">%1$d days overdue</item>
@@ -350,30 +347,23 @@
     <string name="doc_category_insurance">Insurance</string>
     <string name="doc_category_other">Other</string>
     <string name="reminders_empty_title">Nothing coming up</string>
-    <string name="reminders_empty_body">Service schedules, inspections and insurance renewals show up here.</string>
     <string name="reminders_soon">Due soon</string>
     <string name="reminders_insurance_ends">%1$s policy ends</string>
     <string name="reminders_insurance_renews">%1$s policy renews</string>
     <string name="history_empty_title">No history yet</string>
-    <string name="history_empty_body">Services, fill-ups, expenses and odometer readings appear here as they are logged.</string>
     <string name="history_fill_up">Fill-up</string>
     <string name="history_odometer">Odometer %1$s</string>
     <string name="odometer_empty_title">No odometer readings</string>
-    <string name="odometer_empty_body">Readings logged on the web or with fill-ups show up here.</string>
     <string name="expenses_empty_title">No expenses</string>
-    <string name="expenses_empty_body">Taxes, parking, tolls and other costs show up here.</string>
     <string name="documents_empty_title">No documents</string>
-    <string name="documents_empty_body">Receipts, registrations and photos uploaded on the web show up here.</string>
     <string name="documents_vehicle_photo">Vehicle photo</string>
     <string name="documents_failed">This file could not be downloaded. Check your connection and try again.</string>
     <string name="documents_no_viewer">No app on this phone can open this file type.</string>
     <string name="documents_invalid_id">The server sent an invalid id for this document, so the app didn\'t download it.</string>
     <string name="notes_empty_title">No notes</string>
-    <string name="notes_empty_body">Notes written on the web show up here.</string>
     <string name="notes_pinned">Pinned</string>
     <string name="notes_all">Notes</string>
     <string name="wishlist_empty_title">Wishlist is empty</string>
-    <string name="wishlist_empty_body">Parts and upgrades you are planning show up here.</string>
     <string name="wishlist_category">Category</string>
     <string name="wishlist_estimate">Estimated cost</string>
     <string name="wishlist_target">Target date</string>
@@ -704,7 +694,6 @@
     <string name="search_history_hint">Search parts, oil, filters, notes…</string>
     <string name="search_notes_hint">Search notes…</string>
     <string name="search_no_matches_title">No matches</string>
-    <string name="search_no_matches_body">Try different words, or clear the search and the filters.</string>
     <string name="note_pin_action">Pin</string>
     <string name="note_unpin">Unpin</string>
 

@@ -24,6 +24,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.VehicleInput
@@ -32,7 +34,6 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.bodyTypeLabel
 import io.github.conchad.smartgarage.ui.components.driveTypeLabel
 import io.github.conchad.smartgarage.ui.components.forms.FormDisclosure
@@ -285,7 +286,7 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         state.editing?.let { vehicle ->
@@ -294,7 +295,7 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
             Text(
                 stringResource(R.string.vehicle_form_edit_hint),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
         if (!state.isEdit) {

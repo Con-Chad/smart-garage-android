@@ -1255,8 +1255,73 @@ App decisions use the `D-A` prefix.
     delay is chosen in a direction-aware `BoundsTransform` on both hero
     sides, so Back stays simultaneous (card and drawer down together in
     320 ms; checked frame by frame on the Pixel).
+    *Superseded in part by D-A41 (user-set):* 400 ms was far too long; the
+    card now starts 80 ms before the drawer's slide ends
+    (`HERO_DELAY_MS = HERO_MS - HERO_OVERLAP_MS` = 240 ms, 560 ms total).
+    Easing, stagger and pop values unchanged.
   - **Green boxes removed**: the lighter rectangle behind card text was the
     platform elevation shadow's penumbra seen through the translucent glass.
     `GlassPanel` and the bottom-bar pill now use `glassShadow` (a
     BlurMaskFilter copy of the shape, offset down half the elevation, drawn
     only outside the shape). Opaque surfaces keep `Modifier.shadow`.
+- **D-A41: the remaining screens on the glass kit; skeleton loading; card pills beside the mileage; shorter hero delay.**
+  - **Scope**: Service, Fuel, the More sections (`SectionScaffold`), More,
+    Settings, Profiles, setup, every form (`FormScreen` / `FormSheet`) and
+    every detail sheet now use the glass kit instead of tonal Material
+    surfaces. Dark theme only was reviewed; the light tokens apply unchecked.
+    No ViewModel changed (D-A39 stands); behaviour is the same.
+  - **New kit pieces** (`ui/glass/GlassControls.kt`): `GlassIconBadge` (pill
+    fill + border, sheen icon; `IconBadge` delegates to it, its
+    container/content params became one `tint`), `GlassBottomSheet` (page
+    colour under the panel plate, top highlight, aurora glow, panel border,
+    no shadow: a sheet covers content, so like menus it is opaque),
+    `GlassButton` (sheen fill, `onPale` ink, >= 7:1; disabled = pill),
+    `GlassOutlinedButton` (pill fill/border, sheen label), `GlassFilterChip`
+    (pill; selected = sheen tint + border + check), and colour sets for
+    switches, segmented buttons, list items and the date picker. All press
+    via `rememberPressFeedback` + `pressScale`. `glassTextFieldColors` now
+    also covers icons, placeholder, supporting and disabled, and every form,
+    search and setup field uses it. `GlassAlertDialog.title` is nullable.
+  - **Replaced**: section rows' tonal badge -> the vehicle page's 22 dp sheen
+    icon; Fuel's opaque primaryContainer average -> `GlassPanel` with a
+    metallic figure; expense category bars -> pill track + sheen fill;
+    `SyncBanner` opaque strip -> a glass strip with tone glow and tinted icon
+    (Home shows it too); setup `StatusPanel` / server cards -> tone wash +
+    border or the pill surface (they sit inside the form panel); Service tabs
+    -> sheen indicator and labels; Profiles' DropdownMenu -> `GlassMenu`,
+    its extended FAB -> `AddFab`; every AlertDialog in scope ->
+    `GlassAlertDialog` (`ConfirmDialog` too, so the vehicle page's confirms
+    match). Labels (`SectionLabel`, `FormSection`, `FormDisclosure`) take the
+    sheen instead of the scheme primary.
+  - **Empty states**: icon in a glass circle + one line (the existing title)
+    + an action only where no FAB already offers the verb (D-A20: one "Add"
+    per screen): Add schedule (Reminders, Service upcoming) and "Clear
+    search" when a search / tag found nothing. The action is `EmptyAction`,
+    the solid `GlassButton`: a translucent pill's sheen label failed contrast
+    over a bright aurora on the Pixel. The old explanatory bodies were
+    dropped (several still said "on the web") and their strings deleted in
+    en + de; `EmptyState.body` is optional (Home and Vehicles still pass one).
+  - **Also fixed on the device**: More, Settings and Profiles scrolled their
+    rows under the see-through top bar (text through the title); their lists
+    now start below it. Settings' unit rows no longer run label into value.
+    Charts default to the sheen and glass greys (they were the scheme blue
+    beside sheen category bars). The search field has a frosted fill so its
+    hint reads over a bright aurora. `GlassBottomSheet` draws its glass and
+    drag handle inside the sheet content: the sheet's own modifier sits on a
+    full-screen wrapper and clipped the sheet.
+  - **Skeleton loading** (`ui/glass/Skeleton.kt`): `SkeletonList` (group
+    header bars over glass cards of icon / two-line / value rows, with the
+    real rows' paddings) for the list tabs and sections via
+    `LoadedContent(skeleton = true)`; `FormSkeleton` (field-shaped bones)
+    for every editor that loads its record. One infinite transition per
+    skeleton, read only in the bones' draw lambdas; static under reduced
+    motion or off screen. `Motion.SHIMMER_MS` = `SPIN_MS` (no new timing).
+    The first sync's caption stays above the bones. Home, Vehicles and the
+    vehicle page keep `LoadingState` (out of scope; the vehicle page opens
+    on content anyway).
+  - **Car-card pills** (user-set): `VehicleCardFooter` takes the card's
+    details as a slot: mileage over the status chip on the left, "View all"
+    and "Quick info" beside them at the end, top-aligned, one height; the
+    plate (and "Shared by") stay above. The row under the details is gone,
+    so both the Home and Vehicles cards are shorter.
+  - **Hero delay** (user-set): see the D-A40 note; `Motion.HERO_OVERLAP_MS`.

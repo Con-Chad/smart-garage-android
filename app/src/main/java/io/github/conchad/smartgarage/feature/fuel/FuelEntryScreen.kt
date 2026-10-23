@@ -19,7 +19,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,9 +38,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
+import io.github.conchad.smartgarage.ui.glass.GlassOutlinedButton
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
-import io.github.conchad.smartgarage.ui.components.LoadingState
 import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
 import io.github.conchad.smartgarage.ui.components.forms.FormDistanceField
@@ -121,7 +122,7 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
         snackbarHost = snackbar,
     ) {
         if (!state.loaded) {
-            LoadingState(stringResource(R.string.loading))
+            FormSkeleton()
             return@FormScreen
         }
         FormPicker(
@@ -202,7 +203,7 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
             Text(
                 stringResource(R.string.fuel_form_last_fill_up, parts.joinToString(" · ")),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
         FormTextField(
@@ -241,9 +242,9 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
 @Composable
 private fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        GlassOutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             if (scanning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = glass.sheen)
             } else {
                 Icon(Icons.Outlined.DocumentScanner, contentDescription = null, modifier = Modifier.size(18.dp))
             }
@@ -257,7 +258,7 @@ private fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -
         Text(
             stringResource(R.string.fuel_scan_hint),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = glass.textSecondary,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
@@ -268,13 +269,13 @@ private fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -
 private fun ReceiptPhotoRow(photo: PickedFile, onRemove: () -> Unit) {
     val context = LocalContext.current
     Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.Image, contentDescription = null, tint = glass.textSecondary, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp).semantics(mergeDescendants = true) {}) {
             Text(stringResource(R.string.fuel_scan_photo_kept), style = MaterialTheme.typography.bodyMedium)
             Text(
                 FileSize.formatShortFileSize(context, photo.sizeBytes),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = glass.textSecondary,
             )
         }
         IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {

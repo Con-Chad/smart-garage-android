@@ -4,21 +4,22 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,12 +30,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
+import io.github.conchad.smartgarage.ui.components.RowDivider
+import io.github.conchad.smartgarage.ui.components.forms.AddFab
+import io.github.conchad.smartgarage.ui.glass.GlassAlertDialog
+import io.github.conchad.smartgarage.ui.glass.GlassMenu
+import io.github.conchad.smartgarage.ui.glass.GlassMenuItem
+import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.glassListItemColors
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.core.data.ServerProfile
 import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.IconBadge
@@ -54,19 +62,21 @@ fun ProfilesScreen(
         title = stringResource(R.string.profiles_title),
         onBack = onBack,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddProfile,
-                icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.profiles_add)) },
-            )
+            AddFab(stringResource(R.string.profiles_add), onClick = onAddProfile, icon = Icons.Outlined.Add)
         },
     ) { padding ->
         val current = state ?: return@AppScaffold
-        LazyColumn(contentPadding = padding) {
+        // Below the bar, not under it: the bar's glass is see-through, so rows scrolled under it showed through the
+        // title (D-A41). The bottom padding stays content padding, so the last row still clears the tray.
+        LazyColumn(
+            modifier = Modifier.padding(top = padding.calculateTopPadding()),
+            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+        ) {
             item { SectionLabel(stringResource(R.string.profiles_hint)) }
             item {
                 GroupCard {
-                    current.profiles.forEach { profile ->
+                    current.profiles.forEachIndexed { index, profile ->
+                        if (index > 0) RowDivider()
                         ProfileRow(
                             profile = profile,
                             active = profile.id == current.active?.id,
@@ -83,18 +93,21 @@ fun ProfilesScreen(
 
         val target = current.profiles.firstOrNull { it.id == removing }
         if (target != null) {
-            AlertDialog(
+            GlassAlertDialog(
                 onDismissRequest = { removing = null },
-                title = { Text(stringResource(R.string.profiles_remove_title, target.name)) },
+                title = stringResource(R.string.profiles_remove_title, target.name),
                 text = { Text(stringResource(R.string.profiles_remove_body)) },
                 confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.remove(target.id)
-                        removing = null
-                    }) { Text(stringResource(R.string.profiles_remove)) }
+                    TextButton(
+                        onClick = {
+                            viewModel.remove(target.id)
+                            removing = null
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(R.string.profiles_remove)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = { removing = null }, colors = glassTextButtonColors()) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -119,42 +132,27 @@ private fun ProfileRow(
         headlineContent = { Text(profile.name) },
         supportingContent = { Text("${profile.hostLabel} · $status") },
         leadingContent = {
-            if (active) {
-                IconBadge(
-                    Icons.Outlined.CheckCircle,
-                    container = MaterialTheme.colorScheme.primary,
-                    content = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                IconBadge(Icons.Outlined.Dns)
-            }
+            // The active server in the sheen with a check; the others in the quieter glass grey.
+            if (active) IconBadge(Icons.Outlined.CheckCircle) else IconBadge(Icons.Outlined.Dns, tint = glass.textSecondary)
         },
         trailingContent = {
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more_options))
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                // The glass menu (D-A31) as on the vehicle cards, titled with the server's name.
+                GlassMenu(expanded = menuOpen, onDismiss = { menuOpen = false }, title = profile.name) {
                     if (!active) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.profiles_switch)) },
-                            onClick = { menuOpen = false; onActivate() },
-                        )
+                        GlassMenuItem(Icons.Outlined.SwapHoriz, stringResource(R.string.profiles_switch)) { menuOpen = false; onActivate() }
                     }
                     if (signedIn) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings_sign_out)) },
-                            onClick = { menuOpen = false; onSignOut() },
-                        )
+                        GlassMenuItem(Icons.AutoMirrored.Outlined.Logout, stringResource(R.string.settings_sign_out)) { menuOpen = false; onSignOut() }
                     }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.profiles_remove)) },
-                        onClick = { menuOpen = false; onRemove() },
-                    )
+                    GlassMenuItem(Icons.Outlined.Delete, stringResource(R.string.profiles_remove)) { menuOpen = false; onRemove() }
                 }
             }
         },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        colors = glassListItemColors(),
         modifier = Modifier.clickable(enabled = !active, onClick = onActivate),
     )
 }

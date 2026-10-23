@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,14 +79,15 @@ class QuickInfoActions(
 )
 
 /**
- * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list): the "View all" pill
- * centred and the "Quick info" pill at the end. [onViewAll] null leaves only "Quick info".
+ * The row under a vehicle card's photo (D-A33, shared by the home card and the vehicles list).
  *
  * D-A36: "View all" is a two-line pill ("View" over "all ›", [GlassStackedPillButton]).
- * D-A38: the mileage moved up into the card's details (above the status chip), so the row holds just the two pills,
- * both on the glass pill surface and pinned to one height (the taller of the two). "View all" stays centred while
- * it clears "Quick info" by [FooterGap]; with a large font or a long German label it slides left instead of
- * overlapping, which keeps both on one line at 1.3× on a 360 dp phone.
+ * D-A38: both pills on the glass pill surface, pinned to one height (the taller of the two).
+ * D-A41 (user-set): the pills moved up beside the card's [details] (the mileage over the status chip): one row, the
+ * details column on the left taking what the pills leave, "View all" then "Quick info" at the end, top-aligned so
+ * the pills' tops sit level with the mileage line. No row of its own beneath, so the card is shorter. The pills
+ * keep their natural widths; at 1.3× (German too) the details column narrows and the chips wrap instead.
+ * [onViewAll] null leaves only "Quick info".
  */
 @Composable
 fun VehicleCardFooter(
@@ -93,42 +95,45 @@ fun VehicleCardFooter(
     onToggle: () -> Unit,
     onViewAll: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    details: @Composable ColumnScope.() -> Unit,
 ) {
-    Layout(
-        content = {
-            if (onViewAll != null) {
-                GlassStackedPillButton(
-                    topLine = stringResource(R.string.card_view_all_line1),
-                    bottomLine = stringResource(R.string.card_view_all_line2),
-                    contentDescription = stringResource(R.string.card_view_all),
-                    icon = Icons.Outlined.ChevronRight,
-                    onClick = onViewAll,
-                )
-            }
-            QuickInfoToggle(expanded = expanded, onToggle = onToggle)
-        },
-        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
-    ) { measurables, constraints ->
-        val width = constraints.maxWidth
-        val gap = FooterGap.roundToPx()
-        val toggle = measurables.last()
-        val viewAll = measurables.firstOrNull()?.takeIf { measurables.size == 2 }
-        // One height for both pills: the taller one's natural height.
-        val height = maxOf(toggle.maxIntrinsicHeight(width), viewAll?.maxIntrinsicHeight(width) ?: 0)
-        val toggleP = toggle.measure(Constraints(maxWidth = width, minHeight = height, maxHeight = height))
-        val roomLeft = (width - toggleP.width - gap).coerceAtLeast(0)
-        val viewAllP = viewAll?.measure(Constraints(maxWidth = roomLeft, minHeight = height, maxHeight = height))
-        layout(width, height) {
-            toggleP.placeRelative(width - toggleP.width, 0)
-            viewAllP?.let { p ->
-                val centred = (width - p.width) / 2
-                p.placeRelative(minOf(centred, roomLeft - p.width).coerceAtLeast(0), 0)
+    Row(
+        modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(Modifier.weight(1f).padding(end = FooterGap), verticalArrangement = Arrangement.spacedBy(8.dp), content = details)
+        Layout(
+            content = {
+                if (onViewAll != null) {
+                    GlassStackedPillButton(
+                        topLine = stringResource(R.string.card_view_all_line1),
+                        bottomLine = stringResource(R.string.card_view_all_line2),
+                        contentDescription = stringResource(R.string.card_view_all),
+                        icon = Icons.Outlined.ChevronRight,
+                        onClick = onViewAll,
+                    )
+                }
+                QuickInfoToggle(expanded = expanded, onToggle = onToggle)
+            },
+        ) { measurables, constraints ->
+            val gap = FooterGap.roundToPx()
+            val toggle = measurables.last()
+            val viewAll = measurables.firstOrNull()?.takeIf { measurables.size == 2 }
+            // One height for both pills: the taller one's natural height.
+            val height = maxOf(toggle.maxIntrinsicHeight(constraints.maxWidth), viewAll?.maxIntrinsicHeight(constraints.maxWidth) ?: 0)
+            val toggleP = toggle.measure(Constraints(maxWidth = constraints.maxWidth, minHeight = height, maxHeight = height))
+            val roomLeft = (constraints.maxWidth - toggleP.width - gap).coerceAtLeast(0)
+            val viewAllP = viewAll?.measure(Constraints(maxWidth = roomLeft, minHeight = height, maxHeight = height))
+            val width = toggleP.width + (viewAllP?.let { it.width + gap } ?: 0)
+            layout(width, height) {
+                viewAllP?.placeRelative(0, 0)
+                toggleP.placeRelative(width - toggleP.width, 0)
             }
         }
     }
 }
 
-/** The least space between the "View all" and "Quick info" pills when the first is pushed off-centre (D-A38). */
+/** The space between the "View all" and "Quick info" pills, and between them and the card details (D-A38, D-A41). */
 private val FooterGap = 8.dp
 
 /**

@@ -49,11 +49,23 @@ object Motion {
     /** The vehicle hero's glide and the drawer's slide (D-A34, D-A37). */
     const val HERO_MS = 320
 
-    /** Opening the vehicle page, the hero card starts this long after the drawer beneath it (D-A40, user-set). */
-    const val HERO_DELAY_MS = 400
+    /**
+     * Opening the vehicle page, the hero card starts moving up this long before the drawer's slide ends (D-A41,
+     * user-set), making room for the cards popping in under it.
+     */
+    const val HERO_OVERLAP_MS = 80
+
+    /**
+     * Opening the vehicle page, the hero card starts this long after the drawer beneath it: the drawer's duration
+     * less [HERO_OVERLAP_MS], so 240 ms (D-A41, user-set; 400 ms in D-A40 was far too long). 560 ms in all.
+     */
+    const val HERO_DELAY_MS = HERO_MS - HERO_OVERLAP_MS
 
     /** A slower spin: the refresh icon while a sync runs. */
     const val SPIN_MS = 900
+
+    /** One pass of the loading skeleton's sweep (D-A41): the sync spin's pace, so every "still loading" moves alike. */
+    const val SHIMMER_MS = SPIN_MS
 
     /** NavHost's cross-fade between ordinary routes. */
     const val NAV_FADE_MS = 700
