@@ -56,6 +56,9 @@ object Motion {
      */
     const val HERO_DELAY_MS = 60
 
+    /** Opening the vehicle page, when the hero and the Home card's collapsing drawer come to rest (D-A45). */
+    const val HERO_END_MS = HERO_DELAY_MS + HERO_MS
+
     /** A slower spin: the refresh icon while a sync runs. */
     const val SPIN_MS = 900
 
@@ -84,9 +87,10 @@ object Motion {
 
     /**
      * Opening the vehicle page from Home (D-A43, user-set): the first card pops [POP_AFTER_HERO_MS] after the hero
-     * starts rising, at its final spot and drawn above the hero ([drawerSlide]); the stagger follows from here.
+     * starts rising, at its final spot and drawn above the hero ([drawerSlide]); the stagger follows from here. D-A45:
+     * 200 ms (260 ms in) lands just as the Home card's drawer finishes collapsing, so nothing overlaps it.
      */
-    const val POP_AFTER_HERO_MS = 100L
+    const val POP_AFTER_HERO_MS = 200L
     const val POP_WITH_HERO_MS = HERO_DELAY_MS.toLong() + POP_AFTER_HERO_MS
 
     /** Leaving the vehicle page (D-A43): each card bulges to the overshoot in this long… */

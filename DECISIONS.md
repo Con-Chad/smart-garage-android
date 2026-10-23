@@ -1423,3 +1423,24 @@ App decisions use the `D-A` prefix.
     applied by `Account.withLocalName` in `MainShell` and the Settings header, so
     Home's greeting and avatar initial use it with no dashboard edit. Blank falls
     back to the server display name, then the username.
+
+- **D-A45: the Home card's drawer collapses instead of blinking out; first pop 200 ms after the hero starts.**
+  - **Cause** (frame-stepped screenrecord, 120 Hz): opening a vehicle, the page's
+    hero card was drawn above the Home card at full alpha, and the Home card (whose
+    footer is the "drawer" under the photo) left on a 120 ms `sharedBounds` exit fade
+    from frame 0. The footer was gone by ~80 ms, while the bounds (60 ms delay, slow
+    ease-in) had barely moved, leaving an empty plate that collapsed afterwards.
+  - **Fix**: the leaving Home card draws over the page's card (`zIndexInOverlay`
+    0.5; the page's cards stay above at 1) with no plate, border or shadow of its
+    own (`heroPlateOff()`, new `plate` flag on `GlassPanel`/`GlassCard`). The page
+    card underneath supplies the single fill and shadow (D-A43 no-flash holds); the
+    Home photo and footer ride on top at full alpha, clipped by the gliding bounds,
+    so the drawer visibly collapses on the hero's own curve. The Home card fades only
+    over the last `QUICK_MS` of the glide (`Motion.HERO_END_MS` = 380 ms), onto the
+    page's identical photo. Back is unchanged (Home card entering, page card snaps out,
+    reverse pop).
+  - **Timing**: `POP_AFTER_HERO_MS` 100 -> 200 (user-set): first pop at 260 ms. On
+    device the last sliver of the drawer clears the frame before the owner line first
+    shows (~280 ms), and the hero is within a pixel or two of rest, so there is no
+    overlap and no dead gap; kept at 200.
+  - Reduced motion: no shared element, so `heroPlateOff()` is false and nothing changes.

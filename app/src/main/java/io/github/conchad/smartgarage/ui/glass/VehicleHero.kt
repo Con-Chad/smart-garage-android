@@ -83,16 +83,20 @@ private fun heroBounds(nav: AnimatedVisibilityScope, page: Boolean) = BoundsTran
 
 /**
  * Makes this card the hero for [vehicleId]: between Home and the vehicle page it glides from one position and
- * height to the other in [Motion.HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once;
- * opening, the Home card's content fades in [Motion.QUICK_MS] over it, the photos coinciding). No-op under reduced
- * motion or outside the shell.
+ * height to the other in [Motion.HERO_MS], drawn at full alpha and scale throughout (the arriving card shows at once).
+ * No-op under reduced motion or outside the shell.
  *
  * D-A43: the card is remeasured to the gliding bounds, so its own plate, border and outside-only shadow are drawn at
  * those bounds in every frame, exactly as at rest; its content keeps its natural height inside ([HeroContent]),
- * top-aligned and clipped by the plate, so the photo never stretches. Before, an overlay clip cut the plate out of
- * the natural-size card, which dropped the shadow for the glide and let it snap back at the end (the "flash"). Going
- * Back, the vehicle page's card leaves at once rather than fading over the Home card, so there is never a doubled
- * fill or shadow; opening, the Home card's shadow is off while it fades ([heroShadowOff]).
+ * top-aligned and clipped by the plate, so the photo never stretches. Going Back, the vehicle page's card leaves at
+ * once rather than fading over the Home card, so there is never a doubled fill or shadow.
+ *
+ * D-A45: opening, the Home card is drawn above the page's card ([HOME_HERO_Z]) with no plate of its own
+ * ([heroPlateOff]): the page card under it supplies the one fill, border and shadow, and the Home card's photo and
+ * footer ride on top at full alpha, so the footer (the drawer under the photo) is clipped away as the bounds
+ * collapse instead of fading out before they move (the "blink": a [Motion.QUICK_MS] fade from frame 0). The Home
+ * card fades only over the last [Motion.QUICK_MS] of the glide, when little but the photo is left, onto the page's
+ * identical photo.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -107,9 +111,14 @@ fun Modifier.vehicleHero(vehicleId: String, page: Boolean = false): Modifier {
             sharedContentState = rememberSharedContentState(key = "vehicle-card-$vehicleId"),
             animatedVisibilityScope = nav,
             enter = EnterTransition.None,
-            exit = if (page) fadeOut(snap()) else fadeOut(tween(Motion.QUICK_MS)),
+            exit = if (page) {
+                fadeOut(snap())
+            } else {
+                fadeOut(tween(Motion.QUICK_MS, delayMillis = Motion.HERO_END_MS - Motion.QUICK_MS))
+            },
             boundsTransform = bounds,
             resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+            zIndexInOverlay = if (page) 0f else HOME_HERO_Z,
         )
     }
 }
@@ -124,12 +133,13 @@ fun HeroContent(content: @Composable ColumnScope.() -> Unit) {
 }
 
 /**
- * True while this screen's hero card is leaving in a shared glide (Home, opening a vehicle): its own shadow is then
- * off, so the arriving card's shadow is the only one drawn and the card looks the same in every frame (D-A43).
+ * True while this screen's hero card is leaving in a shared glide (Home, opening a vehicle): it then draws no plate,
+ * border or shadow, only its content over the arriving card's, so the card looks the same in every frame (D-A43,
+ * D-A45).
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun heroShadowOff(): Boolean {
+fun heroPlateOff(): Boolean {
     val shared = LocalSharedTransitionScope.current ?: return false
     val nav = LocalNavAnimatedScope.current ?: return false
     return shared.isTransitionActive && nav.transition.targetState == EnterExitState.PostExit
@@ -241,8 +251,11 @@ private fun Modifier.slidingWithDrawer(slide: DrawerSlide): Modifier = graphicsL
     alpha = ((1f - p) * DRAWER_ALPHA_RATE).coerceIn(0f, 1f)
 }
 
-/** The hero's overlay layer is 0; the page's cards draw over it while it glides (D-A43). */
+/** The page's hero is on overlay layer 0; the page's cards draw over both heroes while they glide (D-A43). */
 private const val ABOVE_HERO_Z = 1f
+
+/** Opening, the leaving Home card draws over the page's card, under the page's cards (D-A45). */
+private const val HOME_HERO_Z = 0.5f
 
 /** How far the drawer rises when there is no Home card to follow. */
 private val DRAWER_FALLBACK_SLIDE = 48.dp

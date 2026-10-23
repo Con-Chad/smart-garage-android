@@ -51,7 +51,7 @@ import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.HeroContent
-import io.github.conchad.smartgarage.ui.glass.heroShadowOff
+import io.github.conchad.smartgarage.ui.glass.heroPlateOff
 import io.github.conchad.smartgarage.ui.glass.LocalVehicleHeroOrigins
 import io.github.conchad.smartgarage.ui.glass.heroAnchor
 import io.github.conchad.smartgarage.ui.glass.launch
@@ -103,7 +103,9 @@ internal fun VehicleCard(
         onOpen()
     }
 
-    GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow, elevated = !heroShadowOff()) {
+    // Opening the page, the card's own plate gives way to the arriving card's under it (D-A45).
+    val plateOff = heroPlateOff()
+    GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow, elevated = !plateOff, plate = !plateOff) {
         HeroContent {
             Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
                 TiltPhotoFrame(

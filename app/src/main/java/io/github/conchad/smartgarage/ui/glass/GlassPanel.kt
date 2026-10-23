@@ -55,6 +55,9 @@ import kotlin.math.max
  *
  * A tappable panel ([onClick] or [onLongClick]) gives press feedback in addition to the ripple (D-A40): the
  * snippet's lift to [Motion.PRESS_LIFT] and a faint wash over the fill ([pressGlow]); no lift under reduced motion.
+ *
+ * [plate] false draws only the content, still clipped to [shape]: a hero card gliding over its twin (D-A45) lets the
+ * twin's fill, border and shadow be the only ones drawn.
  */
 @Composable
 fun GlassPanel(
@@ -65,6 +68,7 @@ fun GlassPanel(
     contentPadding: Dp = 0.dp,
     glow: Color = Color.Unspecified,
     elevated: Boolean = true,
+    plate: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val tokens = glass
@@ -82,9 +86,9 @@ fun GlassPanel(
                 },
             )
             .clip(shape)
-            .glassPlate(tokens, glow)
+            .then(if (plate) Modifier.glassPlate(tokens, glow) else Modifier)
             .then(if (press != null) Modifier.pressGlow(press) else Modifier)
-            .border(1.dp, tokens.panelBorder, shape)
+            .then(if (plate) Modifier.border(1.dp, tokens.panelBorder, shape) else Modifier)
             .then(
                 if (tappable) {
                     Modifier.glassClickable(interaction, onClick, onLongClick)
@@ -171,6 +175,7 @@ fun GlassCard(
     contentPadding: Dp = 0.dp,
     glow: Color = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary,
     elevated: Boolean = true,
+    plate: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) = GlassPanel(
     modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -179,6 +184,7 @@ fun GlassCard(
     contentPadding = contentPadding,
     glow = glow,
     elevated = elevated,
+    plate = plate,
     content = content,
 )
 
