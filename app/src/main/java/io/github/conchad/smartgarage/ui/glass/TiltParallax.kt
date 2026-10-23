@@ -6,15 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
@@ -25,16 +19,6 @@ private const val CAMERA_DISTANCE = 7f
 
 /** How far a layer at 1 dp of depth scales up, standing in for `translateZ` under that perspective (1 / 1100 dp). */
 private const val DEPTH_SCALE_PER_DP = 1f / 1100f
-
-/** Radius of the shine as a fraction of the frame's diagonal; the reference fades to transparent at 45 %. */
-private const val SHINE_RADIUS = 0.45f
-
-/**
- * How far across the frame the shine's centre travels for the full pointer range. D-A31 (2026-10-22): 40 % of the
- * earlier 0.6 (D-A30 was edge-to-edge). The shine follows the pointer, not the angle, so it isn't cut by the
- * [MAX_TILT_DEGREES] change on its own; at 0.12 the 45 %-radius blob would barely be seen to move.
- */
-private const val SHINE_TRAVEL = 0.24f
 
 /**
  * The depths the photo frames use (D-A31, 2026-10-22: 40 % of the earlier −14 / 14 / 19, themselves 60 % of D-A30):
@@ -53,12 +37,12 @@ val LocalCardTilt = staticCompositionLocalOf<CardTilt?> { null }
 
 /**
  * The "3D Tilt Parallax" photo (D-A30, D-A31): a [MetallicFrame] that rotates up to [MAX_TILT_DEGREES] toward the
- * gyroscope pointer, carries a radial shine that follows it, and lets the photo and the name inside float at their
+ * gyroscope pointer and lets the photo and the name inside float at their
  * own depth through [TiltLayer] / [tiltLayer]. Only the photo moves (D-A31): the glass card around it, with its
  * rows, buttons and drop-down, is a plain [GlassCard] and stays flat. Under reduced motion (or when the screen
- * isn't resumed, or [tilt] doesn't follow the gyroscope) the frame is flat and the shine is off.
+ * isn't resumed, or [tilt] doesn't follow the gyroscope) the frame is flat. No shine over the photo (D-A46).
  *
- * The rotation is read inside `graphicsLayer`, the shine inside a cached draw lambda, so a frame of motion costs
+ * The rotation is read inside `graphicsLayer`, so a frame of motion costs
  * no recomposition and allocates nothing.
  */
 @Composable
@@ -68,12 +52,9 @@ fun TiltPhotoFrame(
     cornerRadius: Dp = glass.radiusMedium,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val tokens = glass
     CompositionLocalProvider(LocalCardTilt provides tilt) {
         MetallicFrame(modifier = modifier.tiltRotation(tilt), cornerRadius = cornerRadius) {
             content()
-            // Its own layer: a frame of shine repaints this circle only, not the photo and text under it.
-            Box(Modifier.matchParentSize().graphicsLayer().tiltShine(tilt, tokens))
         }
     }
 }
@@ -121,30 +102,4 @@ private val MAX_SIN = sin(Math.toRadians(MAX_TILT_DEGREES.toDouble())).toFloat()
 @Composable
 fun TiltLayer(depth: Dp, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(modifier.tiltLayer(depth), content = content)
-}
-
-/**
- * The radial shine over a frame's content: `radialGradient(center = pointer, shine → transparent at 45 %)`, screen
- * blended on dark. The centre travels [SHINE_TRAVEL] of the frame around its middle for the full pointer range.
- * One brush per size, centred at the origin; a frame translates the canvas to the pointer rather than building a
- * shader. Skipped entirely while the strength is 0.
- */
-fun Modifier.tiltShine(tilt: CardTilt, tokens: GlassTokens): Modifier = if (!tilt.motion) this else drawWithCache {
-    val radius = hypot(size.width, size.height) * SHINE_RADIUS
-    val brush = Brush.radialGradient(
-        0f to tokens.shine,
-        1f to Color.Transparent,
-        center = Offset.Zero,
-        radius = radius,
-    )
-    onDrawBehind {
-        val strength = tilt.shine.value
-        if (strength > 0.01f) {
-            val cx = (0.5f + (tilt.px.value - 0.5f) * SHINE_TRAVEL) * size.width
-            val cy = (0.5f + (tilt.py.value - 0.5f) * SHINE_TRAVEL) * size.height
-            translate(cx, cy) {
-                drawCircle(brush, radius, Offset.Zero, alpha = strength, blendMode = tokens.shineBlend)
-            }
-        }
-    }
 }

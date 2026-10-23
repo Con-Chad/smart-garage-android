@@ -58,6 +58,7 @@ import io.github.conchad.smartgarage.ui.glass.GlassBottomSheet
 import io.github.conchad.smartgarage.ui.glass.GlassButton
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.SkeletonFields
 import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.glass
@@ -91,7 +92,8 @@ fun FormScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                // On the aurora: the adaptive ink (D-A46).
+                title = { Text(title, Modifier.auroraInk()) },
                 navigationIcon = {
                     IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
                 },

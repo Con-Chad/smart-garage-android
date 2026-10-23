@@ -1458,3 +1458,49 @@ App decisions use the `D-A` prefix.
     expand for this route) and keeps the last tab selected while it is off a tab, so the
     selection bubble no longer drops on frame 1 and re-morphs on return. Reduced motion:
     none of it animates.
+- **D-A46 (2026-10-23) — No photo shine; pop-in only on the hero path; plain slide for every other navigation; adaptive ink on the aurora.**
+  - **Photo shine removed**: the gyro-following radial shine over the car photo
+    (`tiltShine`, `CardTilt.shine`, tokens `shine`/`shineBlend`) is gone; the gyro tilt and
+    parallax stay, and the header text sheen (`MetallicSheenHost`) is unchanged.
+  - **Pop-in only from Home**: the vehicle page's staggered pop runs only when the page is
+    opened from a Home card (tap or "View all", `VehicleHeroOrigins.isLaunching`/`take`).
+    Opened any other way (Vehicles list, push, section) or returned to by Back, nothing
+    pops and the cards don't slide (the 48 dp fallback drawer is gone). The Vehicles tab
+    keeps its D-A32 bubble on a tab arrival but not on a Back return (`NavArrivals`: the
+    new top is the entry that sat just below the old one). Back to Home is still the hero
+    reverse (pop-out + glide, D-A43); Back anywhere else slides.
+  - **Plain transitions (Motion)**: push = slide in from the right by `NAV_SLIDE_FRACTION`
+    0.3 of the width + fade in, `NAV_PUSH_MS` 300 on `SlideInEasing` (emphasized
+    decelerate), the page beneath fades out in `NAV_UNDER_FADE_MS` 200; Back = slide out to
+    the right + fade, `NAV_POP_MS` 260 on `SlideOutEasing` (emphasized accelerate), the page
+    beneath fades in over the same 260. Tab to tab keeps the `NAV_FADE_MS` cross-fade.
+    Reduced motion: no transition (instant).
+  - **Adaptive ink** (`ui/glass/AuroraInk.kt`): titles of transparent top bars (incl. the
+    greeting and its sync line), forms' titles, group headers and their "See all",
+    `SectionLabel`, and Home's pills ("Add vehicle", "View all", "Quick info") take their
+    colour from the aurora behind them. Text on cards keeps its card colour.
+    - The aurora renders its own scene (same code path) into a 12×96 software bitmap on
+      `Dispatchers.Default`, averaged over 4 drift phases, once per palette/size/theme
+      (`AuroraLumaHolder`, `LocalAuroraLuma`). No GPU readback.
+    - Each ink node (`Modifier.auroraInk`, a Modifier.Node) learns its root position in
+      `onGloballyPositioned`, samples top and bottom bilinearly (pills composite their
+      fill, and the card panel when inside a card; a scrolled top bar its panel), and
+      eases toward the result with a first-order low-pass (`Motion.INK_SMOOTH_MS` 140 ms
+      time constant) on a frame loop that runs only while settling. Draw phase only: an
+      offscreen layer, glyphs drawn, then one rect `SrcIn` with a reused light→dark
+      `LinearGradient` re-aimed by a local matrix (a tall block shades across the
+      gradient; a flat colour when top ≈ bottom). No recomposition, relayout or
+      allocation per frame. Animated metallic titles draw their sheen band `SrcAtop`
+      over the ink.
+    - Mapping (`AdaptiveInk`, unit-tested): light ink `onPhoto`, dark ink `onPale`.
+      Text: the 4.5:1 limits (light up to L 0.166, dark from 0.243) leave a gap no ink
+      bridges, so the white→grey→black band is 0.024 wide around the crossover
+      (L ≈ 0.20, where both contrast equally; ≥ 4:1 at its edges, ≥ 4.5:1 outside the
+      gap). Pills: 3:1 with white preferred (D-A43), band ending where white stops
+      clearing 3:1. Smoothstep on ln(L+0.05).
+    - **Grey is passed through, never rested on**: on the Pixel a mid-green aurora sat
+      right at the crossover and left a whole line grey on green. So each edge settles on
+      light or dark with hysteresis (`settle`, switching 30 % into the band), and the
+      low-pass carries the ink through grey as the backdrop crosses over; blocks shorter
+      than 56 dp take one decision from their centre. Verified frame by frame scrolling
+      the vehicle page ("Vehicle details" white → grey → dark, eased).

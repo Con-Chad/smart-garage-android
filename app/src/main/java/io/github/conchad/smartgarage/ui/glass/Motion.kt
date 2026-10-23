@@ -5,6 +5,12 @@ import android.provider.Settings
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.snap
@@ -23,6 +29,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
  * The app's one motion system (D-A40): every duration, easing and spring the glass UI animates with. Screens and
@@ -73,8 +80,32 @@ object Motion {
     /** One pass of the loading skeleton's sweep (D-A41): the sync spin's pace, so every "still loading" moves alike. */
     const val SHIMMER_MS = SPIN_MS
 
-    /** NavHost's cross-fade between ordinary routes. */
+    /** NavHost's cross-fade between the tabs (D-A46: only tab to tab; pushed screens slide). */
     const val NAV_FADE_MS = 700
+
+    /**
+     * A plain pushed screen (a form, Settings, a section, the vehicle page opened from a list) slides in from the
+     * right by [NAV_SLIDE_FRACTION] of the width while fading in, decelerating, over this long (D-A46).
+     */
+    const val NAV_PUSH_MS = 300
+
+    /** Back from a plain screen: it slides out to the right while fading, accelerating, over this long (D-A46). */
+    const val NAV_POP_MS = 260
+
+    /**
+     * The page underneath fades out this fast as a screen is pushed over it, quicker than the slide, so the two never
+     * sit fully on top of each other for long; it fades back in over [NAV_POP_MS] as that screen leaves (D-A46).
+     */
+    const val NAV_UNDER_FADE_MS = 200
+
+    /** How far a pushed screen travels, as a fraction of the width: enough to read as a slide, short enough to stay calm. */
+    const val NAV_SLIDE_FRACTION = 0.3f
+
+    /**
+     * Adaptive ink (D-A46): the time constant of the low-pass the text colour follows toward the aurora under it.
+     * 63 % of a change in 140 ms, settled in about half a second; smooth while scrolling, never a snap.
+     */
+    const val INK_SMOOTH_MS = 140f
 
     /** Tint cross-fades that follow the aurora (the aurora itself, the fan's colours). */
     const val TINT_MS = 800
@@ -121,6 +152,12 @@ object Motion {
     /** The staggered pop's expand (D-A37): leaves quickly and eases into the overshoot, so the bounce reads as momentum. */
     val PopExpandEasing = CubicBezierEasing(0.2f, 0.6f, 0.35f, 1f)
 
+    /** A pushed screen arriving (D-A46): Material's emphasized decelerate. */
+    val SlideInEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+    /** A screen leaving by Back (D-A46): Material's emphasized accelerate. */
+    val SlideOutEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+
     /** A steep ease-out for things settling back to rest (the tilt frame). */
     val SettleEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
@@ -158,6 +195,22 @@ object Motion {
 
 /** The fade of what the vehicle hero leaves behind or comes back to: [Motion.UNDER_HERO_FADE_MS] on the hero's curve. */
 fun <T> underHeroFadeSpec(): FiniteAnimationSpec<T> = tween(Motion.UNDER_HERO_FADE_MS, easing = Motion.EmphasizedEasing)
+
+/** A plain screen arriving (D-A46): in from the right while fading in. */
+fun navPushEnter(): EnterTransition =
+    slideInHorizontally(tween(Motion.NAV_PUSH_MS, easing = Motion.SlideInEasing)) { (it * Motion.NAV_SLIDE_FRACTION).roundToInt() } +
+        fadeIn(tween(Motion.NAV_PUSH_MS, easing = LinearOutSlowInEasing))
+
+/** The page a plain screen is pushed over (D-A46): it fades out underneath. */
+fun navPushExit(): ExitTransition = fadeOut(tween(Motion.NAV_UNDER_FADE_MS))
+
+/** The page a plain screen leaves by Back to (D-A46): it fades back in, revealed as that screen slides away. */
+fun navPopEnter(): EnterTransition = fadeIn(tween(Motion.NAV_POP_MS))
+
+/** A plain screen leaving by Back (D-A46): out to the right while fading. */
+fun navPopExit(): ExitTransition =
+    slideOutHorizontally(tween(Motion.NAV_POP_MS, easing = Motion.SlideOutEasing)) { (it * Motion.NAV_SLIDE_FRACTION).roundToInt() } +
+        fadeOut(tween(Motion.NAV_POP_MS, easing = FastOutLinearInEasing))
 
 /** [this], or a snap when [reduced]. */
 fun <T> FiniteAnimationSpec<T>.orSnap(reduced: Boolean): FiniteAnimationSpec<T> = if (reduced) snap() else this

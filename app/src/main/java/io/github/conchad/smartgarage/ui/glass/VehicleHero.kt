@@ -1,12 +1,12 @@
 package io.github.conchad.smartgarage.ui.glass
 
+import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -16,20 +16,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 
 /*
  * The vehicle hero (D-A34): the car card one taps on Home glides to where the vehicle page's photo card sits, and
@@ -55,9 +49,26 @@ class VehicleHeroOrigins {
         bottoms[vehicleId] = bottomPx
     }
 
-    /** The origin of a launch, once; a page opened any other way (a list, a push) finds none. */
-    fun take(vehicleId: String): Float? = bottoms.remove(vehicleId)
+    private var lastTaken: String? = null
+    private var lastTakenAt = 0L
+
+    /** The origin of a launch, once; a page opened any other way (a list, a push, Back from a form) finds none. */
+    fun take(vehicleId: String): Float? = bottoms.remove(vehicleId)?.also {
+        lastTaken = vehicleId
+        lastTakenAt = SystemClock.uptimeMillis()
+    }
+
+    /**
+     * True while the page for [vehicleId] is being opened from a Home card (D-A46: the shell picks the hero path's
+     * transitions from it). Doesn't consume the launch; a launch the page took a moment ago still counts, whichever
+     * of the two the frame composes first.
+     */
+    fun isLaunching(vehicleId: String): Boolean =
+        bottoms.containsKey(vehicleId) || (lastTaken == vehicleId && SystemClock.uptimeMillis() - lastTakenAt < LAUNCH_GRACE_MS)
 }
+
+/** How long after the page took its launch the shell still counts it as the hero path. */
+private const val LAUNCH_GRACE_MS = 500L
 
 val LocalVehicleHeroOrigins = staticCompositionLocalOf<VehicleHeroOrigins?> { null }
 
@@ -163,38 +174,18 @@ fun VehicleHeroOrigins?.launch(vehicleId: String, anchor: HeroAnchor) {
 }
 
 /**
- * The vehicle page's drawer: every card under the photo slides up from where the Home card's bottom edge was to
- * its place, just ahead of the hero, with a quick fade. Leaving, it stays put (D-A43): the cards pop out in place
- * instead ([rememberPopOut]). Opened any other way, it rises [DRAWER_FALLBACK_SLIDE]. One per page, from
- * [rememberDrawerSlide].
+ * How the vehicle page was opened (D-A43, D-A46): from a Home card (the hero path) its cards pop in at their final
+ * spots above the gliding hero, each after the one above; opened any other way (a list, a push, Back from a form)
+ * the page slides in as a whole and nothing pops. Leaving by Back to Home the cards pop out in place
+ * ([rememberPopOut]). One per page, from [rememberDrawerSlide].
  */
 @Stable
 class DrawerSlide internal constructor(
     internal val reduced: Boolean,
     private val originBottom: Float?,
-    private val fallback: Float,
-    /** 1 = off at the start offset, 0 = in place; follows the nav entry's transition. */
-    internal val offProgress: State<Float>,
 ) {
-    /** The hero's own bottom edge on this page (root px), from its first layout. */
-    private var heroBottom by mutableStateOf<Float?>(null)
-
-    /** Opened from a Home card, so the hero glides in over the drawer (D-A43: the pop-in then waits for it). */
+    /** Opened from a Home card, so the hero glides in and the cards pop in above it (D-A43, D-A46). */
     val fromHero: Boolean get() = !reduced && originBottom != null
-
-    internal val distance: Float?
-        get() = when {
-            originBottom == null -> fallback
-            else -> heroBottom?.let { (originBottom - it).coerceAtLeast(0f) }
-        }
-
-    /** Put on the hero: its first resting bottom edge sets how far the drawer travels. */
-    val heroModifier: Modifier
-        get() = if (reduced || originBottom == null) {
-            Modifier
-        } else {
-            Modifier.onGloballyPositioned { if (heroBottom == null) heroBottom = it.positionInRoot().y + it.size.height }
-        }
 }
 
 /** The page's drawer slide. Call it where the cards are composed, with the vehicle the page shows. */
@@ -203,52 +194,27 @@ fun rememberDrawerSlide(vehicleId: String): DrawerSlide {
     val reduced = rememberReducedMotion()
     val origins = LocalVehicleHeroOrigins.current
     val origin = remember(vehicleId) { origins?.take(vehicleId) }
-    val fallback = with(LocalDensity.current) { DRAWER_FALLBACK_SLIDE.toPx() }
-    val nav = LocalNavAnimatedScope.current
-    val progress: State<Float> = if (nav == null || reduced) {
-        rememberStatic(0f)
-    } else {
-        nav.transition.animateFloat(transitionSpec = { heroSpec() }, label = "drawer") { if (it == EnterExitState.PreEnter) 1f else 0f }
-    }
-    return remember(origin, fallback, progress) { DrawerSlide(reduced, origin, fallback, progress) }
+    return remember(origin, reduced) { DrawerSlide(reduced, origin) }
 }
 
 /**
- * Slides this card with the page's drawer. Read in `graphicsLayer {}` only, so no frame recomposes. Until the hero
- * has been laid out the travel is unknown and a card still off is kept invisible rather than drawn in place.
- *
  * Opened from a Home card (D-A43, user-set) the card doesn't travel: it pops in at its final spot from the moment
  * the hero starts rising, and is drawn above the gliding hero for the length of the transition, so the hero rises
- * into place above it and never hides it. Opened any other way, the drawer slide as before.
+ * into place above it and never hides it. Opened any other way the card is simply part of the page (D-A46).
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.drawerSlide(slide: DrawerSlide): Modifier {
-    if (slide.reduced) return this
-    if (slide.fromHero) {
-        val shared = LocalSharedTransitionScope.current ?: return this
-        val nav = LocalNavAnimatedScope.current ?: return this
-        // Only while arriving: going Back the hero glides down over the cards popping out.
-        return with(shared) {
-            renderInSharedTransitionScopeOverlay(
-                renderInOverlay = { isTransitionActive && nav.transition.targetState == EnterExitState.Visible },
-                zIndexInOverlay = ABOVE_HERO_Z,
-            )
-        }
+    if (!slide.fromHero) return this
+    val shared = LocalSharedTransitionScope.current ?: return this
+    val nav = LocalNavAnimatedScope.current ?: return this
+    // Only while arriving: going Back the hero glides down over the cards popping out.
+    return with(shared) {
+        renderInSharedTransitionScopeOverlay(
+            renderInOverlay = { isTransitionActive && nav.transition.targetState == EnterExitState.Visible },
+            zIndexInOverlay = ABOVE_HERO_Z,
+        )
     }
-    return slidingWithDrawer(slide)
-}
-
-private fun Modifier.slidingWithDrawer(slide: DrawerSlide): Modifier = graphicsLayer {
-    val p = slide.offProgress.value
-    if (p == 0f) return@graphicsLayer
-    val d = slide.distance
-    if (d == null) {
-        alpha = 0f
-        return@graphicsLayer
-    }
-    translationY = d * p
-    alpha = ((1f - p) * DRAWER_ALPHA_RATE).coerceIn(0f, 1f)
 }
 
 /** The page's hero is on overlay layer 0; the page's cards draw over both heroes while they glide (D-A43). */
@@ -256,10 +222,3 @@ private const val ABOVE_HERO_Z = 1f
 
 /** Opening, the leaving Home card draws over the page's card, under the page's cards (D-A45). */
 private const val HOME_HERO_Z = 0.5f
-
-/** How far the drawer rises when there is no Home card to follow. */
-private val DRAWER_FALLBACK_SLIDE = 48.dp
-
-/** The drawer is opaque by 40 % of the way, so it cross-fades with the leaving screen and doesn't flash. */
-private const val DRAWER_ALPHA_RATE = 2.5f
-

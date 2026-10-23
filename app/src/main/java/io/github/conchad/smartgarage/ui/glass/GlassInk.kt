@@ -15,6 +15,10 @@ import androidx.compose.ui.graphics.luminance
  * sheen, and turn near-black ([GlassTokens.onPale]) when what is behind them is light: the light theme, or a pale
  * aurora (white, silver, a pale user-chosen tint). The check runs on the tint the shell actually draws
  * ([AuroraTintHolder.effective]), so it follows any theme colour, not only the car's.
+ *
+ * D-A46: inside the shell that choice is refined per pixel row by the adaptive ink ([auroraInk], [rememberPillInkSpec]):
+ * the label follows the aurora actually behind the pill, white → grey → near-black, at the same 3:1 floor and with
+ * the same preference for white. [pillInk] remains the composed colour, used where there is no aurora map.
  */
 
 /**
@@ -50,6 +54,19 @@ fun rememberPillInk(): Color {
     val tokens = glass
     val tint = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
     return remember(tokens, tint) { pillInk(tokens, tint) }
+}
+
+/**
+ * The adaptive pill ink (D-A46): 3:1 ([AdaptiveInk.PILL_MIN_CONTRAST]) against the aurora under the pill's own fill,
+ * and under a glass card's panel too when [inCard] (the vehicle cards' "View all" / "Quick info").
+ */
+@Composable
+fun rememberPillInkSpec(inCard: Boolean): AuroraInkSpec {
+    val tokens = glass
+    return remember(tokens, inCard) {
+        val overlay = if (inCard) pillInCardOverlay(tokens) else tokens.pill
+        AuroraInkSpec(AdaptiveInk.PILL_MIN_CONTRAST) { overlay }
+    }
 }
 
 /** Text buttons that sit on the aurora (the group headers' actions) in the pill ink. */

@@ -84,6 +84,9 @@ private fun sheenPhaseAt(elapsedMs: Long): Float {
  *   draw phase only (offscreen layer + `SrcIn` gradient), so the frames cost no recomposition or relayout.
  * - static (body and labels): a quiet steel gradient as the text brush, no animation. The base metal is a light
  *   steel on dark and a dark steel on light, so body copy keeps ≥ 4.5:1 contrast on the glass.
+ *
+ * On the aurora ([ink], from [LocalAuroraInk] by default: a transparent top bar's title, a group header) the glyphs
+ * take the adaptive ink instead of the steel (D-A46), and an animated title keeps its sheen band sweeping over it.
  */
 @Composable
 fun MetallicText(
@@ -94,9 +97,19 @@ fun MetallicText(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
     textAlign: TextAlign? = null,
+    ink: AuroraInkSpec? = LocalAuroraInk.current,
 ) {
     val tokens = glass
-    if (animated) {
+    if (ink != null) {
+        Text(
+            text,
+            style = style.copy(color = tokens.metalMid),
+            maxLines = maxLines,
+            overflow = overflow,
+            textAlign = textAlign,
+            modifier = modifier.auroraInk(ink, sheen = if (animated) LocalSheenPhase.current else null),
+        )
+    } else if (animated) {
         val phase = LocalSheenPhase.current
         Text(
             text,

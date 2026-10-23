@@ -27,7 +27,7 @@ import io.github.conchad.smartgarage.R
 
 /**
  * `GroupHeader` for glass screens: the same paddings and optional text action, with an animated metallic title
- * (the sweep tier, D-A24). [trailing] puts something else at the end instead (Home's "Swipe to view more" pill, D-A43).
+ * (the sweep tier, D-A24) in the adaptive ink of the aurora behind it (D-A46). [trailing] puts something else at the end instead (Home's "Swipe to view more" pill, D-A43).
  */
 @Composable
 fun GlassGroupHeader(
@@ -48,12 +48,14 @@ fun GlassGroupHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+            // On the aurora: the adaptive ink under the sheen (D-A46).
+            ink = AuroraInkSpec.Text,
         )
         if (trailing != null) {
             trailing()
         } else if (onAction != null) {
             TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
-                Text(action ?: stringResource(R.string.action_see_all))
+                Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk())
             }
         }
     }

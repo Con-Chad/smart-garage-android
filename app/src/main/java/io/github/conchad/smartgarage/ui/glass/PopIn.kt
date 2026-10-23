@@ -68,12 +68,16 @@ class PopInState internal constructor(
  * The page's pop-in. Call it where the cards are composed (inside the loaded branch), so the window starts with them.
  * [staggered] pops the cards one after another (the vehicle page, D-A37); otherwise together (D-A32). The first
  * staggered card starts [startDelayMs] after the page appears (D-A43: the vehicle page waits for its hero). [popOut]
- * is the page's [rememberPopOut], which every card then follows when the page is left.
+ * is the page's [rememberPopOut], which every card then follows when the page is left. With [enabled] false nothing
+ * pops in (D-A46: a page returned to by Back, or the vehicle page opened other than from a Home card); the pop-out
+ * still applies.
  */
 @Composable
-fun rememberPopIn(staggered: Boolean = false, startDelayMs: Long = 0L, popOut: State<Float>? = null): PopInState {
+fun rememberPopIn(staggered: Boolean = false, startDelayMs: Long = 0L, popOut: State<Float>? = null, enabled: Boolean = true): PopInState {
     val reduced = rememberReducedMotion()
-    val state = remember { PopInState(reduced, if (staggered) Motion.POP_STAGGER_MS else 0L, if (staggered) startDelayMs else 0L, popOut) }
+    val state = remember {
+        PopInState(reduced, if (staggered) Motion.POP_STAGGER_MS else 0L, if (staggered) startDelayMs else 0L, popOut).also { it.armed = enabled }
+    }
     LaunchedEffect(state) {
         delay(Motion.POP_WINDOW_MS + startDelayMs)
         state.armed = false

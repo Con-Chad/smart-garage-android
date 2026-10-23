@@ -86,6 +86,7 @@ import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.launch
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.onAuroraInk
 import io.github.conchad.smartgarage.ui.glass.PagerDots
 import io.github.conchad.smartgarage.ui.glass.RefreshIcon
 import io.github.conchad.smartgarage.ui.glass.glass
@@ -169,6 +170,8 @@ fun DashboardScreen(
                             color = tokens.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            // On the aurora with the greeting: the adaptive ink (D-A46).
+                            modifier = Modifier.onAuroraInk(),
                         )
                     }
                 },

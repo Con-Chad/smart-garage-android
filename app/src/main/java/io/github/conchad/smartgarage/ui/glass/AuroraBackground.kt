@@ -11,7 +11,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -30,6 +29,21 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import kotlin.math.tan
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageBitmapConfig
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val easeInOut = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
 
@@ -102,7 +116,13 @@ fun AuroraTint(tint: Color?) {
  * about 25 px/s, under a pixel a frame at that rate, so the panel's 60 or 120 Hz would buy nothing visible.
  */
 @Composable
-fun AuroraBackground(tint: Color, modifier: Modifier = Modifier, content: @Composable () -> Unit = {}) {
+fun AuroraBackground(
+    tint: Color,
+    modifier: Modifier = Modifier,
+    /** Where the aurora publishes its colour map for [auroraInk] (D-A46); one is made for [content] when null. */
+    luma: AuroraLumaHolder? = null,
+    content: @Composable () -> Unit = {},
+) {
     val tokens = glass
     val animate = rememberAmbientMotion()
     val palette = VehicleTint.palette(tint)
@@ -113,8 +133,32 @@ fun AuroraBackground(tint: Color, modifier: Modifier = Modifier, content: @Compo
     val c2 = animateColorAsState(palette[2], fade, label = "aurora2")
     // Null when static: the ribbons then sit at the parked keyframe fractions below.
     val clock: State<Long>? = if (animate) rememberAmbientClock(AURORA_FRAME_MS) else null
+    val holder = luma ?: remember { AuroraLumaHolder() }
+    var auroraSize by remember { mutableStateOf(IntSize.Zero) }
 
-    Box(modifier.fillMaxSize()) {
+    // D-A46: the colour map behind the adaptive ink, rendered from the target palette (not the cross-fade) once per
+    // palette, size and theme, off the main thread. The ink eases on its own low-pass.
+    val p0 = palette[0]
+    val p1 = palette[1]
+    val p2 = palette[2]
+    LaunchedEffect(p0, p1, p2, auroraSize, tokens) {
+        val target = auroraSize
+        if (target.width <= 0 || target.height <= 0) return@LaunchedEffect
+        holder.map = withContext(Dispatchers.Default) { renderLumaMap(target, p0, p1, p2, tokens) }
+    }
+
+    Box(
+        modifier
+            .fillMaxSize()
+            .onGloballyPositioned {
+                val p = it.positionInRoot()
+                holder.left = p.x
+                holder.top = p.y
+                holder.width = it.size.width.toFloat()
+                holder.height = it.size.height.toFloat()
+                auroraSize = it.size
+            },
+    ) {
         Spacer(
             Modifier
                 .downscaledLayer(AURORA_DOWNSCALE)
@@ -124,36 +168,94 @@ fun AuroraBackground(tint: Color, modifier: Modifier = Modifier, content: @Compo
                     // draw lambda, so the 800 ms fade rebuilds the brushes and the steady state never does).
                     val w = size.width
                     val h = size.height
-                    val alpha = tokens.auroraAlpha
-                    val ribbons = listOf(
-                        Ribbon(top = -0.10f, colors = c0.value to c1.value, alpha = alpha * 1.0f, durationMs = 9_000, parked = 0.35f,
-                            from = Key(-0.08f, 0f, -4f, 0.9f), to = Key(0.10f, 0.08f, 5f, 1.15f)),
-                        Ribbon(top = 0.18f, colors = c1.value to c2.value, alpha = alpha * 0.82f, durationMs = 11_000, parked = 0.6f,
-                            from = Key(0.06f, 0.04f, 6f, 1.1f), to = Key(-0.12f, -0.06f, -5f, 0.85f)),
-                        Ribbon(top = 0.40f, colors = c2.value to c0.value, alpha = alpha * 0.65f, durationMs = 13_000, parked = 0.5f,
-                            from = Key(-0.05f, 0.02f, -3f, 1f), to = Key(0.14f, 0.10f, 7f, 1.25f)),
-                    ).map { it.prepare(w, h) }
-                    val veil = Brush.verticalGradient(
-                        0.4f to Color.Transparent,
-                        1f to tokens.veil,
-                        startY = 0f,
-                        endY = h,
-                    )
+                    val scene = AuroraScene(w, h, c0.value, c1.value, c2.value, tokens)
                     val matrix = Matrix()
                     onDrawBehind {
-                        drawRect(tokens.pageBackground)
                         val elapsed = clock?.value
-                        for (ribbon in ribbons) {
-                            val t = if (elapsed == null) ribbon.parked else driftAt(elapsed, ribbon.durationMs)
-                            ribbon.draw(this, t, matrix, tokens.auroraBlend)
-                        }
-                        drawRect(veil)
+                        scene.draw(this, matrix) { ribbon -> if (elapsed == null) ribbon.parked else driftAt(elapsed, ribbon.durationMs) }
                     }
                 },
         )
-        content()
+        CompositionLocalProvider(LocalAuroraLuma provides holder, content = content)
     }
 }
+
+/** The page colour, the three ribbons and the veil at one size and palette: what one aurora frame draws. */
+private class AuroraScene(
+    private val w: Float,
+    private val h: Float,
+    c0: Color,
+    c1: Color,
+    c2: Color,
+    private val tokens: GlassTokens,
+) {
+    private val ribbons: List<PreparedRibbon>
+    private val veil: Brush
+
+    init {
+        val alpha = tokens.auroraAlpha
+        ribbons = listOf(
+            Ribbon(top = -0.10f, colors = c0 to c1, alpha = alpha * 1.0f, durationMs = 9_000, parked = 0.35f,
+                from = Key(-0.08f, 0f, -4f, 0.9f), to = Key(0.10f, 0.08f, 5f, 1.15f)),
+            Ribbon(top = 0.18f, colors = c1 to c2, alpha = alpha * 0.82f, durationMs = 11_000, parked = 0.6f,
+                from = Key(0.06f, 0.04f, 6f, 1.1f), to = Key(-0.12f, -0.06f, -5f, 0.85f)),
+            Ribbon(top = 0.40f, colors = c2 to c0, alpha = alpha * 0.65f, durationMs = 13_000, parked = 0.5f,
+                from = Key(-0.05f, 0.02f, -3f, 1f), to = Key(0.14f, 0.10f, 7f, 1.25f)),
+        ).map { it.prepare(w, h) }
+        veil = Brush.verticalGradient(
+            0.4f to Color.Transparent,
+            1f to tokens.veil,
+            startY = 0f,
+            endY = h,
+        )
+    }
+
+    /** Draws the scene at its own size [w] × [h] (the caller scales); [drift] gives each ribbon's fraction. */
+    inline fun draw(scope: DrawScope, matrix: Matrix, drift: (PreparedRibbon) -> Float) {
+        val size = Size(w, h)
+        scope.drawRect(tokens.pageBackground, size = size)
+        for (ribbon in ribbons) ribbon.draw(scope, w, h, drift(ribbon), matrix, tokens.auroraBlend)
+        scope.drawRect(veil, size = size)
+    }
+}
+
+/**
+ * Renders the aurora at [size] into an [AuroraLumaMap.COLS] × [AuroraLumaMap.ROWS] software bitmap at
+ * [LUMA_PHASES] drift fractions and averages them (D-A46). A few hundred pixels per pass: well under a millisecond.
+ */
+private fun renderLumaMap(size: IntSize, c0: Color, c1: Color, c2: Color, tokens: GlassTokens): AuroraLumaMap {
+    val cols = AuroraLumaMap.COLS
+    val rows = AuroraLumaMap.ROWS
+    val w = size.width.toFloat()
+    val h = size.height.toFloat()
+    val scene = AuroraScene(w, h, c0, c1, c2, tokens)
+    val bitmap = ImageBitmap(cols, rows, ImageBitmapConfig.Argb8888)
+    val canvas = Canvas(bitmap)
+    val drawScope = CanvasDrawScope()
+    val matrix = Matrix()
+    val pixels = IntArray(cols * rows)
+    val sum = FloatArray(cols * rows * 3)
+    for (i in 0 until LUMA_PHASES) {
+        val t = i / (LUMA_PHASES - 1f)
+        drawScope.draw(Density(1f), LayoutDirection.Ltr, canvas, Size(cols.toFloat(), rows.toFloat())) {
+            scale(cols / w, rows / h, pivot = Offset.Zero) {
+                scene.draw(this, matrix) { t }
+            }
+        }
+        bitmap.readPixels(pixels)
+        for (p in pixels.indices) {
+            val argb = pixels[p]
+            sum[p * 3] += ((argb shr 16) and 0xFF) / 255f
+            sum[p * 3 + 1] += ((argb shr 8) and 0xFF) / 255f
+            sum[p * 3 + 2] += (argb and 0xFF) / 255f
+        }
+    }
+    for (i in sum.indices) sum[i] /= LUMA_PHASES
+    return AuroraLumaMap(cols, rows, sum)
+}
+
+/** Drift fractions averaged into the colour map: both ends of the loop and two between. */
+private const val LUMA_PHASES = 4
 
 /** How much smaller than the screen the aurora layer is drawn, per axis. */
 private const val AURORA_DOWNSCALE = 4
@@ -255,9 +357,7 @@ private class PreparedRibbon(
     val parked: Float get() = ribbon.parked
     val durationMs: Int get() = ribbon.durationMs
 
-    fun draw(scope: DrawScope, t: Float, matrix: Matrix, blend: BlendMode) {
-        val w = scope.size.width
-        val h = scope.size.height
+    fun draw(scope: DrawScope, w: Float, h: Float, t: Float, matrix: Matrix, blend: BlendMode) {
         val from = ribbon.from
         val to = ribbon.to
         val tx = lerp(from.tx, to.tx, t) * w

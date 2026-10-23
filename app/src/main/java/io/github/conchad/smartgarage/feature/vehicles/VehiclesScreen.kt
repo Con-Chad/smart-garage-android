@@ -87,6 +87,8 @@ fun VehiclesScreen(
     onOpenVehicle: (String) -> Unit,
     onAddVehicle: () -> Unit,
     quickInfoActions: QuickInfoActions,
+    /** False when Back returned to the tab: the cards are simply there (D-A46). */
+    popIn: Boolean = true,
     viewModel: VehiclesViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
     dashboardViewModel: DashboardViewModel = hiltViewModel(),
@@ -121,7 +123,7 @@ fun VehiclesScreen(
                                 )
                             } else {
                                 // The pop-in window starts with the list, so the cards bubble in together (D-A32).
-                                val popIn = rememberPopIn()
+                                val popInState = rememberPopIn(enabled = popIn)
                                 LazyColumn(
                                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -137,7 +139,7 @@ fun VehiclesScreen(
                                             fmt = state.formatter,
                                             cardActions = cardActions,
                                             quickInfoActions = quickInfoActions,
-                                            popIn = popIn,
+                                            popIn = popInState,
                                             onClick = { onOpenVehicle(id) },
                                             onOpenOdometer = { odometerFor = id },
                                         )

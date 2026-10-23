@@ -45,6 +45,13 @@ import io.github.conchad.smartgarage.ui.glass.GlassButton
 import io.github.conchad.smartgarage.ui.glass.GlassIconBadge
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.onAurora
+import io.github.conchad.smartgarage.ui.glass.AdaptiveInk
+import io.github.conchad.smartgarage.ui.glass.AuroraInkSpec
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraInk
+import io.github.conchad.smartgarage.ui.glass.auroraInk
+import io.github.conchad.smartgarage.ui.glass.onAuroraInk
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 
 /**
  * The height of the shell's floating bottom bar (navigation bar included) that a screen draws under, or 0 where the
@@ -72,7 +79,7 @@ fun AppScaffold(
     transparent: Boolean = true,
     content: @Composable (PaddingValues) -> Unit,
 ) = AppScaffold(
-    title = { Text(title) },
+    title = { Text(title, Modifier.onAuroraInk()) },
     modifier = modifier,
     onBack = onBack,
     actions = actions,
@@ -102,12 +109,20 @@ fun AppScaffold(
     topBarModifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    // D-A46: a transparent bar's title sits on the aurora, so it takes the adaptive ink; once content scrolls under
+    // the bar its glass panel lies between, which the ink accounts for.
+    val panel = glass.panel
+    val barInk = remember(scrollBehavior, panel) {
+        AuroraInkSpec(AdaptiveInk.TEXT_MIN_CONTRAST) {
+            if ((scrollBehavior?.state?.overlappedFraction ?: 0f) > 0.01f) panel else Color.Transparent
+        }
+    }
     Scaffold(
         modifier = if (scrollBehavior != null) modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else modifier,
         containerColor = if (transparent) Color.Transparent else MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = title,
+                title = { CompositionLocalProvider(LocalAuroraInk provides if (transparent) barInk else null, content = title) },
                 modifier = topBarModifier,
                 navigationIcon = {
                     if (onBack != null) {
@@ -213,14 +228,15 @@ fun IconBadge(icon: ImageVector, modifier: Modifier = Modifier, size: Int = 40, 
 
 /**
  * Small label above a group of settings-style rows (More, Settings, Profiles), as in system Settings, in the
- * glass sheen (D-A41). Data screens use [GroupHeader] instead, which is larger and can carry a "See all" action.
+ * adaptive ink over the aurora (D-A46; the glass sheen with a halo before). Data screens use [GroupHeader] instead, which is larger and can carry a "See all" action.
  */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge.onAurora(glass),
+        style = MaterialTheme.typography.labelLarge,
         color = glass.sheen,
-        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+        // D-A46: a section title on the aurora, in the adaptive ink (which replaces the halo it carried, D-A30).
+        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp).auroraInk(),
     )
 }

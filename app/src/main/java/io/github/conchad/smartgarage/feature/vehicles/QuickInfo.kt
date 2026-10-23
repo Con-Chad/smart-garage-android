@@ -59,6 +59,8 @@ import io.github.conchad.smartgarage.ui.glass.GlassStackedPillButton
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberPillInk
+import io.github.conchad.smartgarage.ui.glass.rememberPillInkSpec
+import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.glassPillSurface
 import io.github.conchad.smartgarage.ui.glass.orSnap
@@ -148,6 +150,8 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
     val tokens = glass
     // D-A43: white over the aurora, dark on a light backdrop.
     val ink = rememberPillInk()
+    // D-A46: the label and chevron follow the aurora behind the card.
+    val inkSpec = rememberPillInkSpec(inCard = true)
     val reduced = rememberReducedMotion()
     val rotation by animateFloatAsState(
         if (expanded) 180f else 0f,
@@ -165,7 +169,8 @@ fun QuickInfoToggle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier 
             .clickable(interactionSource = interaction, indication = ripple(), onClick = onToggle, onClickLabel = actionText, role = Role.Button)
             .semantics(mergeDescendants = true) { stateDescription = stateText }
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .auroraInk(inkSpec),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

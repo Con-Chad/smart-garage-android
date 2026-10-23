@@ -32,6 +32,7 @@ import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.rememberPillInk
+import io.github.conchad.smartgarage.ui.glass.rememberPillInkSpec
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.theme.LocalStatusColors
@@ -74,6 +75,8 @@ internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () ->
         compact = true,
         textStyle = MaterialTheme.typography.labelMedium,
         contentColor = rememberPillInk(),
+        // On the aurora beside the header: the adaptive ink (D-A46).
+        adaptiveInk = rememberPillInkSpec(inCard = false),
         modifier = Modifier.padding(start = 8.dp, end = 12.dp),
     )
 }

@@ -207,6 +207,8 @@ fun GlassPillButton(
     textStyle: TextStyle = MaterialTheme.typography.labelLarge,
     /** The label and icon colour; [Color.Unspecified] is the sheen. Pills over the aurora pass [rememberPillInk] (D-A43). */
     contentColor: Color = Color.Unspecified,
+    /** Pills over the aurora: the label and icon follow it in the adaptive ink (D-A46, [rememberPillInkSpec]). */
+    adaptiveInk: AuroraInkSpec? = null,
 ) {
     val tokens = glass
     val ink = contentColor.takeOrElse { tokens.sheen }
@@ -224,7 +226,8 @@ fun GlassPillButton(
                 .pressScale(press)
                 .glassPillSurface(tokens, CircleShape, press)
                 .indication(interaction, ripple())
-                .padding(horizontal = if (compact) 14.dp else 18.dp),
+                .padding(horizontal = if (compact) 14.dp else 18.dp)
+                .then(if (adaptiveInk != null) Modifier.auroraInk(adaptiveInk) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = textStyle, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -254,8 +257,9 @@ fun GlassStackedPillButton(
     icon: ImageVector? = null,
 ) {
     val tokens = glass
-    // D-A43: white over the aurora, dark on a light backdrop.
+    // D-A43: white over the aurora, dark on a light backdrop; D-A46: following the aurora behind the card.
     val ink = rememberPillInk()
+    val inkSpec = rememberPillInkSpec(inCard = true)
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressFeedback(interaction)
     val shape = RoundedCornerShape(tokens.radiusMedium)
@@ -277,7 +281,8 @@ fun GlassStackedPillButton(
                 .indication(interaction, ripple())
                 .padding(horizontal = 16.dp, vertical = 4.dp)
                 // The two lines are one label; the button's description already says it.
-                .clearAndSetSemantics {},
+                .clearAndSetSemantics {}
+                .auroraInk(inkSpec),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

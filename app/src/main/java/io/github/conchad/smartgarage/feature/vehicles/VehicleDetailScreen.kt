@@ -120,7 +120,7 @@ class VehicleActions(
 fun VehicleDetailScreen(
     onBack: () -> Unit,
     actions: VehicleActions,
-    /** True once this page has been popped (Back), as opposed to covered by a pushed screen: its cards then pop out (D-A43). */
+    /** True once this page has been popped by Back to Home, as opposed to covered by a pushed screen: its cards then pop out (D-A43, D-A46). */
     isPopped: () -> Boolean = { true },
     viewModel: VehicleDetailViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
@@ -297,12 +297,13 @@ private fun VehicleDetailContent(
     var glanceOpen by rememberSaveable { mutableStateOf(true) }
     var quickOpen by rememberSaveable { mutableStateOf(true) }
     val sections = detailSections(vehicle, detail, state, fmt)
-    // The photo card is the hero (D-A34): from Home it glides here as a shared element, and every card beneath it
-    // slides up with it as one drawer, on the same tween; the nav transition into this route is `None`.
+    // The photo card is the hero (D-A34): from Home it glides here as a shared element and the nav transition into
+    // this route is `None`; each card beneath it pops in after the one above (D-A37): 100 ms apart (D-A40), top to
+    // bottom, a small bounce each, the first as the hero starts rising (D-A43), each at its final spot, drawn above
+    // the hero. Only on that path (D-A46): opened any other way, or returned to by Back, the page slides in whole
+    // and nothing pops.
     val slide = rememberDrawerSlide(vehicle.id)
-    // …and each of them pops in after the one above (D-A37): 100 ms apart (D-A40), top to bottom, a small bounce each.
-    // From Home the first starts as the hero starts rising (D-A43), each at its final spot, drawn above the hero.
-    val pop = rememberPopIn(staggered = true, startDelayMs = if (slide.fromHero) Motion.POP_WITH_HERO_MS else 0L, popOut = popOut)
+    val pop = rememberPopIn(staggered = true, startDelayMs = Motion.POP_WITH_HERO_MS, popOut = popOut, enabled = slide.fromHero)
 
     // Every item has a stable key and a content type (D-A42), so a row appearing above (the pending mark) keeps the
     // scroll anchored and only like composes into like. The order is unchanged: the pop-in stagger is claimed in
@@ -311,7 +312,7 @@ private fun VehicleDetailContent(
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.
-        item(key = "photo", contentType = DetailItem.Photo) { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id, page = true).then(slide.heroModifier)) }
+        item(key = "photo", contentType = DetailItem.Photo) { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id, page = true)) }
         item(key = "owner", contentType = DetailItem.Owner) {
             OwnerLine(
                 cardActions.ownerNameOf(vehicle, state.ownerName),

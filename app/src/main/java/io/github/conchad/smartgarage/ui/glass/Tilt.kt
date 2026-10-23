@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  * phone's ±[GYRO_RANGE]° roll/pitch to the full 0..1 range. One per screen, shared by every frame on it.
  *
  * [motion] is false under reduced motion or when the screen isn't resumed; every frame then stays level, with no
- * parallax and no shine. [hasSensor] is false on a phone without a rotation vector: frames are then simply static.
+ * parallax. [hasSensor] is false on a phone without a rotation vector: frames are then simply static.
  */
 @Stable
 class TiltState internal constructor(
@@ -133,18 +133,15 @@ val LocalTilt = staticCompositionLocalOf<TiltState?> { null }
 /**
  * Largest rotation of a tilting photo frame, degrees, reached when the pointer is at the frame's edge. D-A31
  * (2026-10-22): 20 % of the earlier 8.4° (D-A30 had 14°) after the phone test found the roll far too strong; the
- * depths and the shine travel were cut to 40 % at the same time (see [TiltDepths]).
+ * depths were cut to 40 % at the same time (see [TiltDepths]).
  */
 const val MAX_TILT_DEGREES = 1.68f
-
-/** Shine strength while the gyroscope moves the frame; it is 0 when the frame is static. */
-private const val GYRO_SHINE = 0.45f
 
 /**
  * One frame's pointer and what it draws from (D-A30, D-A31): the gyroscope pointer from [LocalTilt], eased with a
  * soft ease-out over 280 ms. Rotation follows the reference: `rotationX = (0.5 − py) · max · 2`,
- * `rotationY = (px − 0.5) · max · 2`. The shine is [GYRO_SHINE] while the gyroscope moves the frame and 0 when the
- * frame is static.
+ * `rotationY = (px − 0.5) · max · 2`. The radial shine that rode on the pointer went with D-A46 (the user found it
+ * distracting over the photo); the tilt and the parallax stay.
  *
  * Everything animates on an [Animatable] driven from a `snapshotFlow`, so a sensor tick never recomposes the
  * frame: the values are read in `graphicsLayer` and draw lambdas only.
@@ -157,15 +154,13 @@ class CardTilt internal constructor(
     /** Degrees, derived from the pointer. */
     val rotationX: State<Float>,
     val rotationY: State<Float>,
-    /** 0..1 strength of the radial shine. */
-    val shine: State<Float>,
     /** False when motion is reduced or the screen isn't resumed; the frame is then static. */
     val motion: Boolean,
 )
 
 private val settleSpec: AnimationSpec<Float> = tween(Motion.STANDARD_MS, easing = Motion.SettleEasing)
 
-private class PointerTarget(val x: Float, val y: Float, val shine: Float)
+private class PointerTarget(val x: Float, val y: Float)
 
 /**
  * A frame's [CardTilt] from the screen's [source] (default: [LocalTilt], else static). [followGyro] false gives a
@@ -184,27 +179,24 @@ fun rememberCardTilt(
     val gyro = motion && followGyro && tilt.hasSensor
     val ax = remember { Animatable(0.5f) }
     val ay = remember { Animatable(0.5f) }
-    val shine = remember { Animatable(0f) }
 
     LaunchedEffect(tilt, motion, gyro) {
         if (!gyro) {
             coroutineScope {
                 launch { ax.animateTo(0.5f, settleSpec) }
                 launch { ay.animateTo(0.5f, settleSpec) }
-                launch { shine.animateTo(0f, settleSpec) }
             }
             return@LaunchedEffect
         }
-        snapshotFlow { PointerTarget(tilt.x.value, tilt.y.value, GYRO_SHINE) }.collectLatest { target ->
+        snapshotFlow { PointerTarget(tilt.x.value, tilt.y.value) }.collectLatest { target ->
             coroutineScope {
                 launch { ax.animateTo(target.x, settleSpec) }
                 launch { ay.animateTo(target.y, settleSpec) }
-                launch { shine.animateTo(target.shine, settleSpec) }
             }
         }
     }
 
-    return remember(ax, ay, shine, motion, maxDegrees) {
+    return remember(ax, ay, motion, maxDegrees) {
         CardTilt(
             px = ax.asState(),
             py = ay.asState(),
@@ -214,7 +206,6 @@ fun rememberCardTilt(
             rotationY = object : State<Float> {
                 override val value: Float get() = (ax.value - 0.5f) * maxDegrees * 2
             },
-            shine = shine.asState(),
             motion = motion,
         )
     }

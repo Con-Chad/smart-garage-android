@@ -1,6 +1,15 @@
 package io.github.conchad.smartgarage.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.runtime.DisposableEffect
+import androidx.navigation.NavController
+import io.github.conchad.smartgarage.ui.glass.AuroraLumaHolder
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraLuma
+import io.github.conchad.smartgarage.ui.glass.navPopEnter
+import io.github.conchad.smartgarage.ui.glass.navPopExit
+import io.github.conchad.smartgarage.ui.glass.navPushEnter
+import io.github.conchad.smartgarage.ui.glass.navPushExit
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -147,15 +156,25 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
     SideEffect { auroraTint.shown = tint }
     val tabs = TopLevel.entries.map { NavTab(stringResource(it.label), it.icon, it.selectedIcon) }
     val heroOrigins = remember { VehicleHeroOrigins() }
+    // Which entries were returned to by Back (D-A46), so a page underneath doesn't replay its pop-in.
+    val arrivals = remember { NavArrivals() }
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { controller, _, _ -> arrivals.onChanged(controller) }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
+    }
+    // The shell's aurora publishes its colour map here for the adaptive ink on titles and pills (D-A46).
+    val auroraLuma = remember { AuroraLumaHolder() }
     val reduced = rememberReducedMotion()
 
     CompositionLocalProvider(
         LocalAuroraTint provides auroraTint,
         LocalVehicleHeroOrigins provides heroOrigins,
         LocalAuroraChoices provides auroraChoices,
+        LocalAuroraLuma provides auroraLuma,
     ) {
         Box(Modifier.fillMaxSize()) {
-            AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize())
+            AuroraBackground(tint = tint, modifier = Modifier.fillMaxSize(), luma = auroraLuma)
             Scaffold(
                 // Screens draw their own top bars; this Scaffold only measures the bottom bar.
                 contentWindowInsets = WindowInsets(0),
@@ -195,36 +214,43 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             navController = navController,
                             startDestination = DashboardRoute,
                             modifier = Modifier.fillMaxSize(),
-                            // The vehicle page and the Vehicles tab bring their own cards in (D-A32, D-A34), so nothing
-                            // cross-fades into them: the page is simply there. The screen the vehicle page opens over fades
-                            // out over the whole hero glide, on its curve (D-A45, Motion.UNDER_HERO_FADE_MS), and fades back
-                            // in over the same span on Back while the page's cards pop out. Every other navigation keeps NavHost's
-                            // 700 ms cross-fade. Timings are Motion's (D-A40); under reduced motion nothing fades.
-                            enterTransition = { if (targetState.popsIn() || reduced) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS)) },
+                            // D-A46: the vehicle page opened from a Home card (the hero path, D-A34) is simply there while the
+                            // hero glides and its cards pop in, and the screen it opens over fades out over the whole glide
+                            // (D-A45); Back to Home reverses that (its cards pop out, D-A43). Tab to tab keeps the cross-fade,
+                            // and the Vehicles tab still bubbles its cards in (D-A32). Every other navigation is plain: the
+                            // new screen slides in from the right while fading in, and Back slides it out to the right while
+                            // fading, revealing the page beneath (which doesn't replay its pop-in). Timings are Motion's;
+                            // under reduced motion nothing moves.
+                            enterTransition = {
+                                when {
+                                    reduced || isHeroOpen(heroOrigins) -> EnterTransition.None
+                                    isTabSwitch() -> if (targetState.popsIn()) EnterTransition.None else fadeIn(tween(Motion.NAV_FADE_MS))
+                                    else -> navPushEnter()
+                                }
+                            },
                             exitTransition = {
                                 when {
                                     reduced -> ExitTransition.None
-                                    targetState.destination.hasRoute<VehicleDetailRoute>() -> fadeOut(underHeroFadeSpec())
-                                    targetState.popsIn() -> ExitTransition.None
-                                    else -> fadeOut(tween(Motion.NAV_FADE_MS))
+                                    isHeroOpen(heroOrigins) -> fadeOut(underHeroFadeSpec())
+                                    isTabSwitch() -> if (targetState.popsIn()) ExitTransition.None else fadeOut(tween(Motion.NAV_FADE_MS))
+                                    else -> navPushExit()
                                 }
                             },
                             popEnterTransition = {
                                 when {
-                                    reduced || targetState.popsIn() -> EnterTransition.None
-                                    initialState.destination.hasRoute<VehicleDetailRoute>() -> fadeIn(underHeroFadeSpec())
-                                    initialState.popsIn() -> EnterTransition.None
-                                    else -> fadeIn(tween(Motion.NAV_FADE_MS))
+                                    reduced -> EnterTransition.None
+                                    isHeroBack() -> fadeIn(underHeroFadeSpec())
+                                    isTabSwitch() -> fadeIn(tween(Motion.NAV_FADE_MS))
+                                    else -> navPopEnter()
                                 }
                             },
                             popExitTransition = {
                                 when {
                                     reduced -> ExitTransition.None
-                                    // Back from the vehicle page (D-A43): its cards pop out and its bar fades by themselves.
-                                    initialState.destination.hasRoute<VehicleDetailRoute>() -> ExitTransition.None
-                                    initialState.popsIn() -> fadeOut(tween(Motion.QUICK_MS))
-                                    targetState.popsIn() -> ExitTransition.None
-                                    else -> fadeOut(tween(Motion.NAV_FADE_MS))
+                                    // Back from the vehicle page to Home (D-A43): its cards pop out and its bar fades by themselves.
+                                    isHeroBack() -> ExitTransition.None
+                                    isTabSwitch() -> if (initialState.popsIn()) fadeOut(tween(Motion.QUICK_MS)) else fadeOut(tween(Motion.NAV_FADE_MS))
+                                    else -> navPopExit()
                                 }
                             },
                         ) {
@@ -254,9 +280,11 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     )
                                 }
                             }
-                            composable<VehiclesRoute> {
+                            composable<VehiclesRoute> { entry ->
                                 CompositionLocalProvider(LocalNavAnimatedScope provides this) {
                                     VehiclesScreen(
+                                        // Its cards bubble in when the tab is opened, not when Back returns to it (D-A46).
+                                        popIn = !arrivals.returnedTo(entry.id),
                                         onOpenVehicle = { navController.navigate(VehicleDetailRoute(it)) },
                                         onAddVehicle = { navController.navigate(VehicleFormRoute()) },
                                         quickInfoActions = remember(navController) {
@@ -295,8 +323,13 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     VehicleDetailScreen(
                                         onBack = navController::popBackStack,
                                         actions = vehicleActions,
-                                        // Covered by a pushed screen, the page is still the one beneath it; popped, it is neither.
-                                        isPopped = { entry.id != navController.currentBackStackEntry?.id && entry.id != navController.previousBackStackEntry?.id },
+                                        // Covered by a pushed screen, the page is still the one beneath it; popped, it is neither. Only Back
+                                        // to Home is the hero's reverse (D-A46); Back anywhere else slides the page out.
+                                        isPopped = {
+                                            val current = navController.currentBackStackEntry
+                                            entry.id != current?.id && entry.id != navController.previousBackStackEntry?.id &&
+                                                current?.destination?.hasRoute<DashboardRoute>() == true
+                                        },
                                     )
                                 }
                             }
@@ -391,8 +424,38 @@ private fun NavDestination?.honoursScreenTint(): Boolean =
         // The vehicle form previews the aurora color being picked (D-A44).
         hasRoute<VehicleFormRoute>()
 
-/** The routes whose cards bubble in (D-A32) and therefore take no nav cross-fade. */
-private fun NavBackStackEntry.popsIn(): Boolean = destination.hasRoute<VehicleDetailRoute>() || destination.hasRoute<VehiclesRoute>()
+/** Both ends are tabs: the bottom bar's switch (or Back from a tab to Home), which keeps the cross-fade. */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean =
+    TopLevel.entries.any { initialState.destination.isOn(it) } && TopLevel.entries.any { targetState.destination.isOn(it) }
+
+/** Opening the vehicle page from a Home card: the hero path (D-A34, D-A46). */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isHeroOpen(origins: VehicleHeroOrigins): Boolean =
+    targetState.destination.hasRoute<VehicleDetailRoute>() && origins.isLaunching(targetState.toRoute<VehicleDetailRoute>().vehicleId)
+
+/** Back from the vehicle page to Home: the hero glides home while the page's cards pop out (D-A43). */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isHeroBack(): Boolean =
+    initialState.destination.hasRoute<VehicleDetailRoute>() && targetState.destination.hasRoute<DashboardRoute>()
+
+/**
+ * Tells a pushed or tab-opened entry from one Back returned to (D-A46): the new top was returned to when it is the
+ * entry that sat just below the old top. A tab restored from its saved state was not on the stack, so it counts as
+ * opened. Runs in the controller's destination listener, before the frame composes the new entry.
+ */
+private class NavArrivals {
+    private val returned = HashSet<String>()
+    private var belowTop: String? = null
+
+    fun onChanged(controller: NavController) {
+        val top = controller.currentBackStackEntry ?: return
+        if (top.id == belowTop) returned += top.id else returned -= top.id
+        belowTop = controller.previousBackStackEntry?.id
+    }
+
+    fun returnedTo(id: String): Boolean = id in returned
+}
+
+/** The tab whose cards bubble in on arrival (D-A32) and therefore takes no nav cross-fade. */
+private fun NavBackStackEntry.popsIn(): Boolean = destination.hasRoute<VehiclesRoute>()
 
 /**
  * The aurora's color where no screen names one (D-A30): Service drifts in the theme's tertiary, Fuel in the glass

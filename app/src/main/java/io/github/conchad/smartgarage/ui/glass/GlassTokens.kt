@@ -58,13 +58,10 @@ data class GlassTokens(
     val frameGlow: Color,
 
     /**
-     * The tilt-parallax plate (D-A30): the plate glow's opacity (the glow itself is the aurora / vehicle tint), the
-     * pointer-following shine and how it blends (screen on dark, plain over on light where screen does nothing on
-     * a near-white panel), and the halo behind text that sits directly on the aurora.
+     * The tilt-parallax plate (D-A30): the plate glow's opacity (the glow itself is the aurora / vehicle tint) and the
+     * halo behind text that sits directly on the aurora. The pointer-following shine over the photo went with D-A46.
      */
     val plateGlowAlpha: Float,
-    val shine: Color,
-    val shineBlend: BlendMode,
     val textHalo: Color,
 
     /**
@@ -126,8 +123,6 @@ val DarkGlassTokens = GlassTokens(
     frameChrome = listOf(Color(0xFFD8D097), Color(0xFFEBD5A2), Color(0xFFBCB6A9), Color(0xFFD8D097)),
     frameGlow = Color(0xB3EBD5A2),
     plateGlowAlpha = 0.22f,
-    shine = Color(0x47FFFFFF),
-    shineBlend = BlendMode.Screen,
     textHalo = Color(0xB308090D),
     navSurface = Color(0xB8141622),
     navBorder = Color(0x29FFFFFF),
@@ -164,8 +159,6 @@ val LightGlassTokens = GlassTokens(
     frameChrome = listOf(Color(0xFFB08726), Color(0xFFD8C27A), Color(0xFF948A75), Color(0xFFB08726)),
     frameGlow = Color(0x738B6A1E),
     plateGlowAlpha = 0.14f,
-    shine = Color(0x8CFFFFFF),
-    shineBlend = BlendMode.SrcOver,
     textHalo = Color(0xB3FFFFFF),
     navSurface = Color(0xB8FFFFFF),
     navBorder = Color(0x24141826),
