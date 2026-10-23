@@ -83,10 +83,11 @@ object Motion {
     const val POP_SETTLE_MS = 90
 
     /**
-     * Opening the vehicle page from Home (D-A43, user-set): the first card pops the moment the hero starts rising,
-     * at its final spot and drawn above the hero ([drawerSlide]); the stagger follows from here.
+     * Opening the vehicle page from Home (D-A43, user-set): the first card pops [POP_AFTER_HERO_MS] after the hero
+     * starts rising, at its final spot and drawn above the hero ([drawerSlide]); the stagger follows from here.
      */
-    const val POP_WITH_HERO_MS = HERO_DELAY_MS.toLong()
+    const val POP_AFTER_HERO_MS = 100L
+    const val POP_WITH_HERO_MS = HERO_DELAY_MS.toLong() + POP_AFTER_HERO_MS
 
     /** Leaving the vehicle page (D-A43): each card bulges to the overshoot in this long… */
     const val POP_OUT_BULGE_MS = 70
