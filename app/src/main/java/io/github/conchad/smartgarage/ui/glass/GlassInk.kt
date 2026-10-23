@@ -57,7 +57,7 @@ fun rememberPillInk(): Color {
 }
 
 /**
- * The adaptive pill ink (D-A46): 3:1 ([AdaptiveInk.PILL_MIN_CONTRAST]) against the aurora under the pill's own fill,
+ * The adaptive pill ink (D-A46, D-A48: the same continuous mapping as text) against the aurora under the pill's own fill,
  * and under a glass card's panel too when [inCard] (the vehicle cards' "View all" / "Quick info").
  */
 @Composable
@@ -65,7 +65,7 @@ fun rememberPillInkSpec(inCard: Boolean): AuroraInkSpec {
     val tokens = glass
     return remember(tokens, inCard) {
         val overlay = if (inCard) pillInCardOverlay(tokens) else tokens.pill
-        AuroraInkSpec(AdaptiveInk.PILL_MIN_CONTRAST) { overlay }
+        AuroraInkSpec { overlay }
     }
 }
 

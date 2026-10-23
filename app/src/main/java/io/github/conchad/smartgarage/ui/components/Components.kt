@@ -51,6 +51,7 @@ import io.github.conchad.smartgarage.ui.glass.LocalAuroraInk
 import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.onAuroraInk
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 
 /**
@@ -113,9 +114,10 @@ fun AppScaffold(
     // the bar its glass panel lies between, which the ink accounts for.
     val panel = glass.panel
     val barInk = remember(scrollBehavior, panel) {
-        AuroraInkSpec(AdaptiveInk.TEXT_MIN_CONTRAST) {
-            if ((scrollBehavior?.state?.overlappedFraction ?: 0f) > 0.01f) panel else Color.Transparent
-        }
+        // D-A48: overlappedFraction moves on every scroll frame; the ink only needs to hear when it crosses the
+        // threshold, so the derived flag spares the ink node a snapshot notification and a resample per frame.
+        val overlapped = derivedStateOf { (scrollBehavior?.state?.overlappedFraction ?: 0f) > 0.01f }
+        AuroraInkSpec { if (overlapped.value) panel else Color.Transparent }
     }
     Scaffold(
         modifier = if (scrollBehavior != null) modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else modifier,

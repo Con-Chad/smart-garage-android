@@ -1492,7 +1492,9 @@ App decisions use the `D-A` prefix.
       gradient; a flat colour when top ≈ bottom). No recomposition, relayout or
       allocation per frame. Animated metallic titles draw their sheen band `SrcAtop`
       over the ink.
-    - Mapping (`AdaptiveInk`, unit-tested): light ink `onPhoto`, dark ink `onPale`.
+    - Mapping (`AdaptiveInk`, unit-tested): light ink `onPhoto`, dark ink `onPale`. *(The band,
+      contrast targets and hysteresis below are superseded by D-A48: one continuous mapping,
+      grey span 0.32–0.50 centred on L 0.40, no hysteresis.)*
       Text: the 4.5:1 limits (light up to L 0.166, dark from 0.243) leave a gap no ink
       bridges, so the white→grey→black band is 0.024 wide around the crossover
       (L ≈ 0.20, where both contrast equally; ≥ 4:1 at its edges, ≥ 4.5:1 outside the
@@ -1504,3 +1506,23 @@ App decisions use the `D-A` prefix.
       low-pass carries the ink through grey as the backdrop crosses over; blocks shorter
       than 56 dp take one decision from their centre. Verified frame by frame scrolling
       the vehicle page ("Vehicle details" white → grey → dark, eased).
+- **D-A47 (2026-10-23) — Slower header sheen (user).** `SHEEN_SWEEP_MS` 3247 → 5412 (−40 % speed), `SHEEN_HOLD_MS` 1510 → 2265 (+50 %), loop 7.68 s (b90fa6c).
+- **D-A48 (2026-10-23) — Adaptive ink: continuous grey, crossover raised to L 0.40; cheaper placement path.**
+  - **Look (user-approved, replaces D-A46's band + hysteresis)**: one mapping for text and pills,
+    `AdaptiveInk.mix`: light ink up to backdrop L `BAND_LO` 0.32, dark from `BAND_HI` 0.50,
+    smoothstep on ln(L+0.05) between (centre `CENTER` 0.40, ≈ ×1.22 either side on the contrast
+    axis), so the ink fades white → grey → dark continuously and may rest on grey in mid tones;
+    no `settle`/hysteresis. The 140 ms low-pass, first-sample-lands-at-once and the single value for
+    blocks under 56 dp stay. Chosen from the Pixel's green aurora (luma column 0.02–0.54): all of
+    Home's aurora text is white; the vehicle page's "Vehicle details" goes dark only in the lightest
+    band (~40 % down) and fades through grey to white below it (screenrecord frame-step). Contrast
+    targets (4.5:1 / 3:1) no longer drive the ink; `AuroraInkSpec` lost `minContrast`. Mid-grey ink
+    on a mid-tone backdrop is low-contrast by design (e.g. "Add vehicle" pill reads light grey).
+  - **Perf**: the ink node re-reads its observed inputs (map, theme, overlay, density) and the band
+    only when they change (`refreshInputs`), not on every placement; a scroll only samples. The
+    frame loop repaints (re-rendering the node's offscreen layer) only once the eased ink moves half
+    an 8-bit step (`SNAP`). The top bar's overlay reads `overlappedFraction` through a
+    `derivedStateOf` threshold flag, so scrolling under it no longer notifies the title's ink every
+    frame. Measured (release, Pixel, framestats over 12 scripted swipes): the ink costs ~0.1 ms of
+    UI-thread draw recording per scroll frame on Home and ~0.08 ms on the vehicle page, nothing on
+    RenderThread/GPU; janky ≤ 0.1 %, p99 10–11 ms on Home / vehicle / Service, same as ink off.
