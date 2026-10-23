@@ -6,7 +6,7 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -66,8 +66,14 @@ class VehicleHeroOrigins {
 
 val LocalVehicleHeroOrigins = staticCompositionLocalOf<VehicleHeroOrigins?> { null }
 
-/** The glide: no overshoot, decelerating into place. Shared by the card's bounds and the drawer. */
-private fun <T> heroSpec() = tween<T>(HERO_MS, easing = FastOutSlowInEasing)
+/**
+ * The glide (D-A37): a short ramp-up — it gathers speed from rest — then rises and decelerates into place, no
+ * overshoot. Shared by the card's bounds and the drawer, so they stay in step.
+ */
+private fun <T> heroSpec() = tween<T>(HERO_MS, easing = HeroEasing)
+
+/** A stronger ease-in than FastOutSlowIn's 0.4 (so the start visibly accelerates), the same soft landing. */
+private val HeroEasing = CubicBezierEasing(0.6f, 0f, 0.2f, 1f)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val HeroBounds = BoundsTransform { _, _ -> heroSpec() }

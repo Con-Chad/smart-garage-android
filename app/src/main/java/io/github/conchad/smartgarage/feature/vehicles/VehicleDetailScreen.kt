@@ -122,7 +122,9 @@ import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.drawerSlide
+import io.github.conchad.smartgarage.ui.glass.popIn
 import io.github.conchad.smartgarage.ui.glass.rememberDrawerSlide
+import io.github.conchad.smartgarage.ui.glass.rememberPopIn
 import io.github.conchad.smartgarage.ui.glass.vehicleHero
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
@@ -341,22 +343,24 @@ private fun VehicleDetailContent(
     // The photo card is the hero (D-A34): from Home it glides here as a shared element, and every card beneath it
     // slides up with it as one drawer, on the same tween; the nav transition into this route is `None`.
     val slide = rememberDrawerSlide(vehicle.id)
+    // …and each of them pops in after the one above (D-A37): 150 ms apart, top to bottom, a small bounce each.
+    val pop = rememberPopIn(staggered = true)
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.
         item { PhotoCard(vehicle, cardActions, Modifier.vehicleHero(vehicle.id).then(slide.heroModifier)) }
-        item { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.drawerSlide(slide)) }
+        item { OwnerLine(state.ownerName, vehicle.access.isShared, detail, Modifier.drawerSlide(slide).popIn(pop)) }
         item {
-            GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide)) {
+            GlassDropdown(stringResource(R.string.vehicle_at_a_glance), expanded = glanceOpen, onToggle = { glanceOpen = !glanceOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide).popIn(pop)) {
                 ImmediateInfo(detail, fmt)
             }
         }
         item {
             // The things done at the car first (a fill-up, a reading), then the paperwork. Viewers see why there is nothing to tap.
             if (canEdit) {
-                GlassDropdown(stringResource(R.string.vehicle_quick_actions), expanded = quickOpen, onToggle = { quickOpen = !quickOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide)) {
+                GlassDropdown(stringResource(R.string.vehicle_quick_actions), expanded = quickOpen, onToggle = { quickOpen = !quickOpen }, modifier = Modifier.padding(top = 12.dp).drawerSlide(slide).popIn(pop)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionButton(stringResource(R.string.action_log_fill_up), Icons.Outlined.LocalGasStation, onClick = { actions.onLogFillUp(vehicle.id) }, modifier = Modifier.weight(1f))
@@ -369,18 +373,18 @@ private fun VehicleDetailContent(
                     }
                 }
             } else {
-                ViewOnlyNote(vehicle.owner?.name, Modifier.drawerSlide(slide).padding(start = 16.dp, end = 16.dp, top = 12.dp))
+                ViewOnlyNote(vehicle.owner?.name, Modifier.drawerSlide(slide).popIn(pop).padding(start = 16.dp, end = 16.dp, top = 12.dp))
             }
         }
         if (vehicle.id in pendingIds) {
-            item { PendingMark(Modifier.drawerSlide(slide).padding(start = 16.dp, top = 8.dp)) }
+            item { PendingMark(Modifier.drawerSlide(slide).popIn(pop).padding(start = 16.dp, top = 8.dp)) }
         }
 
         // "Vehicle details" (note 15): everything about the car itself and nothing about service, each group its own
         // drop-down (note 12) so the cards below slide as one opens. Groups with nothing in them aren't shown at all.
-        item { GlassGroupHeader(stringResource(R.string.vehicle_details_all), Modifier.drawerSlide(slide)) }
+        item { GlassGroupHeader(stringResource(R.string.vehicle_details_all), Modifier.drawerSlide(slide).popIn(pop)) }
         if (sections.isEmpty()) {
-            item { EmptyGroup(stringResource(R.string.vehicle_no_details), Modifier.drawerSlide(slide)) }
+            item { EmptyGroup(stringResource(R.string.vehicle_no_details), Modifier.drawerSlide(slide).popIn(pop)) }
         } else {
             items(sections, key = { it.key }) { section ->
                 var expanded by rememberSaveable { mutableStateOf(false) }
@@ -388,7 +392,7 @@ private fun VehicleDetailContent(
                     section.title,
                     expanded = expanded,
                     onToggle = { expanded = !expanded },
-                    modifier = Modifier.padding(bottom = 12.dp).drawerSlide(slide),
+                    modifier = Modifier.padding(bottom = 12.dp).drawerSlide(slide).popIn(pop),
                 ) { section.content() }
             }
         }
@@ -396,16 +400,16 @@ private fun VehicleDetailContent(
         item {
             GlassGroupHeader(
                 stringResource(R.string.vehicle_service),
-                modifier = Modifier.drawerSlide(slide),
+                modifier = Modifier.drawerSlide(slide).popIn(pop),
                 action = stringResource(R.string.action_add),
                 onAction = { actions.onAddSchedule(vehicle.id) }.takeIf { canEdit },
             )
         }
         item {
             if (detail.due.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_schedules), Modifier.drawerSlide(slide))
+                EmptyGroup(stringResource(R.string.vehicle_no_schedules), Modifier.drawerSlide(slide).popIn(pop))
             } else {
-                GlassCard(Modifier.drawerSlide(slide)) {
+                GlassCard(Modifier.drawerSlide(slide).popIn(pop)) {
                     detail.due.forEachIndexed { index, item ->
                         if (index > 0) RowDivider()
                         DueRow(item, fmt, onClick = { open = SheetTarget.Schedule(item.schedule.id) }, showVehicle = false)
@@ -415,9 +419,9 @@ private fun VehicleDetailContent(
         }
 
         if (detail.inspections.isNotEmpty() || detail.policies.isNotEmpty() || canEdit) {
-            item { GlassGroupHeader(stringResource(R.string.vehicle_papers), Modifier.drawerSlide(slide)) }
+            item { GlassGroupHeader(stringResource(R.string.vehicle_papers), Modifier.drawerSlide(slide).popIn(pop)) }
             item {
-                GlassCard(Modifier.drawerSlide(slide)) {
+                GlassCard(Modifier.drawerSlide(slide).popIn(pop)) {
                     detail.inspections.forEachIndexed { index, inspection ->
                         if (index > 0) RowDivider()
                         val due = inspection.nextDueAt.toInstantOrNull()
@@ -456,16 +460,16 @@ private fun VehicleDetailContent(
         item {
             GlassGroupHeader(
                 stringResource(R.string.nav_fuel),
-                modifier = Modifier.drawerSlide(slide),
+                modifier = Modifier.drawerSlide(slide).popIn(pop),
                 action = if (allFuel) stringResource(R.string.action_show_less) else stringResource(R.string.action_show_all, detail.fuel.size),
                 onAction = { allFuel = !allFuel }.takeIf { detail.fuel.size > PREVIEW },
             )
         }
         item {
             if (detail.fuel.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_fuel), Modifier.drawerSlide(slide))
+                EmptyGroup(stringResource(R.string.vehicle_no_fuel), Modifier.drawerSlide(slide).popIn(pop))
             } else {
-                GlassCard(Modifier.drawerSlide(slide)) {
+                GlassCard(Modifier.drawerSlide(slide).popIn(pop)) {
                     // Consumption figures only while fuel economy is tracked (D-A25); costs and volumes always.
                     val average = detail.averageConsumption?.takeIf { state.trackFuelEconomy }?.let { fmt.economy(it) }
                     if (average != null) {
@@ -490,16 +494,16 @@ private fun VehicleDetailContent(
         item {
             GlassGroupHeader(
                 stringResource(R.string.vehicle_history),
-                modifier = Modifier.drawerSlide(slide),
+                modifier = Modifier.drawerSlide(slide).popIn(pop),
                 action = if (allRecords) stringResource(R.string.action_show_less) else stringResource(R.string.action_show_all, detail.records.size),
                 onAction = { allRecords = !allRecords }.takeIf { detail.records.size > PREVIEW },
             )
         }
         item {
             if (detail.records.isEmpty()) {
-                EmptyGroup(stringResource(R.string.vehicle_no_records), Modifier.drawerSlide(slide))
+                EmptyGroup(stringResource(R.string.vehicle_no_records), Modifier.drawerSlide(slide).popIn(pop))
             } else {
-                GlassCard(Modifier.drawerSlide(slide)) {
+                GlassCard(Modifier.drawerSlide(slide).popIn(pop)) {
                     detail.records.take(if (allRecords) Int.MAX_VALUE else PREVIEW).forEachIndexed { index, record ->
                         if (index > 0) RowDivider()
                         RecordRow(record, state.recordName(record), vehicle = null, fmt, pending = record.id in pendingIds) { open = SheetTarget.Record(record.id) }

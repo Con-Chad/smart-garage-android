@@ -1171,3 +1171,27 @@ App decisions use the `D-A` prefix.
     `#DDE1E8`, highlight `#FFFFFF`; light `#7E8594`, highlight `#A4ABB8`),
     replacing the gold `sheen` / `sheenHighlight` in the band. `sheen` stays
     gold for pill labels, icons and focus rings.
+
+- **D-A37: the vehicle page's cards pop in one after another; the hero ramps up.**
+  - **Staggered pop** (`PopIn.kt`, `rememberPopIn(staggered = true)`, vehicle
+    page only): every item under the photo card (owner line, drop-downs,
+    group headers, cards) pops top to bottom, each starting 150 ms after the
+    one above *started* (the literal reading of "0.2 s expand, 0.15 s delay";
+    checked frame by frame on the Pixel 10 Pro and kept; the
+    gap-after-finish variant, ~350 ms per card, was not tried). Each: invisible until its slot,
+    scale 0.8 -> 1.03 in 200 ms (`CubicBezierEasing(0.2, 0.6, 0.35, 1)`),
+    back to 1.0 in a 90 ms FastOutSlowIn settle; alpha 0 -> 1 in 120 ms.
+    Slots are claimed in composition order (the visible items compose top to
+    bottom in the first pass), never in the past: an item scrolled in during
+    the 600 ms window queues behind the others instead of waiting for a slot
+    far down the list; after the window items appear at once. Off-screen
+    items are not composed, so they hold nothing up. Runs on top of the
+    D-A34 drawer slide (separate `graphicsLayer`s, alphas multiply). The
+    Vehicles tab keeps the D-A32 all-at-once spring (default `staggered =
+    false`).
+  - **Hero easing** (`VehicleHero.kt`): `FastOutSlowInEasing` ->
+    `CubicBezierEasing(0.6, 0, 0.2, 1)` — a visible ease-in ramp from rest,
+    then the same soft landing; shared by the `sharedBounds` glide and
+    `drawerSlide`, so both stay in sync. HERO_MS stays 320; MainShell
+    untouched.
+  - Reduced motion: no pop, no glide, no slide (unchanged paths).
