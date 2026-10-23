@@ -58,9 +58,13 @@ android {
             // Installs next to the signed release build instead of clashing with its signature.
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // ONNX Runtime (:ocr) ships native libs per ABI: the Pixel plus the x86_64 emulator for debugging.
+            ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         }
         release {
             isMinifyEnabled = true
+            // The only target is a recent Pixel (D-A01): ship arm64 native code only (no armeabi-v7a/x86/x86_64).
+            ndk { abiFilters += "arm64-v8a" }
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // CI (CP13) signs with the real keystore from secrets; locally this falls back to the debug key.
@@ -106,6 +110,7 @@ room {
 }
 
 dependencies {
+    implementation(project(":ocr"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

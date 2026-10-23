@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SmartGarage"
 include(":app")
+include(":ocr")
