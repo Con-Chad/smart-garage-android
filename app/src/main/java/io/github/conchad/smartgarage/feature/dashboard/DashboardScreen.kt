@@ -27,6 +27,8 @@ import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.IconButton
@@ -78,6 +80,8 @@ import io.github.conchad.smartgarage.ui.components.intervalText
 import io.github.conchad.smartgarage.ui.components.relativeTime
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
+import io.github.conchad.smartgarage.ui.glass.GlassMenu
+import io.github.conchad.smartgarage.ui.glass.GlassMenuItem
 import io.github.conchad.smartgarage.ui.glass.DisconnectedPopup
 import io.github.conchad.smartgarage.ui.glass.FanAction
 import io.github.conchad.smartgarage.ui.glass.FanFab
@@ -109,8 +113,11 @@ class DashboardActions(
     val onLogFillUp: (vehicleId: String) -> Unit,
     val onLogService: (vehicleId: String) -> Unit,
     val onAddExpense: (vehicleId: String) -> Unit,
-    /** The fan's fourth petal (D-A32): the fill-up form with the receipt scan started on arrival. */
-    val onScanReceipt: (vehicleId: String) -> Unit,
+    /**
+     * The fan's "Scan Receipt" petal (D-A32): the fill-up form with the receipt scan started on arrival, from the
+     * camera or, with [gallery] (D-A61), from an existing photo through the Photo Picker.
+     */
+    val onScanReceipt: (vehicleId: String, gallery: Boolean) -> Unit,
     val onAddInsurance: (vehicleId: String) -> Unit,
     val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
     val onAddInspection: (vehicleId: String) -> Unit,
@@ -160,6 +167,8 @@ fun DashboardScreen(
     var fanOpen by rememberSaveable { mutableStateOf(false) }
     // The vehicle whose "Theme color" sheet is open (D-A57), from the fan.
     var themeFor by rememberSaveable { mutableStateOf<String?>(null) }
+    // The vehicle whose "Scan receipt" source menu is open (D-A61), from the fan.
+    var scanFor by rememberSaveable { mutableStateOf<String?>(null) }
 
     CompositionLocalProvider(LocalTilt provides tilt) {
         MetallicSheenHost {
@@ -239,7 +248,7 @@ fun DashboardScreen(
                             FanAction(Icons.Outlined.Build, stringResource(R.string.action_log_service), stringResource(R.string.fab_petal_service)) { actions.onLogService(fanVehicle.id) },
                             FanAction(Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.fab_log_expense), stringResource(R.string.fab_petal_expense)) { actions.onAddExpense(fanVehicle.id) },
                             FanAction(Icons.Outlined.LocalGasStation, stringResource(R.string.action_log_fill_up), stringResource(R.string.fab_petal_fuel)) { actions.onLogFillUp(fanVehicle.id) },
-                            FanAction(Icons.Outlined.DocumentScanner, stringResource(R.string.fuel_scan_receipt), stringResource(R.string.fab_petal_scan)) { actions.onScanReceipt(fanVehicle.id) },
+                            FanAction(Icons.Outlined.DocumentScanner, stringResource(R.string.fuel_scan_receipt), stringResource(R.string.fab_petal_scan)) { scanFor = fanVehicle.id },
                         )
                         FanFab(
                             actions = fanActions,
@@ -249,6 +258,18 @@ fun DashboardScreen(
                             visible = !pagerState.isScrollInProgress,
                             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
                         )
+                    }
+                    // The fan's "Scan Receipt" petal (D-A61): a glass menu picks the source, camera or gallery; both go on
+                    // to the fill-up form's scan, which downscales and uploads either photo the same way (D-A56).
+                    GlassMenu(expanded = scanFor != null, onDismiss = { scanFor = null }, title = stringResource(R.string.fuel_scan_receipt)) {
+                        GlassMenuItem(Icons.Outlined.PhotoCamera, stringResource(R.string.file_take_photo)) {
+                            scanFor?.let { actions.onScanReceipt(it, false) }
+                            scanFor = null
+                        }
+                        GlassMenuItem(Icons.Outlined.PhotoLibrary, stringResource(R.string.receipt_scan_pick_gallery)) {
+                            scanFor?.let { actions.onScanReceipt(it, true) }
+                            scanFor = null
+                        }
                     }
                     // The fan's "Theme color" sheet (D-A57): the vehicle's aurora override, applied live.
                     val themeVehicle = themeFor?.let { id -> vehicles.firstOrNull { it.vehicle.id == id }?.vehicle }

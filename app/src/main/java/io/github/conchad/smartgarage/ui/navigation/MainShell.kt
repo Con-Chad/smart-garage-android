@@ -263,7 +263,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                                 onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) },
                                                 onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
                                                 onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
-                                                onScanReceipt = { navController.navigate(FuelEntryRoute(vehicleId = it, scan = true)) },
+                                                onScanReceipt = { id, gallery -> navController.navigate(FuelEntryRoute(vehicleId = id, scan = true, gallery = gallery)) },
                                                 onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
                                                 onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
                                                 onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
@@ -340,7 +340,8 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                 FuelScreen(onLogFillUp = { navController.navigate(FuelEntryRoute(vehicleId = it)) })
                             }
                             composable<FuelEntryRoute> { entry ->
-                                FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = entry.toRoute<FuelEntryRoute>().scan)
+                                val route = entry.toRoute<FuelEntryRoute>()
+                                FuelEntryScreen(onClose = navController::popBackStack, scanOnOpen = route.scan, scanFromGallery = route.gallery)
                             }
                             composable<RecordFormRoute> {
                                 RecordFormScreen(

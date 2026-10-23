@@ -535,6 +535,8 @@
     <string name="form_date_clear">Clear %1$s</string>
     <string name="form_expanded">Expanded</string>
     <string name="form_collapsed">Collapsed</string>
+    <string name="form_suggestions_show">Show %1$s suggestions</string>
+    <string name="form_suggestions_hide">Hide %1$s suggestions</string>
     <string name="form_suggestion_other">Other…</string>
     <string name="form_suggestion_other_keep">Keep “%1$s”</string>
     <string name="form_suggestion_other_description">Other: keep “%1$s” as typed</string>

@@ -52,7 +52,6 @@ import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.glassDatePickerColors
 import io.github.conchad.smartgarage.ui.glass.glassSwitchColors
 import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
-import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.conchad.smartgarage.core.format.Formatter
@@ -78,21 +77,23 @@ fun FormTextField(
     capitalizeWords: Boolean = false,
     imeAction: ImeAction = ImeAction.Next,
 ) {
-    OutlinedTextField(
-        colors = glassTextFieldColors(),
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = modifier.fillMaxWidth(),
-        enabled = enabled,
-        singleLine = true,
-        isError = error != null,
-        supportingText = supportingText(error, supporting),
-        keyboardOptions = KeyboardOptions(
-            capitalization = if (capitalizeWords) KeyboardCapitalization.Words else KeyboardCapitalization.Sentences,
-            imeAction = imeAction,
-        ),
-    )
+    FormFieldTypography {
+        OutlinedTextField(
+            colors = formFieldColors(),
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            modifier = modifier.fillMaxWidth(),
+            enabled = enabled,
+            singleLine = true,
+            isError = error != null,
+            supportingText = supportingText(error, supporting),
+            keyboardOptions = KeyboardOptions(
+                capitalization = if (capitalizeWords) KeyboardCapitalization.Words else KeyboardCapitalization.Sentences,
+                imeAction = imeAction,
+            ),
+        )
+    }
 }
 
 /**
@@ -114,22 +115,24 @@ fun FormNumberField(
     integer: Boolean = false,
     imeAction: ImeAction = ImeAction.Next,
 ) {
-    val style: TextStyle = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge
-    OutlinedTextField(
-        colors = glassTextFieldColors(),
-        value = value,
-        onValueChange = { text -> onValueChange(text.filter { it.isDigit() || it == '.' || it == ',' || it == ' ' }) },
-        label = { Text(label) },
-        modifier = modifier.fillMaxWidth(),
-        enabled = enabled,
-        singleLine = true,
-        textStyle = style.copy(textAlign = TextAlign.End),
-        isError = error != null,
-        supportingText = supportingText(error, supporting),
-        prefix = prefix?.let { { Text(it, style = style) } },
-        suffix = unit?.let { { Text(it, style = style, modifier = Modifier.padding(start = 4.dp)) } },
-        keyboardOptions = KeyboardOptions(keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal, imeAction = imeAction),
-    )
+    FormFieldTypography {
+        val style: TextStyle = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge
+        OutlinedTextField(
+            colors = formFieldColors(),
+            value = value,
+            onValueChange = { text -> onValueChange(text.filter { it.isDigit() || it == '.' || it == ',' || it == ' ' }) },
+            label = { Text(label) },
+            modifier = modifier.fillMaxWidth(),
+            enabled = enabled,
+            singleLine = true,
+            textStyle = style.copy(textAlign = TextAlign.End),
+            isError = error != null,
+            supportingText = supportingText(error, supporting),
+            prefix = prefix?.let { { Text(it, style = style) } },
+            suffix = unit?.let { { Text(it, style = style, modifier = Modifier.padding(start = 4.dp)) } },
+            keyboardOptions = KeyboardOptions(keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal, imeAction = imeAction),
+        )
+    }
 }
 
 /** Amount of money in the server's currency; the symbol leads the number the way the formatter prints it. */
@@ -213,21 +216,23 @@ fun FormNotesField(
     error: String? = null,
     enabled: Boolean = true,
 ) {
-    OutlinedTextField(
-        colors = glassTextFieldColors(),
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = modifier.fillMaxWidth().heightIn(min = 112.dp),
-        enabled = enabled,
-        minLines = 3,
-        isError = error != null,
-        supportingText = supportingText(error, supporting),
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Sentences,
-            imeAction = ImeAction.Default,
-        ),
-    )
+    FormFieldTypography {
+        OutlinedTextField(
+            colors = formFieldColors(),
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            modifier = modifier.fillMaxWidth().heightIn(min = 112.dp),
+            enabled = enabled,
+            minLines = 3,
+            isError = error != null,
+            supportingText = supportingText(error, supporting),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Default,
+            ),
+        )
+    }
 }
 
 /**
@@ -254,19 +259,21 @@ fun FormDateField(
         interaction.interactions.collect { if (it is PressInteraction.Release) open = true }
     }
     val text = fmt.date(date.atStartOfDay(fmt.zone).toInstant())
-    OutlinedTextField(
-        colors = glassTextFieldColors(),
-        value = text,
-        onValueChange = {},
-        readOnly = true,
-        enabled = enabled,
-        label = { Text(label) },
-        trailingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
-        isError = error != null,
-        supportingText = supportingText(error, supporting),
-        interactionSource = interaction,
-        modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
-    )
+    FormFieldTypography {
+        OutlinedTextField(
+            colors = formFieldColors(),
+            value = text,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            trailingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
+            isError = error != null,
+            supportingText = supportingText(error, supporting),
+            interactionSource = interaction,
+            modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
+        )
+    }
     if (open) {
         val today = fmt.today()
         // The picker's millis are UTC midnight of the picked day; the day is what matters, not the instant.
@@ -319,28 +326,30 @@ fun FormOptionalDateField(
         interaction.interactions.collect { if (it is PressInteraction.Release) open = true }
     }
     val text = date?.let { fmt.date(it.atStartOfDay(fmt.zone).toInstant()) }.orEmpty()
-    OutlinedTextField(
-        colors = glassTextFieldColors(),
-        value = text,
-        onValueChange = {},
-        readOnly = true,
-        enabled = enabled,
-        label = { Text(label) },
-        placeholder = { Text(stringResource(R.string.form_date_not_set)) },
-        trailingIcon = {
-            if (date != null && enabled) {
-                IconButton(onClick = { onDateChange(null) }) {
-                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.form_date_clear, label))
+    FormFieldTypography {
+        OutlinedTextField(
+            colors = formFieldColors(),
+            value = text,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            placeholder = { Text(stringResource(R.string.form_date_not_set)) },
+            trailingIcon = {
+                if (date != null && enabled) {
+                    IconButton(onClick = { onDateChange(null) }) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.form_date_clear, label))
+                    }
+                } else {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
                 }
-            } else {
-                Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
-            }
-        },
-        isError = error != null,
-        supportingText = supportingText(error, supporting),
-        interactionSource = interaction,
-        modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
-    )
+            },
+            isError = error != null,
+            supportingText = supportingText(error, supporting),
+            interactionSource = interaction,
+            modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
+        )
+    }
     if (open) {
         val today = fmt.today()
         val state = rememberDatePickerState(
@@ -385,37 +394,39 @@ fun <T> FormPicker(
     placeholder: String? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {
-        OutlinedTextField(
-            colors = glassTextFieldColors(),
-            value = selected?.let(optionLabel) ?: "",
-            onValueChange = {},
-            readOnly = true,
-            enabled = enabled,
-            label = { Text(label) },
-            placeholder = placeholder?.let { { Text(it) } },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            isError = error != null,
-            supportingText = supportingText(error, supporting),
-            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled),
-        )
-        // The opaque glass menu (D-A41): page colour, panel border, the medium radius; menus keep their shadow.
-        ExposedDropdownMenu(
-            expanded = expanded && enabled,
-            onDismissRequest = { expanded = false },
-            shape = RoundedCornerShape(glass.radiusMedium),
-            containerColor = glass.pageBackground,
-            border = BorderStroke(1.dp, glass.panelBorder),
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel(option)) },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                )
+    FormFieldTypography {
+        ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {
+            OutlinedTextField(
+                colors = formFieldColors(),
+                value = selected?.let(optionLabel) ?: "",
+                onValueChange = {},
+                readOnly = true,
+                enabled = enabled,
+                label = { Text(label) },
+                placeholder = placeholder?.let { { Text(it) } },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                isError = error != null,
+                supportingText = supportingText(error, supporting),
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled),
+            )
+            // The opaque glass menu (D-A41): page colour, panel border, the medium radius; menus keep their shadow.
+            ExposedDropdownMenu(
+                expanded = expanded && enabled,
+                onDismissRequest = { expanded = false },
+                shape = RoundedCornerShape(glass.radiusMedium),
+                containerColor = glass.pageBackground,
+                border = BorderStroke(1.dp, glass.panelBorder),
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel(option)) },
+                        onClick = {
+                            onSelect(option)
+                            expanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    )
+                }
             }
         }
     }

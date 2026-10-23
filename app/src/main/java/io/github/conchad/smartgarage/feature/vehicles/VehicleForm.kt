@@ -61,6 +61,9 @@ import io.github.conchad.smartgarage.ui.components.forms.FormPicker
 import io.github.conchad.smartgarage.ui.components.forms.FormScreen
 import io.github.conchad.smartgarage.ui.components.forms.FormSection
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
+import io.github.conchad.smartgarage.ui.components.forms.FormAutocompleteField
+import io.github.conchad.smartgarage.ui.components.forms.EmphasizedFormFields
+import androidx.compose.ui.text.input.KeyboardType
 import io.github.conchad.smartgarage.ui.components.forms.ViewOnlyNote
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.navigation.VehicleFormRoute
@@ -339,52 +342,69 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
         else -> null
     }
 
-    FormScreen(
-        title = stringResource(if (state.isEdit) R.string.vehicle_form_edit_title else R.string.vehicle_form_title),
-        onClose = onClose,
-        saveLabel = stringResource(R.string.action_save),
-        canSave = state.canSave,
-        saving = state.saving,
-        onSave = viewModel::save,
-        dirty = state.dirty && !state.done,
-        validation = validation,
-        snackbarHost = snackbar,
-    ) {
-        if (!state.loaded) {
-            FormSkeleton()
-            return@FormScreen
-        }
-        state.editing?.let { vehicle ->
-            if (!vehicle.access.canEdit) ViewOnlyNote(vehicle.owner?.name)
-            Text(vehicle.displayName, style = MaterialTheme.typography.titleMedium)
-            Text(
-                stringResource(R.string.vehicle_form_edit_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = glass.textSecondary,
-            )
-        }
-        if (!state.isEdit) {
-            FormTextField(
-                value = state.make,
-                onValueChange = viewModel::setMake,
-                label = stringResource(R.string.vehicle_form_make),
-                capitalizeWords = true,
-                error = if (state.makeTooLong) pluralStringResource(R.plurals.form_too_long, 80, 80) else null,
-            )
-            FormTextField(
-                value = state.model,
-                onValueChange = viewModel::setModel,
-                label = stringResource(R.string.vehicle_form_model),
-                capitalizeWords = true,
-                error = if (state.modelTooLong) pluralStringResource(R.plurals.form_too_long, 80, 80) else null,
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FormNumberField(
+    // D-A62: this form's fields get the stronger outline and 2 sp larger text; other forms keep the default frame.
+    EmphasizedFormFields {
+        FormScreen(
+            title = stringResource(if (state.isEdit) R.string.vehicle_form_edit_title else R.string.vehicle_form_title),
+            onClose = onClose,
+            saveLabel = stringResource(R.string.action_save),
+            canSave = state.canSave,
+            saving = state.saving,
+            onSave = viewModel::save,
+            dirty = state.dirty && !state.done,
+            validation = validation,
+            snackbarHost = snackbar,
+        ) {
+            if (!state.loaded) {
+                FormSkeleton()
+                return@FormScreen
+            }
+            state.editing?.let { vehicle ->
+                if (!vehicle.access.canEdit) ViewOnlyNote(vehicle.owner?.name)
+                Text(vehicle.displayName, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.vehicle_form_edit_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = glass.textSecondary,
+                )
+            }
+            if (!state.isEdit) {
+                // D-A62: make, model and year suggest from the built-in catalog as the user types, like the insurer
+                // field; the arrow lists them all (the models of the chosen make, the years). All three stay free text.
+                FormAutocompleteField(
+                    value = state.make,
+                    onValueChange = { make ->
+                        viewModel.setMake(make)
+                        // A known make that doesn't list the model typed for the old one: start the model over.
+                        if (!VehicleCatalog.keepsModel(make, state.model)) viewModel.setModel("")
+                    },
+                    label = stringResource(R.string.vehicle_form_make),
+                    suggest = VehicleCatalog::suggestMakes,
+                    browse = VehicleCatalog.makes,
+                    capitalizeWords = true,
+                    error = if (state.makeTooLong) pluralStringResource(R.plurals.form_too_long, 80, 80) else null,
+                )
+                val make = state.make
+                val models = remember(make) { VehicleCatalog.modelsFor(make) }
+                FormAutocompleteField(
+                    value = state.model,
+                    onValueChange = viewModel::setModel,
+                    label = stringResource(R.string.vehicle_form_model),
+                    suggest = remember(make) { { query: String -> VehicleCatalog.suggestModels(make, query) } },
+                    browse = models,
+                    capitalizeWords = true,
+                    error = if (state.modelTooLong) pluralStringResource(R.plurals.form_too_long, 80, 80) else null,
+                )
+                // Full width (D-A62): the larger label and the dropdown arrow don't fit half a row, nor does the list.
+                val years = remember { VehicleCatalog.years() }
+                FormAutocompleteField(
                     value = state.year,
                     onValueChange = viewModel::setYear,
                     label = stringResource(R.string.vehicle_form_year),
-                    modifier = Modifier.weight(1f),
-                    integer = true,
+                    suggest = { query -> VehicleCatalog.suggestYears(query) },
+                    browse = years,
+                    keyboardType = KeyboardType.Number,
+                    filter = { text -> text.filter { it.isDigit() }.take(4) },
                     error = if (state.yearInvalid) stringResource(R.string.vehicle_form_year_invalid) else null,
                 )
                 FormDistanceField(
@@ -392,177 +412,176 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
                     onValueChange = viewModel::setOdometer,
                     label = stringResource(R.string.field_odometer),
                     fmt = fmt,
-                    modifier = Modifier.weight(1f),
                     error = if (state.odometerInvalid) stringResource(R.string.form_invalid_number) else null,
                 )
             }
-        }
 
-        FormSection(stringResource(R.string.vehicle_form_registration))
-        FormTextField(
-            value = state.plate,
-            onValueChange = viewModel::setPlate,
-            label = stringResource(R.string.field_plate),
-            error = if (state.plateTooLong) pluralStringResource(R.plurals.form_too_long, 20, 20) else null,
-        )
-        FormTextField(
-            value = state.vin,
-            onValueChange = viewModel::setVin,
-            label = stringResource(R.string.field_vin),
-            error = if (state.vinInvalid) stringResource(R.string.vehicle_form_vin_invalid) else null,
-        )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FormSection(stringResource(R.string.vehicle_form_registration))
             FormTextField(
-                value = state.hsn,
-                onValueChange = viewModel::setHsn,
-                label = stringResource(R.string.vehicle_form_hsn),
-                modifier = Modifier.weight(1f),
-                error = if (state.hsnInvalid) stringResource(R.string.vehicle_form_hsn_invalid) else null,
+                value = state.plate,
+                onValueChange = viewModel::setPlate,
+                label = stringResource(R.string.field_plate),
+                error = if (state.plateTooLong) pluralStringResource(R.plurals.form_too_long, 20, 20) else null,
             )
             FormTextField(
-                value = state.tsn,
-                onValueChange = viewModel::setTsn,
-                label = stringResource(R.string.vehicle_form_tsn),
-                modifier = Modifier.weight(1f),
-                error = if (state.tsnInvalid) stringResource(R.string.vehicle_form_tsn_invalid) else null,
+                value = state.vin,
+                onValueChange = viewModel::setVin,
+                label = stringResource(R.string.field_vin),
+                error = if (state.vinInvalid) stringResource(R.string.vehicle_form_vin_invalid) else null,
             )
-        }
-        // D-A52: one paint per car, so a single-select swatch grid instead of free text (same stored string).
-        CarColorPicker(
-            value = state.color,
-            onValueChange = viewModel::setColor,
-            label = stringResource(R.string.field_color),
-        )
-
-        if (state.isEdit) {
-            FormSection(stringResource(R.string.field_purchased))
-            FormOptionalDateField(
-                date = state.purchaseDate,
-                onDateChange = viewModel::setPurchaseDate,
-                label = stringResource(R.string.field_purchased),
-                fmt = fmt,
-            )
-            FormMoneyField(
-                value = state.purchasePrice,
-                onValueChange = viewModel::setPurchasePrice,
-                label = stringResource(R.string.field_purchase_price),
-                fmt = fmt,
-                error = if (state.purchaseInvalid) stringResource(R.string.form_invalid_number) else null,
-            )
-        }
-
-        FormSection(
-            stringResource(R.string.aurora_title),
-            action = if (state.auroraOverride != null) {
-                {
-                    TextButton(onClick = viewModel::useAppAurora, colors = glassTextButtonColors()) {
-                        Text(stringResource(R.string.aurora_use_app_setting))
-                    }
-                }
-            } else {
-                null
-            },
-        )
-        AuroraColorSetting(
-            match = state.auroraMatches,
-            onMatchChange = viewModel::setAuroraMatch,
-            color = Color(((state.auroraOverride ?: state.appAurora) as? AuroraChoice.Custom)?.argb ?: state.auroraColor),
-            onColorChange = { viewModel.setAuroraColor(it.toArgb()) },
-            matchDescription = stringResource(
-                when {
-                    state.auroraOverride == null && state.appAurora != AuroraChoice.MatchVehicle -> R.string.vehicle_aurora_follows_app
-                    state.auroraMatches -> R.string.vehicle_aurora_match_desc
-                    else -> R.string.vehicle_aurora_custom_desc
-                },
-            ),
-            horizontalPadding = 0.dp,
-        )
-
-        FormNotesField(
-            value = state.notes,
-            onValueChange = viewModel::setNotes,
-            error = if (state.notesTooLong) pluralStringResource(R.plurals.form_too_long, 5000, 5000) else null,
-        )
-
-        if (!state.isEdit) {
-            val fuelLabels = FUEL_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else fuelTypeLabel(it) }
-            val bodyLabels = BODY_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else bodyTypeLabel(it) }
-            val driveLabels = DRIVE_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else driveTypeLabel(it) }
-            FormDisclosure(
-                title = stringResource(R.string.vehicle_form_specs),
-                summary = stringResource(R.string.vehicle_form_specs_hint),
-                expanded = specsOpen,
-                onToggle = { specsOpen = !specsOpen },
-            ) {
-                FormPicker(
-                    label = stringResource(R.string.spec_fuel),
-                    options = FUEL_TYPES,
-                    selected = state.fuelType,
-                    optionLabel = { fuelLabels[it] ?: it },
-                    onSelect = viewModel::setFuelType,
-                )
-                FormPicker(
-                    label = stringResource(R.string.spec_body),
-                    options = BODY_TYPES,
-                    selected = state.bodyType,
-                    optionLabel = { bodyLabels[it] ?: it },
-                    onSelect = viewModel::setBodyType,
-                )
-                FormPicker(
-                    label = stringResource(R.string.spec_drive),
-                    options = DRIVE_TYPES,
-                    selected = state.driveType,
-                    optionLabel = { driveLabels[it] ?: it },
-                    onSelect = viewModel::setDriveType,
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FormNumberField(
-                        value = state.powerKw,
-                        onValueChange = viewModel::setPowerKw,
-                        label = stringResource(R.string.spec_power),
-                        unit = "kW",
-                        modifier = Modifier.weight(1f),
-                        integer = true,
-                        error = if (state.powerKwInvalid) stringResource(R.string.form_invalid_number) else null,
-                    )
-                    FormNumberField(
-                        value = state.powerPs,
-                        onValueChange = viewModel::setPowerPs,
-                        label = stringResource(R.string.spec_power),
-                        unit = stringResource(R.string.unit_ps),
-                        modifier = Modifier.weight(1f),
-                        integer = true,
-                        error = if (state.powerPsInvalid) stringResource(R.string.form_invalid_number) else null,
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FormNumberField(
-                        value = state.torqueNm,
-                        onValueChange = viewModel::setTorque,
-                        label = stringResource(R.string.spec_torque),
-                        unit = "Nm",
-                        modifier = Modifier.weight(1f),
-                        integer = true,
-                        error = if (state.torqueInvalid) stringResource(R.string.form_invalid_number) else null,
-                    )
-                    FormNumberField(
-                        value = state.displacementCc,
-                        onValueChange = viewModel::setDisplacement,
-                        label = stringResource(R.string.spec_displacement),
-                        unit = "cm³",
-                        modifier = Modifier.weight(1f),
-                        integer = true,
-                        error = if (state.displacementInvalid) stringResource(R.string.form_invalid_number) else null,
-                    )
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FormTextField(
-                    value = state.engine,
-                    onValueChange = viewModel::setEngine,
-                    label = stringResource(R.string.spec_engine),
-                    error = if (state.engineTooLong) pluralStringResource(R.plurals.form_too_long, 200, 200) else null,
+                    value = state.hsn,
+                    onValueChange = viewModel::setHsn,
+                    label = stringResource(R.string.vehicle_form_hsn),
+                    modifier = Modifier.weight(1f),
+                    error = if (state.hsnInvalid) stringResource(R.string.vehicle_form_hsn_invalid) else null,
+                )
+                FormTextField(
+                    value = state.tsn,
+                    onValueChange = viewModel::setTsn,
+                    label = stringResource(R.string.vehicle_form_tsn),
+                    modifier = Modifier.weight(1f),
+                    error = if (state.tsnInvalid) stringResource(R.string.vehicle_form_tsn_invalid) else null,
                 )
             }
+            // D-A52: one paint per car, so a single-select swatch grid instead of free text (same stored string).
+            CarColorPicker(
+                value = state.color,
+                onValueChange = viewModel::setColor,
+                label = stringResource(R.string.field_color),
+            )
+
+            if (state.isEdit) {
+                FormSection(stringResource(R.string.field_purchased))
+                FormOptionalDateField(
+                    date = state.purchaseDate,
+                    onDateChange = viewModel::setPurchaseDate,
+                    label = stringResource(R.string.field_purchased),
+                    fmt = fmt,
+                )
+                FormMoneyField(
+                    value = state.purchasePrice,
+                    onValueChange = viewModel::setPurchasePrice,
+                    label = stringResource(R.string.field_purchase_price),
+                    fmt = fmt,
+                    error = if (state.purchaseInvalid) stringResource(R.string.form_invalid_number) else null,
+                )
+            }
+
+            FormSection(
+                stringResource(R.string.aurora_title),
+                action = if (state.auroraOverride != null) {
+                    {
+                        TextButton(onClick = viewModel::useAppAurora, colors = glassTextButtonColors()) {
+                            Text(stringResource(R.string.aurora_use_app_setting))
+                        }
+                    }
+                } else {
+                    null
+                },
+            )
+            AuroraColorSetting(
+                match = state.auroraMatches,
+                onMatchChange = viewModel::setAuroraMatch,
+                color = Color(((state.auroraOverride ?: state.appAurora) as? AuroraChoice.Custom)?.argb ?: state.auroraColor),
+                onColorChange = { viewModel.setAuroraColor(it.toArgb()) },
+                matchDescription = stringResource(
+                    when {
+                        state.auroraOverride == null && state.appAurora != AuroraChoice.MatchVehicle -> R.string.vehicle_aurora_follows_app
+                        state.auroraMatches -> R.string.vehicle_aurora_match_desc
+                        else -> R.string.vehicle_aurora_custom_desc
+                    },
+                ),
+                horizontalPadding = 0.dp,
+            )
+
+            FormNotesField(
+                value = state.notes,
+                onValueChange = viewModel::setNotes,
+                error = if (state.notesTooLong) pluralStringResource(R.plurals.form_too_long, 5000, 5000) else null,
+            )
+
+            if (!state.isEdit) {
+                val fuelLabels = FUEL_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else fuelTypeLabel(it) }
+                val bodyLabels = BODY_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else bodyTypeLabel(it) }
+                val driveLabels = DRIVE_TYPES.associateWith { if (it.isEmpty()) stringResource(R.string.form_not_set) else driveTypeLabel(it) }
+                FormDisclosure(
+                    title = stringResource(R.string.vehicle_form_specs),
+                    summary = stringResource(R.string.vehicle_form_specs_hint),
+                    expanded = specsOpen,
+                    onToggle = { specsOpen = !specsOpen },
+                ) {
+                    FormPicker(
+                        label = stringResource(R.string.spec_fuel),
+                        options = FUEL_TYPES,
+                        selected = state.fuelType,
+                        optionLabel = { fuelLabels[it] ?: it },
+                        onSelect = viewModel::setFuelType,
+                    )
+                    FormPicker(
+                        label = stringResource(R.string.spec_body),
+                        options = BODY_TYPES,
+                        selected = state.bodyType,
+                        optionLabel = { bodyLabels[it] ?: it },
+                        onSelect = viewModel::setBodyType,
+                    )
+                    FormPicker(
+                        label = stringResource(R.string.spec_drive),
+                        options = DRIVE_TYPES,
+                        selected = state.driveType,
+                        optionLabel = { driveLabels[it] ?: it },
+                        onSelect = viewModel::setDriveType,
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        FormNumberField(
+                            value = state.powerKw,
+                            onValueChange = viewModel::setPowerKw,
+                            label = stringResource(R.string.spec_power),
+                            unit = "kW",
+                            modifier = Modifier.weight(1f),
+                            integer = true,
+                            error = if (state.powerKwInvalid) stringResource(R.string.form_invalid_number) else null,
+                        )
+                        FormNumberField(
+                            value = state.powerPs,
+                            onValueChange = viewModel::setPowerPs,
+                            label = stringResource(R.string.spec_power),
+                            unit = stringResource(R.string.unit_ps),
+                            modifier = Modifier.weight(1f),
+                            integer = true,
+                            error = if (state.powerPsInvalid) stringResource(R.string.form_invalid_number) else null,
+                        )
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        FormNumberField(
+                            value = state.torqueNm,
+                            onValueChange = viewModel::setTorque,
+                            label = stringResource(R.string.spec_torque),
+                            unit = "Nm",
+                            modifier = Modifier.weight(1f),
+                            integer = true,
+                            error = if (state.torqueInvalid) stringResource(R.string.form_invalid_number) else null,
+                        )
+                        FormNumberField(
+                            value = state.displacementCc,
+                            onValueChange = viewModel::setDisplacement,
+                            label = stringResource(R.string.spec_displacement),
+                            unit = "cm³",
+                            modifier = Modifier.weight(1f),
+                            integer = true,
+                            error = if (state.displacementInvalid) stringResource(R.string.form_invalid_number) else null,
+                        )
+                    }
+                    FormTextField(
+                        value = state.engine,
+                        onValueChange = viewModel::setEngine,
+                        label = stringResource(R.string.spec_engine),
+                        error = if (state.engineTooLong) pluralStringResource(R.plurals.form_too_long, 200, 200) else null,
+                    )
+                }
+            }
+            FormEndSpacer()
         }
-        FormEndSpacer()
     }
 }

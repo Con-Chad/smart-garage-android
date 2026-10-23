@@ -46,7 +46,12 @@ import io.github.conchad.smartgarage.feature.receipts.rememberReceiptGallery
  * side, station and notes. Prefilled so the usual fill-up is three taps: check the odometer, type the volume, save.
  */
 @Composable
-fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel: FuelFormViewModel = hiltViewModel()) {
+fun FuelEntryScreen(
+    onClose: () -> Unit,
+    scanOnOpen: Boolean = false,
+    /** With [scanOnOpen]: the Photo Picker instead of the camera (D-A61). */
+    scanFromGallery: Boolean = false,
+    viewModel: FuelFormViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
@@ -74,7 +79,7 @@ fun FuelEntryScreen(onClose: () -> Unit, scanOnOpen: Boolean = false, viewModel:
         if (!scanPending || !state.loaded) return@LaunchedEffect
         scanPending = false
         when {
-            state.canScan -> launchScan()
+            state.canScan -> if (scanFromGallery) pickPhoto() else launchScan()
             !state.scannerAvailable -> snackbar.showSnackbar(scanUnavailable)
             else -> snackbar.showSnackbar(viewOnly)
         }

@@ -25,7 +25,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -39,8 +41,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -54,6 +59,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,7 +69,6 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.glass
-import io.github.conchad.smartgarage.ui.glass.glassTextFieldColors
 import io.github.conchad.smartgarage.ui.glass.orNone
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 
@@ -97,41 +102,86 @@ fun FormAutocompleteField(
     capitalizeWords: Boolean = false,
     fallbackIcon: ImageVector? = null,
     icon: @Composable (String) -> ImageBitmap? = { null },
+    browse: List<String> = emptyList(),
+    keyboardType: KeyboardType = KeyboardType.Text,
+    filter: (String) -> String = { it },
 ) {
     var focused by remember { mutableStateOf(false) }
     var dismissed by rememberSaveable { mutableStateOf(false) }
+    // D-A62: the dropdown arrow lists all of [browse] whatever is typed, until the user types again.
+    var browsing by rememberSaveable { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
     // A TextFieldValue so a picked name puts the cursor at its end; the ViewModel still holds the plain string.
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     val shown = if (field.text == value) field else TextFieldValue(value, TextRange(value.length))
-    val suggestions = remember(value) { suggest(value) }
-    val open = enabled && focused && !dismissed && value.isNotBlank() && suggestions.isNotEmpty()
+    val matches = remember(value, suggest) { suggest(value) }
+    // A blank field with a list to browse shows the whole list (the models of the chosen make, the years).
+    val suggestions = if (browsing || value.isBlank()) browse else matches
+    val open = enabled && focused && !dismissed && suggestions.isNotEmpty()
 
     BackHandler(enabled = open) { dismissed = true }
 
     Column(modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            colors = glassTextFieldColors(),
-            value = shown,
-            onValueChange = { next ->
-                if (next.text != value) dismissed = false
-                field = next
-                if (next.text != value) onValueChange(next.text)
-            },
-            label = { Text(label) },
-            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
-            enabled = enabled,
-            singleLine = true,
-            isError = error != null,
-            supportingText = supportingText(error, null),
-            keyboardOptions = KeyboardOptions(
-                capitalization = if (capitalizeWords) KeyboardCapitalization.Words else KeyboardCapitalization.Sentences,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = {
-                dismissed = true
-                defaultKeyboardAction(ImeAction.Done)
-            }),
-        )
+        FormFieldTypography {
+            OutlinedTextField(
+                colors = formFieldColors(),
+                value = shown,
+                onValueChange = { raw ->
+                    val next = raw.copy(text = filter(raw.text))
+                    if (next.text != value) {
+                        dismissed = false
+                        browsing = false
+                    }
+                    field = next
+                    if (next.text != value) onValueChange(next.text)
+                },
+                label = { Text(label) },
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onFocusChanged {
+                    focused = it.isFocused
+                    if (!it.isFocused) browsing = false
+                },
+                enabled = enabled,
+                singleLine = true,
+                isError = error != null,
+                supportingText = supportingText(error, null),
+                trailingIcon = if (browse.isNotEmpty()) {
+                    {
+                        val expanded = open
+                        val description = stringResource(if (expanded) R.string.form_suggestions_hide else R.string.form_suggestions_show, label)
+                        IconButton(
+                            onClick = {
+                                if (expanded) {
+                                    dismissed = true
+                                    browsing = false
+                                } else {
+                                    browsing = true
+                                    dismissed = false
+                                    focusRequester.requestFocus()
+                                }
+                            },
+                            enabled = enabled,
+                            modifier = Modifier.semantics { contentDescription = description },
+                        ) { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
+                    }
+                } else {
+                    null
+                },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = when {
+                        keyboardType != KeyboardType.Text -> KeyboardCapitalization.None
+                        capitalizeWords -> KeyboardCapitalization.Words
+                        else -> KeyboardCapitalization.Sentences
+                    },
+                    keyboardType = keyboardType,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = {
+                    dismissed = true
+                    browsing = false
+                    defaultKeyboardAction(ImeAction.Done)
+                }),
+            )
+        }
         SuggestionPanel(
             open = open,
             typed = value.trim(),
@@ -141,9 +191,13 @@ fun FormAutocompleteField(
             onPick = { name ->
                 field = TextFieldValue(name, TextRange(name.length))
                 dismissed = true
+                browsing = false
                 if (name != value) onValueChange(name)
             },
-            onOther = { dismissed = true },
+            onOther = {
+                dismissed = true
+                browsing = false
+            },
         )
     }
 }
@@ -177,11 +231,12 @@ private fun SuggestionPanel(
                 .fillMaxWidth()
                 .padding(top = 4.dp)
                 .bringIntoViewRequester(bringIntoView)
-                // Readable over any aurora, like the glass menus (D-A31): the page colour under the frosted fill.
-                .drawBehind { drawRect(tokens.pageBackground.copy(alpha = 0.94f)) }
+                // Readable over any aurora, like the glass menus (D-A31): the page colour under the frosted fill, in the
+                // panel's rounded shape (a plain rect showed square corners past the rim).
+                .drawBehind { drawOutline(shape.createOutline(size, layoutDirection, this), tokens.pageBackground.copy(alpha = 0.94f)) }
                 .semantics {
                     paneTitle = count
-                    collectionInfo = CollectionInfo(rowCount = suggestions.size + 1, columnCount = 1)
+                    collectionInfo = CollectionInfo(rowCount = suggestions.size + if (typed.isNotEmpty()) 1 else 0, columnCount = 1)
                 },
         ) {
             Column(Modifier.heightIn(max = SUGGESTIONS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
@@ -195,17 +250,20 @@ private fun SuggestionPanel(
                     )
                 }
             }
-            RowDivider()
-            val otherDescription = stringResource(R.string.form_suggestion_other_description, typed)
-            SuggestionRow(
-                text = stringResource(R.string.form_suggestion_other),
-                supporting = stringResource(R.string.form_suggestion_other_keep, typed),
-                bitmap = null,
-                vector = Icons.Outlined.Edit,
-                index = suggestions.size,
-                description = otherDescription,
-                onClick = onOther,
-            )
+            // "Keep what I typed" means nothing for a blank field (browsing the whole list): no row then.
+            if (typed.isNotEmpty()) {
+                RowDivider()
+                val otherDescription = stringResource(R.string.form_suggestion_other_description, typed)
+                SuggestionRow(
+                    text = stringResource(R.string.form_suggestion_other),
+                    supporting = stringResource(R.string.form_suggestion_other_keep, typed),
+                    bitmap = null,
+                    vector = Icons.Outlined.Edit,
+                    index = suggestions.size,
+                    description = otherDescription,
+                    onClick = onOther,
+                )
+            }
         }
     }
 }

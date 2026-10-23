@@ -37,9 +37,10 @@ import kotlinx.serialization.Serializable
 /**
  * The quick fill-up form; [vehicleId] preselects the vehicle it was opened from. [scan] (the fan FAB's "Scan
  * Receipt" petal, D-A32) starts the receipt scan on arrival — the camera when the server offers the scanner, the
- * "not available" snackbar when it doesn't.
+ * "not available" snackbar when it doesn't; with [gallery] (D-A61, "Choose from gallery" on the petal) the Photo
+ * Picker instead of the camera.
  */
-@Serializable data class FuelEntryRoute(val vehicleId: String? = null, val scan: Boolean = false)
+@Serializable data class FuelEntryRoute(val vehicleId: String? = null, val scan: Boolean = false, val gallery: Boolean = false)
 
 /**
  * Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. [scan] is a

@@ -130,6 +130,11 @@ data class GlassTokens(
     val plateRim: Color,
     val plateBand: Color,
     val plateInk: Color,
+    /**
+     * The stronger unfocused outline for the emphasized form fields (D-A62, the Add vehicle form): ≥ 3:1 against the
+     * panel over the page background, where [panelBorder] is a faint hairline. Focused fields keep the [sheen].
+     */
+    val fieldBorderStrong: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
@@ -199,6 +204,7 @@ val DarkGlassTokens = GlassTokens(
     plateRim = PlateRim,
     plateBand = PlateBand,
     plateInk = PlateInk,
+    fieldBorderStrong = Color(0x99FFFFFF),
 )
 
 val LightGlassTokens = GlassTokens(
@@ -246,6 +252,7 @@ val LightGlassTokens = GlassTokens(
     plateRim = PlateRim,
     plateBand = PlateBand,
     plateInk = PlateInk,
+    fieldBorderStrong = Color(0x8C141826),
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

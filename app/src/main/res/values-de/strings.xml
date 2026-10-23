@@ -522,6 +522,8 @@
     <string name="form_date_clear">%1$s löschen</string>
     <string name="form_expanded">Ausgeklappt</string>
     <string name="form_collapsed">Eingeklappt</string>
+    <string name="form_suggestions_show">Vorschläge für %1$s anzeigen</string>
+    <string name="form_suggestions_hide">Vorschläge für %1$s ausblenden</string>
     <string name="form_suggestion_other">Anderer…</string>
     <string name="form_suggestion_other_keep">„%1$s“ übernehmen</string>
     <string name="form_suggestion_other_description">Anderer: „%1$s“ wie eingegeben übernehmen</string>
