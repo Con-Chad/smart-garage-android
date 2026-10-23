@@ -10,6 +10,7 @@ android {
     defaultConfig {
         minSdk = 31
         consumerProguardFiles("consumer-rules.pro")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -27,7 +28,13 @@ kotlin {
 dependencies {
     implementation(libs.onnxruntime.android)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.exifinterface)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.truth)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

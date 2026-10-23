@@ -49,8 +49,8 @@ data class ModelAvailability(
  * Finds and integrity-checks the PP-OCRv5 model files in [modelDirectory]. Never touches the network.
  * Hashing reads every file in full, so call it off the main thread.
  *
- * Stub for CP4: CP5 decides how the models reach the device (bundled APK assets fed to [OcrModels] as
- * [ModelSource.FromBytes], or copied into [modelDirectory]) and verifies them with [verify].
+ * The app itself loads the models from APK assets (see OnnxOcrEngine / BundledModels, which reuse these
+ * constants and [verify]); this file-based locator remains for callers that keep models on disk.
  */
 class ModelManager(private val modelDirectory: File) {
 
