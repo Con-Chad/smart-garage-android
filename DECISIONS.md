@@ -1673,3 +1673,64 @@ App decisions use the `D-A` prefix.
   - On the bar the title is plain `Text` in `textPrimary` (the cards' text colour, 4.5:1 on the panel), not the
     adaptive aurora ink, so D-A52's opposite-tone halo is not drawn behind it. The halo stays for text straight on
     the aurora. The non-emphasised pill's adaptive ink now accounts for the bar's panel (`inCard = true`).
+- **D-A55 (2026-10-23) — Real-looking plate badge, glass "Add vehicle" on the Vehicles tab, soft shadows while panels
+  pop in, drawers that glide shut.**
+  - **Plate badge** (`PlateBadge`, `VehiclePhotoTitle.kt`): light plate face inside a soft blue 1.5 dp outline, 3 dp in a
+    thin inner border in the plate ink (60 %), a 4 dp blue band along the top, characters in the new `PlateTextStyle`
+    (`ui/theme/Type.kt`: system `sans-serif-condensed` bold, 16 sp, tight, font padding trimmed; nothing bundled), ink
+    ≥ 14:1 on the face, 4 dp shadow. 64–160 dp wide (≈ 2:1 to 2.6:1 for common plates). New shared tokens
+    `plateFace` / `plateRim` / `plateBand` / `plateInk` in `GlassTokens`.
+  - **Vehicles tab "Add vehicle"**: the Material extended FAB is replaced by `GlassEmphasisPill` (new, `GlassMenu.kt`):
+    the D-A52 call-to-action pill (white label on `emphasisPillFill` of the aurora tint, 1.5 dp light rim), full 48 dp,
+    with the glass lift shadow when `floating`. Home's header "Add vehicle" now uses the same component (`compact`).
+    Other screens' `AddFab`s are unchanged.
+  - **Soft shadows during pop-ins**: `PopIn.kt` fades now use `CompositingStrategy.ModulateAlpha`; the default offscreen
+    layer was the card's bounds, so the glass shadow outside them was cut to a square-cornered rectangle while fading.
+    Home's per-vehicle switcher (`AnimatedContent`, attention / fill-ups) no longer clips (`SizeTransform(clip = false)`)
+    and its content carries 16 dp `SHADOW_ROOM` below the last card (taken off the page's bottom padding), so the last
+    card's shadow is whole during and after the slide.
+  - **Drawers** (`GlassDropdown`: the vehicle page's Registration / Colour / Specifications, At a glance, Quick
+    actions): the body is an `AnimatedVisibility` inside the glass with new `drawerExpand()` / `drawerCollapse()`
+    (`Motion.kt`: expand / shrink vertically on `EmphasizedEasing` over `HERO_MS`, fade over `SHORT_MS`; none under
+    reduced motion), replacing the card's outer `animateContentSize`, under which the glass snapped shut on close.
+- **D-A56 (2026-10-23) — Receipt scan from the gallery too; bills scanned on the expense form.**
+  Built, unit-tested and linted; not run against a live scanner server.
+  - **Two buttons everywhere a scan is offered** (fill-up, service record, expense): one shared composable,
+    `ReceiptScanButtons` (`feature/receipts/ReceiptScanUi.kt`, replaces `ScanReceiptButton`): "Scan receipt" (camera,
+    as before) and "Pick from gallery", side by side, equal width, 48 dp; while scanning both are disabled and the
+    hint line becomes a spinner + "Reading the receipt…". Not split: the Home fan's "Scan receipt" petal (dashboard
+    file, owned by the UI agent at the time); it still opens the fill-up form and starts the camera.
+  - **Gallery**: `rememberReceiptGallery` = `ActivityResultContracts.PickVisualMedia` (ImageOnly): no storage
+    permission, no Play Services (androidx falls back to the document picker on phones without the system picker;
+    `check-no-gms.sh` stays clean). `ReceiptCapture.fromGallery` copies the picked image into `cache/captures/`
+    (refused above 64 MiB), then the same `finish` as the camera: long edge ≤ 1600 px, JPEG 80, EXIF dropped, then a
+    size check against the contract's limit (≤ 7 MB and ≤ `MAX_IMAGE_SIZE_MB` → `MAX_UPLOAD_BYTES` = 7 × 10⁶);
+    upload, document, prefill and `receiptDocumentId` on save are the camera flow's. All three view models share one
+    `scan(source)` path for camera and gallery; a second scan can't start while one runs.
+  - **Expense form**: gated on `scansService` (`/me receiptScannerKinds` contains `service`) and edit rights. Uses
+    `POST /records/receipt-scan`; `ExpenseFormState.withServiceScan` maps date (+ printed time for `occurredAt`),
+    category from `expenseCategory` (unknown → form keeps its own), `totalCostCents`, currency, and a description of
+    what the user typed + vendor + the server's note (no repeats, ≤ 500). `expenseReview` checks date/total/vendor
+    and drops record-only warnings (schedule, odometer, item truncation). A fuel receipt is dropped with the
+    existing "use the fill-up form" message; a 502 keeps the `documentId`. Switching vehicle drops the scan.
+  - **Reverse hand-off**: when `suggestedTarget == "record"`, "Log as service record instead" replaces the expense
+    form with `RecordFormRoute(vehicleId, scan = <response JSON>)` (`encodeScanHandoff`, model/quota stripped); the
+    record form decodes it after loading and applies `withServiceDraft`, so it fills exactly as after its own scan
+    (schedule match, parts, `receiptDocumentId`) and survives process death. No local photo there; a line says the
+    scanned receipt is attached.
+  - Strings (en + de) added; the two camera-only hints (`fuel_scan_hint`, `receipt_scan_service_hint`) were
+    replaced by `*_hint_both` and removed as unused. Tests: `ExpenseScanTest`.
+- **D-A57 (2026-10-23) — "Theme color" petal in the Home fan opens the vehicle's aurora picker in a sheet.**
+  - The aurora picker (D-A44) was only in Settings and deep in the vehicle edit form; users couldn't find it. The fan
+    (D-A31/D-A32) gets a fifth petal at the **bottom** of the arc: palette icon, caption "Theme color" (de
+    "Designfarbe"), TalkBack "Change theme color". Same bead, connector, stagger and spring as the others.
+  - Geometry: five slots, `ANGLES` 180/162/144/124/100°, `RADIUS` 124 → 160 dp, `EXTENT` 184 → 212 dp, elbow on the
+    top petal only. Chords ≥ 50 dp; captions clear the petal below by ≥ 5 dp at font scale 1.3 (checked on device).
+    Fewer actions take the lowest slots.
+  - The petal opens `ThemeColorSheet` (feature/dashboard): `DetailSheet` + the shared `AuroraColorSetting` for the
+    vehicle in view, with the vehicle form's rules (switch on = no override if Settings matches, explicit "match"
+    otherwise; "Use app setting" drops the override). Applies live: switch/presets save at once, wheel/slider drags
+    debounce 250 ms (as Settings); a pending drag is saved on close. Writes `VehicleLocalPrefs.setAuroraOverride` via
+    `DashboardViewModel.setAuroraOverride` (thin pass-through).
+  - View-only shared vehicles: the override is phone-only, so the fan now shows for them too, with only the Theme
+    color petal (core label "Quick actions"); the logging petals still need edit rights.

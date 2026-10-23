@@ -16,6 +16,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
 
@@ -29,6 +30,10 @@ import kotlinx.coroutines.delay
  *   over [Motion.POP_EXPAND_MS] and settles back to 1 over [Motion.POP_SETTLE_MS] — a crisp bounce, not a wobble.
  *
  * Timings come from [Motion] (D-A40); the D-A37 numbers there are user-tuned.
+ *
+ * D-A55: the fades modulate each draw's alpha ([CompositingStrategy.ModulateAlpha]) instead of drawing the card into
+ * an offscreen buffer. That buffer is the size of the card's bounds, so it cut the soft glass shadow, which lies
+ * outside them, into a hard-edged rectangle with square corners for as long as the card was fading.
  */
 @Stable
 class PopInState internal constructor(
@@ -140,6 +145,7 @@ private fun Modifier.popOutLayer(out: State<Float>): Modifier = graphicsLayer {
     scaleX = s
     scaleY = s
     alpha = (s / POP_OUT_FADE_BELOW).coerceIn(0f, 1f)
+    compositingStrategy = CompositingStrategy.ModulateAlpha
 }
 
 /** D-A32: scale [POP_IN_FROM] → 1 on [Motion.popSpring], alpha reaching 1 by 40 % of the way. */
@@ -155,6 +161,7 @@ private fun Modifier.springPop(): Modifier {
         scaleX = s
         scaleY = s
         alpha = (p * POP_IN_ALPHA_RATE).coerceIn(0f, 1f)
+        compositingStrategy = CompositingStrategy.ModulateAlpha
     }
 }
 
@@ -186,6 +193,7 @@ private fun Modifier.staggeredPop(delayMs: Long): Modifier {
         scaleX = s
         scaleY = s
         this.alpha = alpha.value
+        compositingStrategy = CompositingStrategy.ModulateAlpha
     }
 }
 

@@ -41,8 +41,18 @@ import kotlinx.serialization.Serializable
  */
 @Serializable data class FuelEntryRoute(val vehicleId: String? = null, val scan: Boolean = false)
 
-/** Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. */
-@Serializable data class RecordFormRoute(val recordId: String? = null, val scheduleId: String? = null, val vehicleId: String? = null)
+/**
+ * Log a service ([scheduleId] fixes the schedule, [vehicleId] only narrows the pick) or edit [recordId]. [scan] is a
+ * service scan handed over from the expense form ("Log as service record instead", D-A56): the scan response as JSON
+ * (`encodeScanHandoff`), which prefills a new record like the form's own scan and links its `documentId`.
+ */
+@Serializable
+data class RecordFormRoute(
+    val recordId: String? = null,
+    val scheduleId: String? = null,
+    val vehicleId: String? = null,
+    val scan: String? = null,
+)
 
 /** Add an expense; [vehicleId] preselects the vehicle. */
 /**

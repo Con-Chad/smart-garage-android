@@ -115,6 +115,16 @@ data class GlassTokens(
      */
     val rimLight: Color,
     val rimShade: Color,
+
+    /**
+     * The licence-plate badge on a vehicle photo (D-A55), shared by both sets since it sits on a photo: a light
+     * [plateFace] with a soft blue outer outline ([plateRim]), a thin blue band along the top ([plateBand]) and the
+     * characters and thin inner border in [plateInk] (≥ 14:1 on the face).
+     */
+    val plateFace: Color,
+    val plateRim: Color,
+    val plateBand: Color,
+    val plateInk: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
@@ -134,6 +144,10 @@ private val OnPale = Color(0xFF1B2130)
 private val InkDark = Color(0xFF474B54)
 private val InkHaloDark = Color(0xFF000000)
 private val InkHaloLight = Color(0xFFFFFFFF)
+private val PlateFace = Color(0xFFF7F8FA)
+private val PlateRim = Color(0xFF8DB4E8)
+private val PlateBand = Color(0xFF3F6FB8)
+private val PlateInk = Color(0xFF16203A)
 
 val DarkGlassTokens = GlassTokens(
     dark = true,
@@ -175,6 +189,10 @@ val DarkGlassTokens = GlassTokens(
     frost = Color(0xC7262A3A),
     rimLight = Color(0x99FFFFFF),
     rimShade = Color(0x73000000),
+    plateFace = PlateFace,
+    plateRim = PlateRim,
+    plateBand = PlateBand,
+    plateInk = PlateInk,
 )
 
 val LightGlassTokens = GlassTokens(
@@ -217,6 +235,10 @@ val LightGlassTokens = GlassTokens(
     frost = Color(0xD9FFFFFF),
     rimLight = Color(0xFFFFFFFF),
     rimShade = Color(0x47141826),
+    plateFace = PlateFace,
+    plateRim = PlateRim,
+    plateBand = PlateBand,
+    plateInk = PlateInk,
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

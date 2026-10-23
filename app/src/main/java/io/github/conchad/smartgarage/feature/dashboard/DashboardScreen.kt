@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.feature.dashboard
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.IconButton
@@ -156,6 +158,8 @@ fun DashboardScreen(
     // One gyroscope pointer for the screen (D-A30); the settled page's photo frame follows it.
     val tilt = rememberTilt()
     var fanOpen by rememberSaveable { mutableStateOf(false) }
+    // The vehicle whose "Theme color" sheet is open (D-A57), from the fan.
+    var themeFor by rememberSaveable { mutableStateOf<String?>(null) }
 
     CompositionLocalProvider(LocalTilt provides tilt) {
         MetallicSheenHost {
@@ -220,12 +224,16 @@ fun DashboardScreen(
                             }
                         }
                     }
-                    // The fan FAB (D-A31): for the vehicle in view, only when it can be edited; gone while the pager moves.
-                    val fanVehicle = current?.vehicle?.takeIf { it.access.canEdit }
+                    // The fan FAB (D-A31): for the vehicle in view; gone while the pager moves. D-A57: on a view-only shared
+                    // vehicle it still opens with just "Theme color" (a phone-only preference), the logging petals need edit rights.
+                    val fanVehicle = current?.vehicle
                     FanScrim(visible = fanOpen && fanVehicle != null, onDismiss = { fanOpen = false })
                     if (fanVehicle != null) {
-                        // Four petals (D-A32), each with a short visible caption; the TalkBack name stays the full verb.
-                        val fanActions = listOf(
+                        // Five petals (D-A32, D-A57), each with a short visible caption; the TalkBack name stays the full verb.
+                        // "Theme color" is first, so it sits at the bottom of the arc.
+                        val themePetal = FanAction(Icons.Outlined.Palette, stringResource(R.string.fab_theme_color), stringResource(R.string.fab_petal_theme)) { themeFor = fanVehicle.id }
+                        val fanActions = if (!fanVehicle.access.canEdit) listOf(themePetal) else listOf(
+                            themePetal,
                             FanAction(Icons.Outlined.Build, stringResource(R.string.action_log_service), stringResource(R.string.fab_petal_service)) { actions.onLogService(fanVehicle.id) },
                             FanAction(Icons.AutoMirrored.Outlined.ReceiptLong, stringResource(R.string.fab_log_expense), stringResource(R.string.fab_petal_expense)) { actions.onAddExpense(fanVehicle.id) },
                             FanAction(Icons.Outlined.LocalGasStation, stringResource(R.string.action_log_fill_up), stringResource(R.string.fab_petal_fuel)) { actions.onLogFillUp(fanVehicle.id) },
@@ -233,11 +241,21 @@ fun DashboardScreen(
                         )
                         FanFab(
                             actions = fanActions,
-                            label = stringResource(R.string.fab_quick_log),
+                            label = stringResource(if (fanVehicle.access.canEdit) R.string.fab_quick_log else R.string.fab_view_only_label),
                             expanded = fanOpen,
                             onExpandedChange = { fanOpen = it },
                             visible = !pagerState.isScrollInProgress,
                             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
+                        )
+                    }
+                    // The fan's "Theme color" sheet (D-A57): the vehicle's aurora override, applied live.
+                    val themeVehicle = themeFor?.let { id -> vehicles.firstOrNull { it.vehicle.id == id }?.vehicle }
+                    if (themeVehicle != null) {
+                        ThemeColorSheet(
+                            vehicleId = themeVehicle.id,
+                            vehicleName = cardActions.nicknameOf(themeVehicle) ?: themeVehicle.displayName,
+                            onSave = { viewModel.setAuroraOverride(themeVehicle.id, it) },
+                            onDismiss = { themeFor = null },
                         )
                     }
                 }
@@ -273,7 +291,7 @@ private fun DashboardContent(
     val page = pagerState.currentPage.coerceIn(0, vehicles.lastIndex)
 
     // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan.
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp - SHADOW_ROOM)) {
         // D-A43: a small pill at the header's end says there is more to swipe to (and steps there), or, with one car, adds the next.
         // D-A54: on a glass bar, so the title reads as plain text (no aurora ink, no halo).
         GlassGroupHeader(stringResource(R.string.dashboard_vehicles), onGlassBar = true) {
@@ -318,14 +336,19 @@ private fun DashboardContent(
         AnimatedContent(
             targetState = page,
             transitionSpec = {
-                if (reduced) {
+                val transform = if (reduced) {
                     fadeIn() togetherWith fadeOut()
                 } else if (targetState > initialState) {
                     (slideInHorizontally { it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { -it / 3 } + fadeOut())
                 } else {
                     (slideInHorizontally { -it / 3 } + fadeIn()) togetherWith (slideOutHorizontally { it / 3 } + fadeOut())
                 }
+                transform using SizeTransform(clip = false)
             },
+            // D-A55: no clip to the switcher's bounds, which cut the last card's soft shadow off in a straight line
+            // (hard corners under it, during and after the slide); the content carries [SHADOW_ROOM] below itself so
+            // the fade's offscreen layer (sized to the content) holds the whole shadow too.
+            contentAlignment = Alignment.TopCenter,
             label = "perVehicle",
         ) { index ->
             val summary = vehicles.getOrNull(index) ?: return@AnimatedContent
@@ -333,7 +356,7 @@ private fun DashboardContent(
             val attention = dashboard.attention.filter { it.vehicle.id == vehicle.id }
             val fuel = dashboard.recentFuelByVehicle[vehicle.id].orEmpty()
             val reminder = extras[vehicle.id]?.reminder?.takeIf { vehicle.access.canEdit }
-            Column {
+            Column(Modifier.padding(bottom = SHADOW_ROOM)) {
                 GlassGroupHeader(stringResource(R.string.dashboard_attention), onAction = onOpenMaintenance)
                 if (reminder != null) {
                     OdometerReminderRow(
@@ -430,3 +453,9 @@ private fun greetingFor(time: LocalTime): Int = when (time.hour) {
 }
 
 private const val MAX_ATTENTION = 5
+
+/**
+ * Room below the per-vehicle cards for their soft shadow (D-A55): the glass shadow reaches about 15 dp below a card
+ * (10 dp blur, 5 dp drop), so the switcher's content, and the layer its fade draws into, end below it, not on it.
+ */
+private val SHADOW_ROOM = 16.dp

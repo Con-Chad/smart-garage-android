@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
+import io.github.conchad.smartgarage.core.data.AuroraChoice
 import io.github.conchad.smartgarage.core.data.VehicleLocalPrefs
 import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Dashboard
@@ -81,5 +82,10 @@ class DashboardViewModel @Inject constructor(
     /** "Later" on the odometer reminder: quiet for another 30 days. */
     fun snoozeOdometerReminder(vehicleId: String) {
         viewModelScope.launch { prefs.snoozeOdometerReminder(vehicleId) }
+    }
+
+    /** The fan's "Theme color" sheet (D-A57): this vehicle's aurora override; null follows Settings again. */
+    fun setAuroraOverride(vehicleId: String, choice: AuroraChoice?) {
+        viewModelScope.launch { prefs.setAuroraOverride(vehicleId, choice) }
     }
 }

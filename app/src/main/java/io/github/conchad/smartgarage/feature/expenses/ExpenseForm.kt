@@ -1,5 +1,34 @@
 package io.github.conchad.smartgarage.feature.expenses
 
+import android.content.Context
+import android.net.Uri
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.conchad.smartgarage.core.data.ProfileStore
+import io.github.conchad.smartgarage.core.network.ReceiptScanResult
+import io.github.conchad.smartgarage.core.network.ReceiptScanner
+import io.github.conchad.smartgarage.core.network.ServiceReceiptScanResponse
+import io.github.conchad.smartgarage.core.network.documentIdOrNull
+import io.github.conchad.smartgarage.feature.receipts.ReceiptCapture
+import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
+import io.github.conchad.smartgarage.feature.receipts.ReceiptScanButtons
+import io.github.conchad.smartgarage.feature.receipts.ScanMessage
+import io.github.conchad.smartgarage.feature.receipts.ScanReview
+import io.github.conchad.smartgarage.feature.receipts.encodeScanHandoff
+import io.github.conchad.smartgarage.feature.receipts.expenseReview
+import io.github.conchad.smartgarage.feature.receipts.messageRes
+import io.github.conchad.smartgarage.feature.receipts.rememberReceiptCamera
+import io.github.conchad.smartgarage.feature.receipts.rememberReceiptGallery
+import io.github.conchad.smartgarage.feature.receipts.serviceMessage
+import io.github.conchad.smartgarage.ui.files.PickedFile
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
+import io.github.conchad.smartgarage.ui.navigation.RecordFormRoute
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import java.io.File
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +92,15 @@ data class ExpenseFormState(
     val receiptDocumentId: String? = null,
     val receiptTime: LocalDateTime? = null,
     val receiptCurrency: String? = null,
+    /** `/me.features.receiptScannerKinds` contains `service` (D-A56): shows the scan buttons. */
+    val scannerAvailable: Boolean = false,
+    val scanning: Boolean = false,
+    /** The bill photo scanned on this form, kept in `cache/captures/`; null for a scan handed over from a record. */
+    val receiptPhoto: PickedFile? = null,
+    val scanReview: ScanReview? = null,
+    val scanMessage: ScanMessage? = null,
+    /** The same bill as a service record, offered when the scan's `suggestedTarget` is `record` (D-A56). */
+    val recordHandoff: RecordFormRoute? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
     val saving: Boolean = false,
@@ -74,7 +112,10 @@ data class ExpenseFormState(
     val amountCents: Long? get() = formatter.parseNumber(amount)?.let(formatter::centsFromDisplay)
     val amountInvalid: Boolean get() = amount.isNotBlank() && (amountCents == null || amountCents!! < 0)
     val descriptionTooLong: Boolean get() = description.length > 500
-    val canSave: Boolean get() = canEdit && amountCents != null && !amountInvalid && !descriptionTooLong && !saving
+    val canSave: Boolean get() = canEdit && amountCents != null && !amountInvalid && !descriptionTooLong && !saving && !scanning
+
+    /** The buttons show only when the server scans bills and this user may write to the vehicle. */
+    val canScan: Boolean get() = scannerAvailable && canEdit && vehicleId != null && !saving
 
     val foreignCurrency: String? get() = receiptCurrency?.takeIf { !it.equals(formatter.currencyCode, ignoreCase = true) }
 
@@ -103,30 +144,81 @@ fun ExpenseFormState.withRoute(route: ExpenseFormRoute): ExpenseFormState {
     )
 }
 
+/** The expense description's limit on the server. */
+const val EXPENSE_DESCRIPTION_MAX = 500
+
+/**
+ * The form with a service scan (`POST /records/receipt-scan`) read into it (D-A56): date (and printed time for
+ * `occurredAt`), category from `expenseCategory`, total, currency, and a description of the vendor plus the
+ * server's ready-made note (invoice number, other lines), trimmed to [EXPENSE_DESCRIPTION_MAX]. Null draft fields
+ * keep what the form had. When the server says the bill is really a service (`suggestedTarget == "record"`),
+ * [ExpenseFormState.recordHandoff] carries the whole scan to the service record form.
+ */
+fun ExpenseFormState.withServiceScan(response: ServiceReceiptScanResponse): ExpenseFormState {
+    val draft = response.draft ?: return copy(receiptDocumentId = response.documentId, scanReview = null, recordHandoff = null)
+    val time = parseReceiptLocal(draft.performedAtLocal)
+    return copy(
+        category = draft.expenseCategory.uppercase().takeIf { it in EXPENSE_CATEGORIES } ?: category,
+        date = time?.toLocalDate() ?: date,
+        receiptTime = time,
+        amount = draft.totalCostCents?.let(formatter::moneyInput) ?: amount,
+        receiptCurrency = draft.currency?.uppercase() ?: receiptCurrency,
+        description = scannedDescription(description, draft.vendorName, draft.note),
+        receiptDocumentId = response.documentId,
+        scanReview = expenseReview(response),
+        recordHandoff = vehicleId?.takeIf { draft.suggestedTarget == "record" }
+            ?.let { RecordFormRoute(vehicleId = it, scan = encodeScanHandoff(response)) },
+        dirty = true,
+    )
+}
+
+/** What the user had, then the vendor and the note (each only if not already in it), one per line, ≤ 500 chars. */
+internal fun scannedDescription(current: String, vendor: String?, note: String?): String {
+    val kept = current.trim()
+    val added = listOfNotNull(vendor, note).map { it.trim() }.filter { it.isNotEmpty() && !kept.contains(it) }
+    return (listOf(kept).filter { it.isNotEmpty() } + added).joinToString("\n").take(EXPENSE_DESCRIPTION_MAX).trimEnd()
+}
+
 @HiltViewModel
 class ExpenseFormViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val garage: GarageRepository,
     control: SyncControl,
     writer: GarageWriter,
+    profiles: ProfileStore,
+    private val scanner: ReceiptScanner,
+    @ApplicationContext context: Context,
 ) : WritingViewModel(control, writer) {
     private val route = savedStateHandle.toRoute<ExpenseFormRoute>()
+    private val capture = ReceiptCapture(context, savedStateHandle, CAPTURE_PATH)
     private val form = MutableStateFlow(ExpenseFormState())
     val state: StateFlow<ExpenseFormState> = form.asStateFlow()
 
     init {
         viewModelScope.launch {
+            profiles.state.map { it.active?.features?.scansService == true }.distinctUntilChanged()
+                .collect { on -> form.update { it.copy(scannerAvailable = on) } }
+        }
+        viewModelScope.launch {
             val fmt = garage.formatter.first()
             val vehicles = garage.vehicles.first().filter { it.access.canEdit }.sortedWith(GarageMath.vehicleOrder)
             val preselected = route.vehicleId?.takeIf { id -> vehicles.any { it.id == id } } ?: vehicles.firstOrNull()?.id
-            form.value = ExpenseFormState(vehicles = vehicles, vehicleId = preselected, date = fmt.today(), formatter = fmt, loaded = true)
-                .withRoute(route)
+            form.value = ExpenseFormState(
+                vehicles = vehicles,
+                vehicleId = preselected,
+                date = fmt.today(),
+                formatter = fmt,
+                scannerAvailable = form.value.scannerAvailable,
+                loaded = true,
+            ).withRoute(route)
         }
     }
 
     // A scanned bill belongs to the vehicle it was scanned for; the server refuses its document on another one.
     fun selectVehicle(id: String) = form.update {
-        it.copy(vehicleId = id, receiptDocumentId = it.receiptDocumentId.takeIf { _ -> id == it.vehicleId }, dirty = true)
+        if (id == it.vehicleId) return@update it
+        it.receiptPhoto?.let { photo -> capture.fileOf(photo)?.delete() }
+        it.copy(vehicleId = id, receiptDocumentId = null, receiptPhoto = null, scanReview = null, recordHandoff = null, dirty = true)
     }
     fun setCategory(category: String) = form.update { it.copy(category = category, dirty = true) }
     fun setDate(date: LocalDate) = form.update { it.copy(date = date, dirty = true) }
@@ -143,15 +235,82 @@ class ExpenseFormViewModel @Inject constructor(
             form.update { it.copy(saving = false, done = queued, dirty = it.dirty && !queued) }
         }
     }
+
+    // ── Bill scan (D-A56): camera or gallery → `POST /records/receipt-scan` → expense fields ────────────────
+
+    fun startScan(): Uri = capture.start()
+
+    fun captured(success: Boolean) {
+        val file = capture.taken(success) ?: return
+        scan { file }
+    }
+
+    fun picked(uri: Uri) = scan { capture.fromGallery(uri) }
+
+    private fun scan(source: suspend () -> File?) {
+        val vehicleId = form.value.vehicleId ?: return
+        if (form.value.scanning) return
+        form.update { it.copy(scanning = true) }
+        viewModelScope.launch {
+            val file = source()
+            val photo = file?.let { capture.finish(it) }
+            if (file == null || photo == null) {
+                form.update { it.copy(scanning = false, scanMessage = ScanMessage.FileRejected) }
+                return@launch
+            }
+            form.value.receiptPhoto?.let { capture.fileOf(it)?.takeIf { f -> f != file }?.delete() }
+            val result = scanner.scanService(vehicleId, file)
+            form.update { s ->
+                val scanned = s.copy(scanning = false, receiptPhoto = photo, scanMessage = result.serviceMessage())
+                when {
+                    // A fuel receipt goes on the fill-up form; the photo stays unlinked on the server.
+                    result is ReceiptScanResult.Success && "fuel_receipt" in result.response.warnings ->
+                        scanned.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null, recordHandoff = null)
+                            .also { capture.fileOf(photo)?.delete() }
+                    result is ReceiptScanResult.Success -> scanned.withServiceScan(result.response)
+                    // A 502 still saved the photo: keep its id so it is attached to the manual entry.
+                    else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null, recordHandoff = null)
+                }
+            }
+        }
+    }
+
+    fun removeReceiptPhoto() {
+        form.value.receiptPhoto?.let { capture.fileOf(it)?.delete() }
+        form.update { it.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null, recordHandoff = null) }
+    }
+
+    fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }
+    fun galleryUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoGallery) }
+    fun clearScanMessage() = form.update { it.copy(scanMessage = null) }
+
+    private companion object {
+        const val CAPTURE_PATH = "expenseReceiptCapturePath"
+    }
 }
 
 @Composable
-fun ExpenseFormScreen(onClose: () -> Unit, viewModel: ExpenseFormViewModel = hiltViewModel()) {
+fun ExpenseFormScreen(
+    onClose: () -> Unit,
+    onOpenRecord: ((RecordFormRoute) -> Unit)? = null,
+    viewModel: ExpenseFormViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val fmt = state.formatter
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.done) { if (state.done) onClose() }
     DeniedSnackbar(viewModel, snackbar)
+
+    // Bill scan (D-A56): the same camera/gallery pair as the fill-up and service forms.
+    val launchScan = rememberReceiptCamera(viewModel::startScan, viewModel::captured, viewModel::cameraUnavailable)
+    val pickPhoto = rememberReceiptGallery(viewModel::picked, viewModel::galleryUnavailable)
+    val scanMessage = state.scanMessage?.let { stringResource(it.messageRes()) }
+    LaunchedEffect(scanMessage) {
+        if (scanMessage != null) {
+            snackbar.showSnackbar(scanMessage)
+            viewModel.clearScanMessage()
+        }
+    }
 
     val validation = when {
         !state.loaded -> null
@@ -187,6 +346,23 @@ fun ExpenseFormScreen(onClose: () -> Unit, viewModel: ExpenseFormViewModel = hil
             placeholder = stringResource(R.string.form_no_editable_vehicles).takeIf { state.vehicles.isEmpty() },
         )
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
+        if (state.scannerAvailable && state.canEdit) {
+            ReceiptScanButtons(
+                scanning = state.scanning,
+                enabled = state.canScan,
+                onCamera = launchScan,
+                onGallery = pickPhoto,
+                hint = stringResource(R.string.receipt_scan_expense_hint),
+            )
+            state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
+            ScanReviewNote(state.scanReview)
+            val handoff = state.recordHandoff
+            if (handoff != null && onOpenRecord != null) {
+                TextButton(onClick = { onOpenRecord(handoff) }, colors = glassTextButtonColors(), modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(R.string.receipt_scan_save_as_record))
+                }
+            }
+        }
         val categoryLabels = EXPENSE_CATEGORIES.associateWith { expenseCategoryLabel(it) }
         FormPicker(
             label = stringResource(R.string.wishlist_category),
@@ -205,7 +381,8 @@ fun ExpenseFormScreen(onClose: () -> Unit, viewModel: ExpenseFormViewModel = hil
             error = if (state.amountInvalid) stringResource(R.string.form_invalid_number) else null,
             supporting = state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) },
         )
-        if (state.receiptDocumentId != null) ScanReviewNote(review = null, extra = stringResource(R.string.receipt_scan_expense_attached))
+        // A bill handed over from the service form (or a 502 here) is linked without a photo row to show it.
+        if (state.receiptDocumentId != null && state.receiptPhoto == null) ScanReviewNote(review = null, extra = stringResource(R.string.receipt_scan_expense_attached))
         FormNotesField(
             value = state.description,
             onValueChange = viewModel::setDescription,

@@ -243,6 +243,39 @@ fun GlassPillButton(
 }
 
 /**
+ * The app's call-to-action pill (D-A52 on Home's "Add vehicle"; shared since D-A55 with the Vehicles tab's): a
+ * [GlassPillButton] with a fixed white label ([GlassTokens.onPhoto]) on [emphasisPillFill] of the aurora tint and a
+ * 1.5 dp light rim, so it stands out on the aurora and clears 4.5:1 over its lightest band. [compact] for a header
+ * row (36 dp pill, 48 dp touch); [floating] (the full 48 dp pill in a screen's FAB slot) adds the glass lift shadow,
+ * soft and following the stadium.
+ */
+@Composable
+fun GlassEmphasisPill(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    compact: Boolean = false,
+    floating: Boolean = false,
+    textStyle: TextStyle = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+) {
+    val tokens = glass
+    val tint = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
+    val fill = remember(tint) { emphasisPillFill(tint) }
+    GlassPillButton(
+        label = label,
+        onClick = onClick,
+        icon = icon,
+        compact = compact,
+        textStyle = textStyle,
+        contentColor = tokens.onPhoto,
+        fill = fill,
+        border = BorderStroke(1.5.dp, tokens.onPhoto.copy(alpha = EMPHASIS_RIM_ALPHA)),
+        modifier = if (floating && !compact) modifier.glassShadow(CircleShape, elevation = 8.dp, color = tokens.shadow) else modifier,
+    )
+}
+
+/**
  * [GlassPillButton] with its label on two lines (D-A36): [topLine] over [bottomLine], the trailing [icon] right
  * after the second line, so the pill is about half as wide (the vehicle cards' "View" / "all ›"). Same pill fill,
  * border and sheen, a 14 dp-radius rounded rectangle instead of a stadium (a stadium two lines tall would read as

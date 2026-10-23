@@ -85,19 +85,20 @@ private val CORE = 56.dp
 private val PETAL = 46.dp
 private val PETAL_TARGET = 48.dp
 
-/** Distance from the core's centre to a petal's centre when open. */
-private val RADIUS = 124.dp
+/** Distance from the core's centre to a petal's centre when open (124 dp with four petals; 160 since the fifth, D-A57). */
+private val RADIUS = 160.dp
 
 /**
- * The petals' angles, degrees counter-clockwise from "right": a fan toward the upper left (D-A32). Chosen so that
- * at [RADIUS] neighbouring 48 dp targets clear each other (chords 49 / 52 / 58 dp) and the captions to the left of
- * the petals never share a line: their centres are 48.5 / 42 / 28.5 dp apart vertically, more than a `labelMedium`
- * line at font scale 1.3 (≈ 21 dp). Equal 30° steps would leave the top two only 13 dp apart.
+ * The petals' angles, degrees counter-clockwise from "right": a fan toward the upper left (D-A32), five slots since
+ * "Theme color" joined at the bottom (D-A57); fewer actions take the lowest slots. Chosen so that at [RADIUS]
+ * neighbouring 48 dp targets clear each other (chords 50 / 50 / 55 / 61 dp) and the captions to the left of the
+ * petals never share a line: their centres are 49 / 45 / 39 / 25 (+ the elbow's 15) dp apart vertically, more than a
+ * `labelMedium` line at font scale 1.3 (≈ 21 dp), and each caption clears the petal below it by ≥ 5 dp there.
  */
-private val ANGLES = floatArrayOf(180f, 157f, 133f, 106f)
+private val ANGLES = floatArrayOf(180f, 162f, 144f, 124f, 100f)
 
 /** Room the fan's touch targets need around the core: half the core, the radius and half a petal target, rounded up. The captions may draw beyond it. */
-private val EXTENT = 184.dp
+private val EXTENT = 212.dp
 
 /**
  * The connector line from a petal to its caption: it starts [PETAL_GAP] off the petal's drawn edge and ends
@@ -112,10 +113,10 @@ private const val ELBOW_ANGLE = 20f
 private val ELBOW_RUN = 16.dp
 
 /**
- * Which petals' connectors elbow upward, parallel to [ANGLES]. Only the top petal (Scan Receipt, 106°): its caption
- * runs left over the 133° petal, whose top it would otherwise graze at font scale 1.3; the elbow lifts it ≈ 15 dp.
+ * Which petals' connectors elbow upward, parallel to [ANGLES]. Only the top petal (Scan Receipt, 100°): its caption
+ * runs left over the 124° petal, whose top it would otherwise cross; the elbow lifts it ≈ 15 dp.
  */
-private val ELBOW = booleanArrayOf(false, false, false, true)
+private val ELBOW = booleanArrayOf(false, false, false, false, true)
 
 /** A held core or petal shrinks to this (D-A40): the beads are small, so a touch more than a pill. */
 private const val BEAD_PRESS_SCALE = 0.92f
@@ -136,7 +137,7 @@ private const val HIGHLIGHT_ALPHA = 0.16f
 private const val CONNECTOR_ALPHA = 0.6f
 
 /**
- * The radial fan FAB (D-A31, D-A32): an opaque 56 dp "+" that turns into an × and fans **four** 46 dp petals out in
+ * The radial fan FAB (D-A31, D-A32, D-A57): an opaque 56 dp "+" that turns into an × and fans up to **five** 46 dp petals out in
  * a spring arc toward the upper left ([ANGLES] at [RADIUS] from the centre, 45 ms stagger opening, 30 ms closing,
  * petals scale and fade in along the way). Each petal has a thin connector line running left from its edge to a
  * short caption, which animate with it. Core and petals are solid, coloured from the aurora tint in effect

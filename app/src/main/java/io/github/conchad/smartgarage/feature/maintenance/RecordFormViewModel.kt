@@ -27,6 +27,7 @@ import io.github.conchad.smartgarage.core.network.documentIdOrNull
 import io.github.conchad.smartgarage.feature.receipts.ReceiptCapture
 import io.github.conchad.smartgarage.feature.receipts.ScanMessage
 import io.github.conchad.smartgarage.feature.receipts.ScanReview
+import io.github.conchad.smartgarage.feature.receipts.decodeScanHandoff
 import io.github.conchad.smartgarage.feature.receipts.parseReceiptLocal
 import io.github.conchad.smartgarage.feature.receipts.receiptInstant
 import io.github.conchad.smartgarage.feature.receipts.serviceMessage
@@ -45,6 +46,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -298,6 +300,10 @@ class RecordFormViewModel @Inject constructor(
                 formatter = fmt,
                 loaded = true,
             )
+            // A bill scanned on the expense form and handed over (D-A56): fill the new record as after our own scan.
+            decodeScanHandoff(route.scan)?.takeIf { record == null && vehicleId != null && it.draft != null }?.let { response ->
+                form.update { it.withServiceDraft(response) { nextKey++ } }
+            }
         }
     }
 
@@ -365,14 +371,20 @@ class RecordFormViewModel @Inject constructor(
     /** The camera came back: downscale, send to `POST /records/receipt-scan` and fill the form from the draft. */
     fun captured(success: Boolean) {
         val file = capture.taken(success) ?: return
-        val vehicleId = form.value.vehicleId ?: run {
-            file.delete()
-            return
-        }
+        scan { file }
+    }
+
+    /** A photo picked from the gallery (D-A56): copied into the cache, then the same downscale, upload and prefill. */
+    fun picked(uri: Uri) = scan { capture.fromGallery(uri) }
+
+    private fun scan(source: suspend () -> File?) {
+        val vehicleId = form.value.vehicleId ?: return
+        if (form.value.scanning) return
         form.update { it.copy(scanning = true) }
         viewModelScope.launch {
-            val photo = capture.finish(file)
-            if (photo == null) {
+            val file = source()
+            val photo = file?.let { capture.finish(it) }
+            if (file == null || photo == null) {
                 form.update { it.copy(scanning = false, scanMessage = ScanMessage.FileRejected) }
                 return@launch
             }
@@ -385,7 +397,6 @@ class RecordFormViewModel @Inject constructor(
                     result is ReceiptScanResult.Success && "fuel_receipt" in result.response.warnings ->
                         scanned.copy(receiptPhoto = null, receiptDocumentId = null, scanReview = null).also { capture.fileOf(photo)?.delete() }
                     result is ReceiptScanResult.Success -> scanned.withServiceDraft(result.response) { nextKey++ }
-                    // A 502 still saved the photo: keep its id so it is attached to the manual entry.
                     else -> scanned.copy(receiptDocumentId = result.documentIdOrNull(), scanReview = null)
                 }
             }
@@ -398,6 +409,7 @@ class RecordFormViewModel @Inject constructor(
     }
 
     fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }
+    fun galleryUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoGallery) }
     fun clearScanMessage() = form.update { it.copy(scanMessage = null) }
 
     fun save() {

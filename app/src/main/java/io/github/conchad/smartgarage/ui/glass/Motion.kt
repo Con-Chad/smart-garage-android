@@ -7,9 +7,11 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -25,6 +27,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -241,6 +244,23 @@ fun navPopEnter(): EnterTransition = fadeIn(tween(Motion.NAV_POP_MS))
 fun navPopExit(): ExitTransition =
     slideOutHorizontally(tween(Motion.NAV_POP_MS, easing = Motion.SlideOutEasing)) { (it * Motion.NAV_SLIDE_FRACTION).roundToInt() } +
         fadeOut(tween(Motion.NAV_POP_MS, easing = FastOutLinearInEasing))
+
+/**
+ * A drop-down's body opening (D-A55, the vehicle page's drawers): it grows down from its header on the hero's
+ * curve over [Motion.HERO_MS] while fading in over [Motion.SHORT_MS]. The card it sits in follows its height
+ * frame by frame, so the cards below slide along.
+ */
+fun drawerExpand(): EnterTransition =
+    expandVertically(tween(Motion.HERO_MS, easing = Motion.EmphasizedEasing), expandFrom = Alignment.Top) +
+        fadeIn(tween(Motion.SHORT_MS, easing = LinearOutSlowInEasing))
+
+/**
+ * A drop-down's body closing (D-A55): the mirror of [drawerExpand], shrinking up into its header on the same curve
+ * and span while fading out over [Motion.SHORT_MS], so it glides shut instead of snapping.
+ */
+fun drawerCollapse(): ExitTransition =
+    shrinkVertically(tween(Motion.HERO_MS, easing = Motion.EmphasizedEasing), shrinkTowards = Alignment.Top) +
+        fadeOut(tween(Motion.SHORT_MS, easing = FastOutLinearInEasing))
 
 /** [this], or a snap when [reduced]. */
 fun <T> FiniteAnimationSpec<T>.orSnap(reduced: Boolean): FiniteAnimationSpec<T> = if (reduced) snap() else this

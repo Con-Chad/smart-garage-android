@@ -354,7 +354,16 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             }
                             composable<ScheduleFormRoute> { ScheduleFormScreen(onClose = navController::popBackStack) }
                             composable<ScheduleDefaultsRoute> { ScheduleDefaultsScreen(onClose = navController::popBackStack) }
-                            composable<ExpenseFormRoute> { ExpenseFormScreen(onClose = navController::popBackStack) }
+                            composable<ExpenseFormRoute> {
+                                ExpenseFormScreen(
+                                    onClose = navController::popBackStack,
+                                    // "Log as service record instead" (D-A56): the record form replaces this one.
+                                    onOpenRecord = { route ->
+                                        navController.popBackStack()
+                                        navController.navigate(route)
+                                    },
+                                )
+                            }
                             composable<NoteFormRoute> { NoteFormScreen(onClose = navController::popBackStack) }
                             composable<WishlistFormRoute> { WishlistFormScreen(onClose = navController::popBackStack) }
                             composable<VehicleFormRoute> { VehicleFormScreen(onClose = navController::popBackStack) }

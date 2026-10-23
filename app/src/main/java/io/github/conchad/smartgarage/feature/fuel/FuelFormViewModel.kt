@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -279,14 +280,20 @@ class FuelFormViewModel @Inject constructor(
     /** The camera came back: downscale the photo, send it to the [ReceiptScanner] and fill the form from the draft. */
     fun captured(success: Boolean) {
         val file = capture.taken(success) ?: return
-        val vehicleId = form.value.vehicleId ?: run {
-            file.delete()
-            return
-        }
+        scan { file }
+    }
+
+    /** A photo picked from the gallery (D-A56): copied into the cache, then the same downscale, upload and prefill. */
+    fun picked(uri: Uri) = scan { capture.fromGallery(uri) }
+
+    private fun scan(source: suspend () -> File?) {
+        val vehicleId = form.value.vehicleId ?: return
+        if (form.value.scanning) return
         form.update { it.copy(scanning = true) }
         viewModelScope.launch {
-            val photo = capture.finish(file)
-            if (photo == null) {
+            val file = source()
+            val photo = file?.let { capture.finish(it) }
+            if (file == null || photo == null) {
                 form.update { it.copy(scanning = false, scanMessage = ScanMessage.FileRejected) }
                 return@launch
             }
@@ -311,6 +318,7 @@ class FuelFormViewModel @Inject constructor(
     }
 
     fun cameraUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoCamera) }
+    fun galleryUnavailable() = form.update { it.copy(scanMessage = ScanMessage.NoGallery) }
     fun clearScanMessage() = form.update { it.copy(scanMessage = null) }
 
     private companion object {

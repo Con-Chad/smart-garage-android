@@ -410,7 +410,6 @@
     <!-- Receipt scan on the fill-up form (D-A27); shown only when the server announces the feature. -->
     <string name="fuel_scan_receipt">Scan receipt</string>
     <string name="fuel_scan_in_progress">Reading the receipt…</string>
-    <string name="fuel_scan_hint">Take a photo of the receipt and the form fills itself in. You still check and save.</string>
     <string name="fuel_scan_unavailable">Receipt scanning isn\'t available on this server yet.</string>
     <string name="fuel_scan_not_receipt">That doesn\'t look like a fuel receipt. Fill in the form by hand.</string>
     <string name="fuel_scan_rate_limited">Today\'s scan limit is reached. Fill in the form by hand.</string>
@@ -424,7 +423,6 @@
     <string name="receipt_scan_not_service">That doesn\'t look like a workshop invoice or vehicle bill. Fill in the form by hand.</string>
     <string name="receipt_scan_is_fuel">That\'s a fuel receipt. Use Scan receipt on the fill-up form instead.</string>
     <string name="receipt_scan_failed_kept">The receipt couldn\'t be read. The photo is saved and will be attached; fill in the form by hand.</string>
-    <string name="receipt_scan_service_hint">Photograph the invoice and the form fills itself in. You still check and save.</string>
     <string name="receipt_scan_currency">Amounts are in %1$s, as on the receipt.</string>
     <string name="receipt_scan_also_covers">Also on this invoice: %1$s. Log those separately with no cost so their due dates move on.</string>
     <string name="receipt_scan_save_as_expense">Save as expense instead</string>
@@ -440,6 +438,13 @@
     <string name="receipt_warn_pick_schedule">Pick the service schedule yourself.</string>
     <string name="receipt_warn_items_truncated">Only the first 40 parts were taken over.</string>
     <string name="receipt_warn_suggest_expense">This looks like an expense rather than a service.</string>
+    <string name="receipt_scan_pick_gallery">Pick from gallery</string>
+    <string name="receipt_scan_fuel_hint_both">Take a photo of the receipt or pick one from your gallery, and the form fills itself in. You still check and save.</string>
+    <string name="receipt_scan_service_hint_both">Photograph the invoice or pick a photo of it from your gallery, and the form fills itself in. You still check and save.</string>
+    <string name="receipt_scan_expense_hint">Photograph an invoice or bill, or pick a photo of it from your gallery, and the form fills itself in. You still check and save.</string>
+    <string name="receipt_scan_no_gallery">No photo picker is available on this phone.</string>
+    <string name="receipt_scan_save_as_record">Log as service record instead</string>
+    <string name="receipt_warn_suggest_record">This looks like a workshop service; you can log it as a service record instead.</string>
     <string name="fuel_delete_title">Delete this fill-up?</string>
     <string name="fuel_delete_body">The entry is removed from this vehicle\'s fuel history. This can\'t be undone.</string>
     <string name="odometer_form_title">Update odometer</string>
@@ -866,6 +871,11 @@
     <string name="fab_petal_expense">Expense</string>
     <string name="fab_petal_fuel">Fuel</string>
     <string name="fab_petal_scan">Scan Receipt</string>
+    <!-- D-A57: the fan's "Theme color" petal and its sheet (the vehicle's aurora override). -->
+    <string name="fab_theme_color">Change theme color</string>
+    <string name="fab_petal_theme">Theme color</string>
+    <string name="fab_view_only_label">Quick actions</string>
+    <string name="theme_color_title">Theme color</string>
 
     <!-- D-A44: aurora color picker and the local greeting name -->
     <string name="aurora_title">Background color</string>

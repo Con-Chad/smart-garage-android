@@ -4,9 +4,11 @@ import android.content.ActivityNotFoundException
 import android.net.Uri
 import android.text.format.Formatter as FileSize
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -55,32 +59,76 @@ fun rememberReceiptCamera(start: () -> Uri, onResult: (Boolean) -> Unit, onNoCam
 }
 
 /**
- * "Scan receipt" (fuel note 1, D-A27; on the service form too since D-A53): a full-width outlined button, 48 dp like
- * [ActionButton], with [hint] beneath. While the photo is being prepared or read, the icon becomes a spinner and the
- * label says so; the button is disabled meanwhile, so a second tap can't start a second scan.
+ * The Photo Picker for a receipt scan (D-A56): `PickVisualMedia` images only, no storage permission. On phones
+ * without the system picker, androidx falls back to the document picker by itself; no Play Services involved.
+ * [onPicked] gets the chosen photo's URI, or nothing when the user backed out.
  */
 @Composable
-fun ScanReceiptButton(scanning: Boolean, enabled: Boolean, onClick: () -> Unit, hint: String = stringResource(R.string.fuel_scan_hint)) {
+fun rememberReceiptGallery(onPicked: (Uri) -> Unit, onUnavailable: () -> Unit): () -> Unit {
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let(onPicked) }
+    return {
+        try {
+            pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        } catch (_: ActivityNotFoundException) {
+            onUnavailable()
+        }
+    }
+}
+
+/**
+ * The receipt-scan buttons on every form that scans (fuel, service record, expense; D-A27, D-A53, D-A56): "Scan
+ * receipt" takes a new photo with the camera, "Pick from gallery" uses an existing one through the Photo Picker.
+ * Both are outlined, 48 dp, side by side with equal width, with [hint] beneath. While the photo is being prepared
+ * or read, both are disabled (a second tap can't start a second scan) and the hint line becomes a spinner with
+ * "Reading the receipt…".
+ */
+@Composable
+fun ReceiptScanButtons(
+    scanning: Boolean,
+    enabled: Boolean,
+    onCamera: () -> Unit,
+    onGallery: () -> Unit,
+    hint: String = stringResource(R.string.receipt_scan_fuel_hint_both),
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        GlassOutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            if (scanning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = glass.sheen)
-            } else {
-                Icon(Icons.Outlined.DocumentScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ScanSourceButton(Icons.Outlined.DocumentScanner, stringResource(R.string.fuel_scan_receipt), enabled && !scanning, onCamera, Modifier.weight(1f))
+            ScanSourceButton(Icons.Outlined.PhotoLibrary, stringResource(R.string.receipt_scan_pick_gallery), enabled && !scanning, onGallery, Modifier.weight(1f))
+        }
+        if (scanning) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = glass.sheen)
+                Text(
+                    stringResource(R.string.fuel_scan_in_progress),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = glass.textSecondary,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
+        } else {
             Text(
-                stringResource(if (scanning) R.string.fuel_scan_in_progress else R.string.fuel_scan_receipt),
-                modifier = Modifier.padding(start = 8.dp),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = glass.textSecondary,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
-        Text(
-            hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = glass.textSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
+    }
+}
+
+@Composable
+private fun ScanSourceButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    GlassOutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = 8.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -155,6 +203,7 @@ private fun ScanWarning.messageRes(): Int = when (this) {
     ScanWarning.PickSchedule -> R.string.receipt_warn_pick_schedule
     ScanWarning.ItemsTruncated -> R.string.receipt_warn_items_truncated
     ScanWarning.SuggestExpense -> R.string.receipt_warn_suggest_expense
+    ScanWarning.SuggestRecord -> R.string.receipt_warn_suggest_record
 }
 
 fun ScanMessage.messageRes(): Int = when (this) {
@@ -169,4 +218,5 @@ fun ScanMessage.messageRes(): Int = when (this) {
     ScanMessage.Failed -> R.string.fuel_scan_failed
     ScanMessage.FailedPhotoKept -> R.string.receipt_scan_failed_kept
     ScanMessage.NoCamera -> R.string.camera_unavailable
+    ScanMessage.NoGallery -> R.string.receipt_scan_no_gallery
 }

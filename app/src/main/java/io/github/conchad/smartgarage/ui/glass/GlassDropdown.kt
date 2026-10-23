@@ -1,6 +1,6 @@
 package io.github.conchad.smartgarage.ui.glass
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.RowDivider
@@ -33,10 +32,12 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
 /**
  * A [GlassCard] that opens and closes under a bolder metallic header (D-A26): the whole header row is the tap
  * target (≥ 56 dp, so it stays comfortable at font scale 1.3 with two lines), the chevron turns, and the card's
- * size animates so everything laid out below it slides along. TalkBack reads the header as a button with its
- * state ("Registration, collapsed, button"). Under reduced motion the chevron and the size snap.
+ * body grows and shrinks inside the glass ([drawerExpand] / [drawerCollapse], D-A55) so the card's height and
+ * everything laid out below it glide both ways. TalkBack reads the header as a button with its state
+ * ("Registration, collapsed, button"). Under reduced motion the chevron and the body snap.
  *
- * [content] is only composed while [expanded]; the caller keeps the state so it can be saved across rotation.
+ * [content] is composed while [expanded] and while it closes; the caller keeps the state so it can be saved
+ * across rotation.
  */
 @Composable
 fun GlassDropdown(
@@ -54,11 +55,7 @@ fun GlassDropdown(
         label = "chevron",
     )
     val stateText = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
-    GlassCard(
-        modifier = modifier.animateContentSize(
-            animationSpec = Motion.gentleSpring<IntSize>().orSnap(reduced),
-        ),
-    ) {
+    GlassCard(modifier = modifier) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -83,9 +80,17 @@ fun GlassDropdown(
                 modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = rotation },
             )
         }
-        if (expanded) {
-            RowDivider()
-            Column(content = content)
+        // D-A55: the body animates inside the card (it used to be the card's animateContentSize, outside the glass:
+        // closing, the content went at once and the glass snapped shut while only the space below it shrank).
+        AnimatedVisibility(
+            expanded,
+            enter = drawerExpand().orNone(reduced),
+            exit = drawerCollapse().orNone(reduced),
+        ) {
+            Column {
+                RowDivider()
+                Column(content = content)
+            }
         }
     }
 }

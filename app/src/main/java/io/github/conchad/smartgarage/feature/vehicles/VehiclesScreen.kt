@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.Icon
@@ -56,8 +57,8 @@ import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.SyncBanner
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
-import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.glass.AuroraTint
+import io.github.conchad.smartgarage.ui.glass.GlassEmphasisPill
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
@@ -73,7 +74,7 @@ import java.time.Instant
 /**
  * The vehicles list on glass (D-A24, notes item 3): each card is a frosted panel with the chrome frame around the
  * photo, the same long-press menu and nickname as the home card, and since D-A32 the home card's "Quick info"
- * drop-down (insurance, mileage, inspection with Add / Update). The cards arrive with the tab's fade (D-A51). Add FAB,
+ * drop-down (insurance, mileage, inspection with Add / Update). The cards arrive with the tab's fade (D-A51). Add pill (D-A55),
  * sync banner and the shared-by line stay as they were.
  *
  * The drop-down's per-vehicle policy, inspection and last odometer reading come from the same [DashboardViewModel]
@@ -102,7 +103,10 @@ fun VehiclesScreen(
             AppScaffold(
                 title = { MetallicText(stringResource(R.string.nav_vehicles), style = MaterialTheme.typography.titleLarge, animated = true) },
                 transparent = true,
-                floatingActionButton = { if (state.loaded) AddFab(stringResource(R.string.action_add_vehicle), onClick = onAddVehicle) },
+                // D-A55: the app's glass call-to-action pill (as Home's "Add vehicle"), not a Material extended FAB.
+                floatingActionButton = {
+                    if (state.loaded) GlassEmphasisPill(stringResource(R.string.action_add_vehicle), onClick = onAddVehicle, icon = Icons.Outlined.Add, floating = true)
+                },
                 snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
                 Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {

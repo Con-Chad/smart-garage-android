@@ -55,10 +55,11 @@ import io.github.conchad.smartgarage.ui.components.unitLabel
 import io.github.conchad.smartgarage.ui.links.dueCalendarEvent
 import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.feature.receipts.ReceiptPhotoRow
-import io.github.conchad.smartgarage.feature.receipts.ScanReceiptButton
+import io.github.conchad.smartgarage.feature.receipts.ReceiptScanButtons
 import io.github.conchad.smartgarage.feature.receipts.ScanReviewNote
 import io.github.conchad.smartgarage.feature.receipts.messageRes
 import io.github.conchad.smartgarage.feature.receipts.rememberReceiptCamera
+import io.github.conchad.smartgarage.feature.receipts.rememberReceiptGallery
 import io.github.conchad.smartgarage.ui.navigation.ExpenseFormRoute
 
 /** Log or edit a service (D-A20): vehicle and schedule, date, odometer, cost, shop, notes, then the parts. */
@@ -79,6 +80,7 @@ fun RecordFormScreen(
 
     // Receipt scan (D-A53): same camera flow and look as the fill-up form's.
     val launchScan = rememberReceiptCamera(viewModel::startScan, viewModel::captured, viewModel::cameraUnavailable)
+    val pickPhoto = rememberReceiptGallery(viewModel::picked, viewModel::galleryUnavailable)
     val scanMessage = state.scanMessage?.let { stringResource(it.messageRes()) }
     LaunchedEffect(scanMessage) {
         if (scanMessage != null) {
@@ -123,14 +125,17 @@ fun RecordFormScreen(
         if (state.vehicle != null && !state.canEdit) ViewOnlyNote(state.vehicle?.owner?.name)
         // Only servers that list the "service" scan get the button, and only on a new record (D-A53).
         if (state.scannerAvailable && !state.editing && state.canEdit) {
-            ScanReceiptButton(
+            ReceiptScanButtons(
                 scanning = state.scanning,
-                enabled = state.canScan && !state.scanning,
-                onClick = launchScan,
-                hint = stringResource(R.string.receipt_scan_service_hint),
+                enabled = state.canScan,
+                onCamera = launchScan,
+                onGallery = pickPhoto,
+                hint = stringResource(R.string.receipt_scan_service_hint_both),
             )
             state.receiptPhoto?.let { ReceiptPhotoRow(it, onRemove = viewModel::removeReceiptPhoto, linked = state.receiptDocumentId != null) }
             val extra = listOfNotNull(
+                // Handed over from the expense form's scan (D-A56): the document is linked, but there is no local photo.
+                stringResource(R.string.receipt_scan_expense_attached).takeIf { state.receiptPhoto == null && state.receiptDocumentId != null },
                 state.foreignCurrency?.let { stringResource(R.string.receipt_scan_currency, it) },
                 state.alsoCovers.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.receipt_scan_also_covers, it.joinToString(", ")) },
             ).joinToString("\n").ifEmpty { null }
