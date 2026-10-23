@@ -1526,3 +1526,18 @@ App decisions use the `D-A` prefix.
     frame. Measured (release, Pixel, framestats over 12 scripted swipes): the ink costs ~0.1 ms of
     UI-thread draw recording per scroll frame on Home and ~0.08 ms on the vehicle page, nothing on
     RenderThread/GPU; janky ≤ 0.1 %, p99 10–11 ms on Home / vehicle / Service, same as ink off.
+- **D-A49 (2026-10-23) — Dark-grey adaptive ink; vehicle page bar title fades, bar has no bottom edge.**
+  - **Ink (user)**: the adaptive ink's dark end (text and pills alike, `auroraInk` and the composed `pillInk`) is a
+    new shared token `GlassTokens.inkDark` #474B54 (L 0.070) instead of `onPale` #1B2130, which keeps its other uses
+    (FAB on a pale car, switches, picker). D-A48's mapping is unchanged (white ≤ L 0.32, grey between, dark ≥ 0.50,
+    centre 0.40). #474B54 clears 4.6:1 at L 0.50 (where the ink first turns fully dark), 4.9:1 on the Pixel's lightest
+    green aurora (L 0.54), 7.7:1 on the light theme's page; on the composed pill estimate for a white car (L ≈ 0.24)
+    neither ink reaches 3:1 (white 2.86, grey 2.82). Pixel: "Vehicle details" in the lightest band renders ≈ #4E525B.
+  - **Bar title (vehicle page)**: the name still switches on `firstVisibleItemIndex >= 1` (derivedStateOf), but now
+    fades over `Motion.SHORT_MS` (200 ms, FastOutSlowIn) via animateFloatAsState read in a graphicsLayer (draw phase);
+    composed only while alpha > 0; reduced motion snaps. Screenrecord: 0 → 1 over ~12 frames at 60 fps, and back.
+  - **No bar edge (vehicle page only)**: `AppScaffold(softBarEdge = true)` turns off the bar's own scrolled colour and
+    draws the glass panel itself, feathering out over `GlassTokens.barFeather` (28 dp) below the bar (eased stops,
+    alpha animated on the overlapped flag, draw phase). The list's straight clip under the bar is hidden too:
+    `Modifier.fadingTopEdge` erases (DstOut) its top 28 dp once scrolled; offscreen layer only while scrolled.
+    Other screens keep the plain bar.

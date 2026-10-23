@@ -48,7 +48,7 @@ import kotlin.math.sin
 /*
  * Adaptive ink (D-A46): text that sits directly on the aurora (screen titles, group headers, section labels, the
  * greeting, Home's pills) takes its colour from the aurora behind it, white over the dark lower part of a gradient
- * and near-black over its lightest part, fading continuously through grey between (D-A48: grey may rest on a
+ * and dark grey ([GlassTokens.inkDark], D-A49) over its lightest part, fading continuously through grey between (D-A48: grey may rest on a
  * mid-tone), and following the text as it scrolls.
  *
  * Cost by design:
@@ -201,7 +201,7 @@ val LocalAuroraInk = staticCompositionLocalOf<AuroraInkSpec?> { null }
  * Inks this content by the aurora behind it (D-A46). Put it last in a chain (after paddings and surfaces), so only
  * the glyphs and icons drawn inside are recoloured, not a pill's fill or its ripple. With [sheen] the metallic
  * title's band (D-A24, D-A38) sweeps over the ink. Light and dark ink are [GlassTokens.onPhoto] and
- * [GlassTokens.onPale]. A no-op where there is no aurora map.
+ * [GlassTokens.inkDark] (D-A49). A no-op where there is no aurora map.
  */
 fun Modifier.auroraInk(spec: AuroraInkSpec = AuroraInkSpec.Text, sheen: State<Float>? = null): Modifier = this
     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
@@ -311,7 +311,7 @@ private class AuroraInkNode(
         }
         val t = tokens ?: return
         light = t.onPhoto
-        dark = t.onPale
+        dark = t.inkDark
     }
 
     /** Samples the targets at the current placement from the cached inputs and starts easing toward them. */

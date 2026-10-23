@@ -55,6 +55,7 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AppScaffold
+import io.github.conchad.smartgarage.ui.components.fadingTopEdge
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DetailRow
 import io.github.conchad.smartgarage.ui.components.DueRow
@@ -80,6 +81,12 @@ import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
 import io.github.conchad.smartgarage.ui.glass.Motion
+import io.github.conchad.smartgarage.ui.glass.orSnap
+import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import io.github.conchad.smartgarage.ui.glass.drawerSlide
 import io.github.conchad.smartgarage.ui.glass.popOutFade
 import io.github.conchad.smartgarage.ui.glass.rememberPopOut
@@ -148,6 +155,15 @@ fun VehicleDetailScreen(
 
     // The photo card carries the vehicle's name (note 13); the bar takes the name over once that scrolls away.
     val headingGone by remember { derivedStateOf { listState.firstVisibleItemIndex >= 1 } }
+    // D-A49: the bar's name fades in as the photo card leaves (and out as it returns) instead of popping in. The
+    // threshold above flips once per crossing; the eased alpha is read only in the draw phase, and the title stays
+    // composed only while it is visible at all, so neither the scroll nor the fade recomposes per frame.
+    val titleAlpha = animateFloatAsState(
+        if (headingGone) 1f else 0f,
+        tween<Float>(Motion.SHORT_MS, easing = FastOutSlowInEasing).orSnap(rememberReducedMotion()),
+        label = "barTitle",
+    )
+    val titleShown by remember { derivedStateOf { titleAlpha.value > 0f } }
     // One gyroscope pointer for the photo card and the figure tiles (D-A30).
     val tilt = rememberTilt()
     // Leaving by Back (D-A43): the cards bulge and shrink away together while the hero glides home; the bar fades with them.
@@ -157,10 +173,12 @@ fun VehicleDetailScreen(
             AppScaffold(
                 transparent = true,
                 topBarModifier = Modifier.popOutFade(popOut),
+                // D-A49: no hard line under the bar's glass on this page; it feathers into the cards.
+                softBarEdge = true,
                 title = {
                     val vehicle = detail?.vehicle
-                    if (headingGone && vehicle != null) {
-                        MetallicText(cardActions.titleOf(vehicle), style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (titleShown && vehicle != null) {
+                        MetallicText(cardActions.titleOf(vehicle), Modifier.graphicsLayer { alpha = titleAlpha.value }, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 onBack = onBack,
@@ -308,7 +326,11 @@ private fun VehicleDetailContent(
     // Every item has a stable key and a content type (D-A42), so a row appearing above (the pending mark) keeps the
     // scroll anchored and only like composes into like. The order is unchanged: the pop-in stagger is claimed in
     // first-composition order, which is still top to bottom.
-    LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize()) {
+    // D-A49: once scrolled, the cards fade out under the bar's feathered glass instead of being cut on a line.
+    val scrolled by remember(listState) { derivedStateOf { listState.canScrollBackward } }
+    val edgeFade = animateFloatAsState(if (scrolled) 1f else 0f, tween<Float>(Motion.SHORT_MS).orSnap(rememberReducedMotion()), label = "edgeFade")
+    val feather = glass.barFeather
+    LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize().fadingTopEdge(feather) { edgeFade.value }) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.

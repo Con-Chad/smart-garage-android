@@ -6,10 +6,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** D-A46, D-A48: the backdrop luminance → ink mapping and the aurora colour map. */
+/** D-A46, D-A48, D-A49: the backdrop luminance → ink mapping and the aurora colour map. */
 class AdaptiveInkTest {
     private val light = DarkGlassTokens.onPhoto
-    private val dark = DarkGlassTokens.onPale
+    private val dark = DarkGlassTokens.inkDark
     private val lightLum = light.luminance()
     private val darkLum = dark.luminance()
 
@@ -42,6 +42,17 @@ class AdaptiveInkTest {
         assertEquals(light, inkOn(AdaptiveInk.BAND_LO))
         assertEquals(dark, inkOn(AdaptiveInk.BAND_HI))
         assertEquals(dark, inkOn(1f))
+    }
+
+    @Test
+    fun `dark end is the dark grey, at least 4_5 to 1 wherever it is fully applied (D-A49)`() {
+        assertEquals(Color(0xFF474B54), dark)
+        var l = AdaptiveInk.BAND_HI
+        while (l <= 1f) {
+            assertEquals(dark, inkOn(l))
+            assertTrue("contrast at $l", (l + 0.05f) / (darkLum + 0.05f) >= 4.5f)
+            l += 0.01f
+        }
     }
 
     @Test

@@ -53,6 +53,18 @@ import io.github.conchad.smartgarage.ui.glass.onAuroraInk
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
+import io.github.conchad.smartgarage.ui.glass.Motion
+import io.github.conchad.smartgarage.ui.glass.orSnap
+import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 
 /**
  * The height of the shell's floating bottom bar (navigation bar included) that a screen draws under, or 0 where the
@@ -108,24 +120,31 @@ fun AppScaffold(
     transparent: Boolean = true,
     /** On the top bar alone, e.g. the vehicle page fading its bar while its cards pop out (D-A43). */
     topBarModifier: Modifier = Modifier,
+    /**
+     * A transparent bar's scrolled glass without its hard bottom edge (D-A49, the vehicle page): the panel fills the
+     * bar and feathers out over [GlassTokens.barFeather] below it instead of ending in a line.
+     */
+    softBarEdge: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     // D-A46: a transparent bar's title sits on the aurora, so it takes the adaptive ink; once content scrolls under
     // the bar its glass panel lies between, which the ink accounts for.
     val panel = glass.panel
-    val barInk = remember(scrollBehavior, panel) {
-        // D-A48: overlappedFraction moves on every scroll frame; the ink only needs to hear when it crosses the
-        // threshold, so the derived flag spares the ink node a snapshot notification and a resample per frame.
-        val overlapped = derivedStateOf { (scrollBehavior?.state?.overlappedFraction ?: 0f) > 0.01f }
-        AuroraInkSpec { if (overlapped.value) panel else Color.Transparent }
-    }
+    // D-A48: overlappedFraction moves on every scroll frame; the ink and the soft edge only need to hear when it
+    // crosses the threshold, so the derived flag spares them a snapshot notification and a resample per frame.
+    val overlapped = remember(scrollBehavior) { derivedStateOf { (scrollBehavior?.state?.overlappedFraction ?: 0f) > 0.01f } }
+    val barInk = remember(overlapped, panel) { AuroraInkSpec { if (overlapped.value) panel else Color.Transparent } }
+    val soft = transparent && softBarEdge
+    // The soft edge draws the panel itself, fading it in and out as the bar's own scrolled colour would.
+    val softAlpha = animateFloatAsState(if (soft && overlapped.value) 1f else 0f, tween<Float>(Motion.SHORT_MS).orSnap(rememberReducedMotion()), label = "barGlass")
+    val feather = glass.barFeather
     Scaffold(
         modifier = if (scrollBehavior != null) modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else modifier,
         containerColor = if (transparent) Color.Transparent else MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { CompositionLocalProvider(LocalAuroraInk provides if (transparent) barInk else null, content = title) },
-                modifier = topBarModifier,
+                modifier = if (soft) topBarModifier.softBarGlass(panel, feather) { softAlpha.value } else topBarModifier,
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
@@ -135,7 +154,9 @@ fun AppScaffold(
                 },
                 actions = { actions() },
                 scrollBehavior = scrollBehavior,
-                colors = if (transparent) {
+                colors = if (soft) {
+                    TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent)
+                } else if (transparent) {
                     TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel)
                 } else {
                     TopAppBarDefaults.topAppBarColors()
@@ -149,6 +170,58 @@ fun AppScaffold(
         content = content,
     )
 }
+
+/**
+ * The bar's glass [panel] over its whole height, then feathering to nothing over [feather] below it (D-A49): no hard
+ * bottom line. Eased stops, so the fade has no visible start either. [alpha] is read in the draw phase only, so its
+ * animation repaints without recomposing; the brush is rebuilt only when the size changes.
+ */
+private fun Modifier.softBarGlass(panel: Color, feather: Dp, alpha: () -> Float): Modifier = drawWithCache {
+    val f = feather.toPx()
+    val total = size.height + f
+    val edge = size.height / total
+    val brush = Brush.verticalGradient(
+        0f to panel,
+        edge to panel,
+        edge + (1f - edge) * 0.25f to panel.copy(alpha = panel.alpha * 0.80f),
+        edge + (1f - edge) * 0.50f to panel.copy(alpha = panel.alpha * 0.45f),
+        edge + (1f - edge) * 0.75f to panel.copy(alpha = panel.alpha * 0.15f),
+        1f to panel.copy(alpha = 0f),
+        startY = 0f,
+        endY = total,
+    )
+    onDrawBehind {
+        val a = alpha()
+        if (a > 0f) drawRect(brush, size = Size(size.width, total), alpha = a)
+    }
+}
+
+/**
+ * Fades a scrolling list's top [length] out instead of cutting it at its bounds (D-A49, the vehicle page under its
+ * soft-edged bar), so no straight edge of clipped cards shows where the bar's glass feathers out. [strength] (0..1,
+ * read in the draw and layer phases only) ramps it in once content has scrolled; at 0 the list draws as before, with
+ * no offscreen layer.
+ */
+fun Modifier.fadingTopEdge(length: Dp, strength: () -> Float): Modifier = this
+    .graphicsLayer { compositingStrategy = if (strength() > 0f) CompositingStrategy.Offscreen else CompositingStrategy.Auto }
+    .drawWithCache {
+        val l = length.toPx()
+        // Erases (DstOut) fully at the top and not at all at [length], on eased stops.
+        val mask = Brush.verticalGradient(
+            0f to Color.Black,
+            0.25f to Color.Black.copy(alpha = 0.80f),
+            0.50f to Color.Black.copy(alpha = 0.45f),
+            0.75f to Color.Black.copy(alpha = 0.15f),
+            1f to Color.Transparent,
+            startY = 0f,
+            endY = l,
+        )
+        onDrawWithContent {
+            drawContent()
+            val a = strength()
+            if (a > 0f) drawRect(mask, size = Size(size.width, l), alpha = a, blendMode = BlendMode.DstOut)
+        }
+    }
 
 /**
  * Icon in a glass circle, one line saying what is missing, an optional explanation and the action that fills it

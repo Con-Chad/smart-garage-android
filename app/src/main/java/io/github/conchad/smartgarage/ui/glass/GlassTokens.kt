@@ -90,9 +90,22 @@ data class GlassTokens(
      * [onPhoto]; also shared by both sets, since the fill it sits on is the car's colour, not the theme's.
      */
     val onPale: Color,
+    /**
+     * The dark end of the adaptive ink on the aurora, for text and pills alike (D-A49): a dark grey rather than
+     * [onPale]'s near-black, so the lightest bands read softer. #474B54 (L 0.070) still clears 4.5:1 at the
+     * backdrop luminance where the ink first turns fully dark ([AdaptiveInk.BAND_HI] 0.50: 4.6:1), 4.9:1 on the
+     * Pixel's lightest green aurora (L 0.54) and 7.7:1 on the light theme's page. Shared by both sets.
+     */
+    val inkDark: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
+
+    /**
+     * How far below its bounds a soft-edged top bar's glass fades out (D-A49, the vehicle page): the bar has no hard
+     * bottom line, its panel feathers into the content instead.
+     */
+    val barFeather: Dp get() = 28.dp
 }
 
 // Shared by both sets: a photo is neither light nor dark themed.
@@ -100,6 +113,7 @@ private val PhotoScrim = listOf(Color.Transparent, Color(0xB3000000), Color(0xD9
 private val OnPhoto = Color(0xFFF4F6FB)
 private val OnPhotoSecondary = Color(0xFFC7CCDB)
 private val OnPale = Color(0xFF1B2130)
+private val InkDark = Color(0xFF474B54)
 
 val DarkGlassTokens = GlassTokens(
     dark = true,
@@ -135,6 +149,7 @@ val DarkGlassTokens = GlassTokens(
     onPhoto = OnPhoto,
     onPhotoSecondary = OnPhotoSecondary,
     onPale = OnPale,
+    inkDark = InkDark,
 )
 
 val LightGlassTokens = GlassTokens(
@@ -171,6 +186,7 @@ val LightGlassTokens = GlassTokens(
     onPhoto = OnPhoto,
     onPhotoSecondary = OnPhotoSecondary,
     onPale = OnPale,
+    inkDark = InkDark,
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

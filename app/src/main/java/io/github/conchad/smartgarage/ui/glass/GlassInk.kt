@@ -12,23 +12,22 @@ import androidx.compose.ui.graphics.luminance
 /*
  * Pill ink (D-A43): the labels and little arrows of the pills and text actions that sit over the aurora ("View all",
  * "Quick info", the group headers' "See all", Home's "Swipe to view more" / "Add vehicle") are white, not the gold
- * sheen, and turn near-black ([GlassTokens.onPale]) when what is behind them is light: the light theme, or a pale
+ * sheen, and turn dark grey ([GlassTokens.inkDark], D-A49) when what is behind them is light: the light theme, or a pale
  * aurora (white, silver, a pale user-chosen tint). The check runs on the tint the shell actually draws
  * ([AuroraTintHolder.effective]), so it follows any theme colour, not only the car's.
  *
  * D-A46: inside the shell that choice is refined per pixel row by the adaptive ink ([auroraInk], [rememberPillInkSpec]):
- * the label follows the aurora actually behind the pill, white → grey → near-black, at the same 3:1 floor and with
- * the same preference for white. [pillInk] remains the composed colour, used where there is no aurora map.
+ * the label follows the aurora actually behind the pill, white → grey → dark grey (D-A48's continuous mapping). [pillInk] remains the composed colour, used where there is no aurora map.
  */
 
 /**
  * White on the pill while it keeps at least [PILL_INK_MIN_CONTRAST] against the estimated backdrop, else
- * [GlassTokens.onPale]. The user asked for white wherever it reads, so white wins any backdrop it clears 3:1 on
+ * [GlassTokens.inkDark] (D-A49). The user asked for white wherever it reads, so white wins any backdrop it clears 3:1 on
  * (WCAG's floor for UI components and bold labels) rather than whichever of the two contrasts more.
  */
 fun pillInk(tokens: GlassTokens, tint: Color): Color {
     val backdrop = estimatedPillBackdrop(tokens, tint)
-    return if (contrastRatio(tokens.onPhoto, backdrop) >= PILL_INK_MIN_CONTRAST) tokens.onPhoto else tokens.onPale
+    return if (contrastRatio(tokens.onPhoto, backdrop) >= PILL_INK_MIN_CONTRAST) tokens.onPhoto else tokens.inkDark
 }
 
 /**
