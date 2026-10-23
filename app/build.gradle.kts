@@ -82,6 +82,12 @@ android {
         buildConfig = true
     }
 
+    // ONNX Runtime's native libs (:ocr) are stored compressed and extracted at install (user's choice, D-A61):
+    // a smaller APK download for a little more space on the phone. AGP sets extractNativeLibs="true" from this.
+    packaging {
+        jniLibs { useLegacyPackaging = true }
+    }
+
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 
