@@ -106,9 +106,11 @@ fun AuroraBackground(tint: Color, modifier: Modifier = Modifier, content: @Compo
     val tokens = glass
     val animate = rememberAmbientMotion()
     val palette = VehicleTint.palette(tint)
-    val c0 = animateColorAsState(palette[0], tween(Motion.TINT_MS), label = "aurora0")
-    val c1 = animateColorAsState(palette[1], tween(Motion.TINT_MS), label = "aurora1")
-    val c2 = animateColorAsState(palette[2], tween(Motion.TINT_MS), label = "aurora2")
+    // Reduced motion swaps the tint at once instead of cross-fading it (D-A44).
+    val fade = tween<Color>(Motion.TINT_MS).orSnap(rememberReducedMotion())
+    val c0 = animateColorAsState(palette[0], fade, label = "aurora0")
+    val c1 = animateColorAsState(palette[1], fade, label = "aurora1")
+    val c2 = animateColorAsState(palette[2], fade, label = "aurora2")
     // Null when static: the ribbons then sit at the parked keyframe fractions below.
     val clock: State<Long>? = if (animate) rememberAmbientClock(AURORA_FRAME_MS) else null
 

@@ -44,6 +44,8 @@ class OutboxReplay(
     private val connection: ServerConnection,
     private val store: GarageStore,
     private val files: StagedFiles,
+    /** Called when a vehicle created offline gets its server id, so device-local per-vehicle prefs follow it (D-A44). */
+    private val onVehicleAdopted: suspend (tempId: String, serverId: String) -> Unit = { _, _ -> },
 ) {
     suspend fun run(): ReplayOutcome {
         while (true) {
@@ -143,6 +145,7 @@ class OutboxReplay(
             }
             val later = store.entries().filter { it.seq > entry.seq && it.references(tempId) }
             if (later.isNotEmpty()) store.update(later.map { it.remapped(tempId, serverId) })
+            if (entry.resource == "vehicles") onVehicleAdopted(tempId, serverId)
         }
         val row = if (laterEdit && local != null) {
             local.copy(

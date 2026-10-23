@@ -49,6 +49,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.outlined.Gradient
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.input.ImeAction
+import io.github.conchad.smartgarage.core.data.AuroraChoice
+import io.github.conchad.smartgarage.core.data.withLocalName
+import io.github.conchad.smartgarage.ui.components.forms.FormTextField
+import io.github.conchad.smartgarage.ui.glass.AuroraColorSetting
+import io.github.conchad.smartgarage.ui.glass.AuroraPresets
+import kotlinx.coroutines.delay
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -92,7 +103,8 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
     val profile = state.profile ?: return
-    val account = profile.account
+    // Shown with the name set below (D-A44), as Home greets with it.
+    val account = profile.account?.withLocalName(profile.localName)
     val snackbar = remember { SnackbarHostState() }
     PushTestSnackbar(state.push.testOutcome, snackbar, viewModel::pushTestShown)
 
@@ -118,6 +130,11 @@ fun SettingsScreen(
                             },
                             leadingContent = { Avatar(account.greetingName, size = 48) },
                             colors = transparentRow(),
+                        )
+                        LocalNameField(
+                            saved = profile.localName,
+                            fallback = profile.account?.greetingName ?: account.greetingName,
+                            onSave = viewModel::setLocalName,
                         )
                         RowDivider()
                     }
@@ -202,6 +219,8 @@ fun SettingsScreen(
                         colors = transparentRow(),
                         modifier = Modifier.clickable { viewModel.setDynamicColor(!state.appearance.dynamicColor) },
                     )
+                    RowDivider()
+                    AuroraSettingRows(state.aurora, viewModel::setAurora)
                 }
             }
 
@@ -475,6 +494,70 @@ private fun ThemeModeSelector(selected: ThemeMode, onSelect: (ThemeMode) -> Unit
             ) { Text(stringResource(labels.getValue(mode))) }
         }
     }
+}
+
+/**
+ * The app-wide aurora color (D-A44). The switch and presets save at once; a wheel or slider drag is held locally
+ * and saved once it rests for [AURORA_SAVE_DELAY_MS], so a drag doesn't write the preferences every frame.
+ */
+@Composable
+private fun AuroraSettingRows(saved: AuroraChoice, onSave: (AuroraChoice) -> Unit) {
+    var draft by remember { mutableStateOf<AuroraChoice?>(null) }
+    val shown = draft ?: saved
+    // The color the picker opens on when the switch goes off: the last custom one, else the first preset.
+    var lastColor by rememberSaveable { mutableStateOf((saved as? AuroraChoice.Custom)?.argb ?: AuroraPresets.first()) }
+    LaunchedEffect(draft) {
+        val pending = draft ?: return@LaunchedEffect
+        delay(AURORA_SAVE_DELAY_MS)
+        onSave(pending)
+    }
+    LaunchedEffect(saved) { if (saved == draft) draft = null }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.aurora_title)) },
+        leadingContent = { IconBadge(Icons.Outlined.Gradient) },
+        colors = transparentRow(),
+    )
+    AuroraColorSetting(
+        match = shown == AuroraChoice.MatchVehicle,
+        onMatchChange = { on ->
+            draft = if (on) AuroraChoice.MatchVehicle else AuroraChoice.Custom(lastColor)
+        },
+        color = Color((shown as? AuroraChoice.Custom)?.argb ?: lastColor),
+        onColorChange = { c ->
+            lastColor = c.toArgb()
+            draft = AuroraChoice.Custom(c.toArgb())
+        },
+        matchDescription = stringResource(
+            if (shown == AuroraChoice.MatchVehicle) R.string.settings_aurora_match_desc else R.string.settings_aurora_custom_desc,
+        ),
+    )
+}
+
+private const val AURORA_SAVE_DELAY_MS = 250L
+
+/**
+ * The greeting name on this phone (D-A44): Home says "Good morning, <name>" with it instead of the account's
+ * name. Saved shortly after typing stops, and on Done; empty falls back to [fallback].
+ */
+@Composable
+private fun LocalNameField(saved: String?, fallback: String, onSave: (String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf(saved.orEmpty()) }
+    LaunchedEffect(text) {
+        if (text.trim() == saved.orEmpty()) return@LaunchedEffect
+        delay(600)
+        onSave(text)
+    }
+    FormTextField(
+        value = text,
+        onValueChange = { if (it.length <= 60) text = it },
+        label = stringResource(R.string.settings_your_name),
+        supporting = stringResource(R.string.settings_your_name_desc, fallback),
+        capitalizeWords = true,
+        imeAction = ImeAction.Done,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .onFocusChanged { if (!it.isFocused && text.trim() != saved.orEmpty()) onSave(text) },
+    )
 }
 
 @Composable

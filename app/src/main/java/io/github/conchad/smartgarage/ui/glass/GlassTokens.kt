@@ -204,3 +204,12 @@ val glass: GlassTokens
     @Composable
     @ReadOnlyComposable
     get() = LocalGlassTokens.current
+
+/**
+ * The preset swatches of the aurora color picker (D-A44), in hue order with the steel last. Packed ARGB; the
+ * names are string resources in the picker. Close to [VehicleTint]'s color words, so a preset looks like a car.
+ */
+val AuroraPresets: List<Int> = listOf(
+    0xFFD0302C, 0xFFE87A2A, 0xFFD4AF37, 0xFFE8C62A, 0xFF2E9A55, 0xFF1F8A8A,
+    0xFF7CB8E8, 0xFF2F6FD6, 0xFF1F3A7A, 0xFF7A3AB8, 0xFFD03A8C, 0xFF9FB3C8,
+).map { it.toInt() }

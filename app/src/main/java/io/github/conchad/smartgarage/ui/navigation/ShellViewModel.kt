@@ -3,11 +3,17 @@ package io.github.conchad.smartgarage.ui.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.PhotoStore
+import io.github.conchad.smartgarage.core.data.VehicleLocalPrefs
 import io.github.conchad.smartgarage.core.push.PushTapRouter
 import io.github.conchad.smartgarage.core.push.PushTarget
 import io.github.conchad.smartgarage.core.sync.SyncEngine
+import io.github.conchad.smartgarage.ui.glass.AuroraChoices
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -16,7 +22,13 @@ class ShellViewModel @Inject constructor(
     private val sync: SyncEngine,
     val photos: PhotoStore,
     private val pushTaps: PushTapRouter,
+    settings: AppSettings,
+    vehiclePrefs: VehicleLocalPrefs,
 ) : ViewModel() {
+    /** The aurora color choices (D-A44): Settings' app-wide one and each vehicle's override. */
+    val auroraChoices: StateFlow<AuroraChoices> = combine(settings.aurora, vehiclePrefs.auroraOverrides, ::AuroraChoices)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AuroraChoices())
+
     /** A tapped notification waiting to be opened (D-A29); the shell for its profile navigates and consumes it. */
     val pendingPush: StateFlow<PushTarget?> = pushTaps.pending
 

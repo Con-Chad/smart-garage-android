@@ -322,6 +322,22 @@ class OutboxTest {
     }
 
     @Test
+    fun `a vehicle created offline hands its temp and server ids to the local prefs hook`() = runTest {
+        val vehicleId = (writes.addVehicle(VehicleInput(make = "Mazda", model = "MX-5", productionYear = 2019, currentOdometerKm = 1000)) as WriteResult.Queued).id
+        val api = api { call ->
+            when (call.line) {
+                "POST /api/v1/vehicles" -> ok("""{"id":"v9","ownerUserId":"u1","access":{"role":"OWNER","canEdit":true},"make":"Mazda","model":"MX-5"}""", HttpStatusCode.Created)
+                else -> error(HttpStatusCode.ServiceUnavailable, "internal", "down")
+            }
+        }
+        val adopted = mutableListOf<Pair<String, String>>()
+
+        OutboxReplay(api, connection, store, files) { temp, server -> adopted += temp to server }.run()
+
+        assertThat(adopted).containsExactly(vehicleId to "v9")
+    }
+
+    @Test
     fun `a rejected create is marked failed, dropped locally, and the queue moves on`() = runTest {
         vehicle("v1", "OWNER", canEdit = true)
         val fuelId = (writes.addFuelEntry("v1", fuel(filledAt = "not a date")) as WriteResult.Queued).id

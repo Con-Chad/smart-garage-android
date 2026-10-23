@@ -28,6 +28,11 @@ data class ServerProfile(
     val backgroundSyncOnCleartext: Boolean = false,
     /** Push notification state for this profile (D-A29); the subscription keys live encrypted next to the token. */
     val push: PushSettings = PushSettings(),
+    /**
+     * The name the Home greeting and the avatar use on this phone (D-A44), set in Settings. Device-local, never sent
+     * to the server; blank or null falls back to the account's display name, then its username.
+     */
+    val localName: String? = null,
 ) {
     /** Whether requests to this server travel unencrypted (`http://`, only allowed for private hosts, D-A04). */
     val isCleartext: Boolean get() = baseUrl.startsWith("http://", ignoreCase = true)
@@ -58,6 +63,9 @@ data class Account(
 ) {
     val greetingName: String get() = displayName?.takeIf { it.isNotBlank() } ?: username
 }
+
+/** This account as the UI shows it (D-A44): [name] (the profile's [ServerProfile.localName]) as its display name when set. */
+fun Account.withLocalName(name: String?): Account = name?.trim()?.takeIf { it.isNotEmpty() }?.let { copy(displayName = it) } ?: this
 
 /** Optional features of a server, from `/me.features`; false for servers that don't report them (D-A27). */
 @Serializable

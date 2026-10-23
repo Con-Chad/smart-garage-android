@@ -46,6 +46,15 @@ class AppSettings @Inject constructor(private val dataStore: DataStore<Preferenc
         .map { prefs -> FuelSettings(trackFuelEconomy = prefs[TRACK_FUEL_ECONOMY] ?: true) }
         .distinctUntilChanged()
 
+    /** The aurora's app-wide color (D-A44); [AuroraChoice.MatchVehicle] (the car's color) unless the user picked one. */
+    val aurora: Flow<AuroraChoice> = dataStore.data
+        .map { prefs -> AuroraChoice.decode(prefs[AURORA]) ?: AuroraChoice.MatchVehicle }
+        .distinctUntilChanged()
+
+    suspend fun setAurora(choice: AuroraChoice) {
+        dataStore.edit { it[AURORA] = choice.encode() }
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_MODE] = mode.name }
     }
@@ -62,5 +71,6 @@ class AppSettings @Inject constructor(private val dataStore: DataStore<Preferenc
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val TRACK_FUEL_ECONOMY = booleanPreferencesKey("track_fuel_economy")
+        val AURORA = stringPreferencesKey("aurora_color")
     }
 }

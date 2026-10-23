@@ -96,7 +96,7 @@ fun VehiclesScreen(
     val dashboard by dashboardViewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val cardActions = rememberVehicleCardActions(cardActionsViewModel, snackbar)
-    AuroraTint(VehicleTint.color(state.vehicles.firstOrNull()?.vehicle?.color, MaterialTheme.colorScheme.primary))
+    AuroraTint(state.vehicles.firstOrNull()?.vehicle?.id, state.vehicles.firstOrNull()?.vehicle?.color)
     val tilt = rememberTilt()
     var odometerFor by rememberSaveable { mutableStateOf<String?>(null) }
 

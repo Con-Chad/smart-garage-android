@@ -5,6 +5,7 @@ import io.github.conchad.smartgarage.core.cache.CachedRow
 import io.github.conchad.smartgarage.core.cache.MetaEntry
 import io.github.conchad.smartgarage.core.data.AuthRepository
 import io.github.conchad.smartgarage.core.data.DisplayPreferences
+import io.github.conchad.smartgarage.core.data.VehicleLocalPrefs
 import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.network.ApiClient
 import io.github.conchad.smartgarage.core.network.ApiResult
@@ -67,6 +68,7 @@ class SyncEngine @Inject constructor(
     private val cache: CacheProvider,
     private val stores: OutboxStores,
     private val scope: CoroutineScope,
+    private val vehiclePrefs: VehicleLocalPrefs,
 ) {
     private val locks = ConcurrentHashMap<String, Mutex>()
     /** Profiles with a sync requested through [syncSoon]; true when one more run should follow the current one. */
@@ -131,6 +133,8 @@ class SyncEngine @Inject constructor(
             outbox = stores.store(profileId),
             files = stores.files(profileId),
             onPushProblem = onPushProblem,
+            // A vehicle created offline keeps its nickname, aurora color etc. once the server names it (D-A44).
+            onVehicleAdopted = vehiclePrefs::moveVehicle,
         ) { prefs -> applyPreferences(profileId, prefs) }
         if (outcome == SyncOutcome.SignedOut) auth.sessionRejected(profileId)
         return outcome
@@ -170,9 +174,10 @@ class SyncEngine @Inject constructor(
             files: StagedFiles,
             now: () -> Instant = Instant::now,
             onPushProblem: (ServerProblem) -> Unit = {},
+            onVehicleAdopted: suspend (tempId: String, serverId: String) -> Unit = { _, _ -> },
             onPreferences: suspend (DisplayPreferences) -> Unit = {},
         ): SyncOutcome {
-            when (val replay = OutboxReplay(api, connection, outbox, files).run()) {
+            when (val replay = OutboxReplay(api, connection, outbox, files, onVehicleAdopted).run()) {
                 ReplayOutcome.SignedOut -> return SyncOutcome.SignedOut
                 is ReplayOutcome.Stopped -> {
                     onPushProblem(replay.problem)

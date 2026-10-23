@@ -26,6 +26,19 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.forms.FormSkeleton
 import io.github.conchad.smartgarage.ui.glass.glass
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import io.github.conchad.smartgarage.core.data.AppSettings
+import io.github.conchad.smartgarage.core.data.AuroraChoice
+import io.github.conchad.smartgarage.core.data.VehicleLocalPrefs
+import io.github.conchad.smartgarage.core.data.WriteResult
+import io.github.conchad.smartgarage.ui.glass.AuroraColorSetting
+import io.github.conchad.smartgarage.ui.glass.AuroraPresets
+import io.github.conchad.smartgarage.ui.glass.AuroraTint
+import io.github.conchad.smartgarage.ui.glass.AuroraTintResolver
+import io.github.conchad.smartgarage.ui.glass.VehicleTint
+import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.VehicleInput
@@ -98,12 +111,19 @@ data class VehicleFormState(
     val displacementCc: String = "",
     val engine: String = "",
     val formatter: Formatter = Formatter(null),
+    /** The aurora color (D-A44): Settings' choice, and this vehicle's override as loaded and as edited (null = follow Settings). */
+    val appAurora: AuroraChoice = AuroraChoice.MatchVehicle,
+    val loadedAurora: AuroraChoice? = null,
+    val auroraOverride: AuroraChoice? = null,
+    /** The color the picker opens on when "Match vehicle color" is switched off. */
+    val auroraColor: Int = AuroraPresets.first(),
     val loaded: Boolean = false,
     val saving: Boolean = false,
     val dirty: Boolean = false,
     val done: Boolean = false,
 ) {
     val isEdit: Boolean get() = editing != null
+    val auroraMatches: Boolean get() = (auroraOverride ?: appAurora) == AuroraChoice.MatchVehicle
     val canEdit: Boolean get() = editing?.access?.canEdit ?: true
 
     val yearValue: Int? get() = year.trim().toIntOrNull()
@@ -193,7 +213,11 @@ class VehicleFormViewModel @Inject constructor(
     private val garage: GarageRepository,
     control: SyncControl,
     writer: GarageWriter,
+    private val localPrefs: VehicleLocalPrefs,
+    private val settings: AppSettings,
 ) : WritingViewModel(control, writer) {
+    /** What an untouched edit would patch: when only the aurora changed, nothing goes to the server (D-A44). */
+    private var loadedPatch: VehiclePatch? = null
     private val route = savedStateHandle.toRoute<VehicleFormRoute>()
     private val form = MutableStateFlow(VehicleFormState())
     val state: StateFlow<VehicleFormState> = form.asStateFlow()
@@ -202,6 +226,10 @@ class VehicleFormViewModel @Inject constructor(
         viewModelScope.launch {
             val fmt = garage.formatter.first()
             val vehicle = route.vehicleId?.let { id -> garage.vehicles.first().firstOrNull { it.id == id } }
+            val appAurora = settings.aurora.first()
+            val override = vehicle?.let { localPrefs.auroraOverrides.first()[it.id] }
+            val startColor = ((override ?: appAurora) as? AuroraChoice.Custom)?.argb
+                ?: VehicleTint.argb(vehicle?.color) ?: AuroraPresets.first()
             form.value = VehicleFormState(
                 editing = vehicle,
                 make = vehicle?.make.orEmpty(),
@@ -217,8 +245,13 @@ class VehicleFormViewModel @Inject constructor(
                 purchaseDate = vehicle?.purchaseDate?.toInstantOrNull()?.let(fmt::localDate),
                 purchasePrice = vehicle?.purchasePriceCents?.let(fmt::moneyInput).orEmpty(),
                 formatter = fmt,
+                appAurora = appAurora,
+                loadedAurora = override,
+                auroraOverride = override,
+                auroraColor = startColor,
                 loaded = true,
             )
+            if (vehicle != null) loadedPatch = form.value.patch()
         }
     }
 
@@ -243,13 +276,41 @@ class VehicleFormViewModel @Inject constructor(
     fun setDisplacement(text: String) = form.update { it.copy(displacementCc = text, dirty = true) }
     fun setEngine(text: String) = form.update { it.copy(engine = text, dirty = true) }
 
+    /** On follows the car's color: no override when Settings matches too, an explicit "match" when Settings picked one. */
+    fun setAuroraMatch(on: Boolean) = form.update {
+        val override = when {
+            !on -> AuroraChoice.Custom(it.auroraColor)
+            it.appAurora == AuroraChoice.MatchVehicle -> null
+            else -> AuroraChoice.MatchVehicle
+        }
+        it.copy(auroraOverride = override, dirty = true)
+    }
+
+    fun setAuroraColor(argb: Int) = form.update { it.copy(auroraOverride = AuroraChoice.Custom(argb), auroraColor = argb, dirty = true) }
+
+    /** Drops this vehicle's override so it follows Settings again. */
+    fun useAppAurora() = form.update {
+        val color = (it.appAurora as? AuroraChoice.Custom)?.argb ?: it.auroraColor
+        it.copy(auroraOverride = null, auroraColor = color, dirty = true)
+    }
+
     fun save() {
         val s = form.value
         if (!s.canSave) return
         form.update { it.copy(saving = true) }
         viewModelScope.launch {
-            val result = s.editing?.let { writer.updateVehicle(it.id, s.patch()) } ?: writer.addVehicle(s.input())
+            val editing = s.editing
+            val auroraChanged = s.auroraOverride != s.loadedAurora
+            if (editing != null && auroraChanged && s.patch() == loadedPatch) {
+                // Only the device-local aurora color changed: nothing to send.
+                localPrefs.setAuroraOverride(editing.id, s.auroraOverride)
+                form.update { it.copy(saving = false, done = true, dirty = false) }
+                return@launch
+            }
+            val result = editing?.let { writer.updateVehicle(it.id, s.patch()) } ?: writer.addVehicle(s.input())
             val queued = report(result)
+            // A new vehicle's id is a temp id until the server answers; see VehicleLocalPrefs.moveVehicle (D-A44).
+            if (queued && auroraChanged && result is WriteResult.Queued) localPrefs.setAuroraOverride(result.id, s.auroraOverride)
             form.update { it.copy(saving = false, done = queued, dirty = it.dirty && !queued) }
         }
     }
@@ -264,6 +325,9 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
     var specsOpen by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.done) { if (state.done) onClose() }
+    // The shell lets this route tint the aurora, so the color being picked previews behind the form (D-A44).
+    val preview = AuroraTintResolver.resolve(state.auroraOverride, state.appAurora, state.color)
+    AuroraTint(preview?.let { Color(it) } ?: MaterialTheme.colorScheme.primary)
     DeniedSnackbar(viewModel, snackbar)
 
     val validation = when {
@@ -386,6 +450,33 @@ fun VehicleFormScreen(onClose: () -> Unit, viewModel: VehicleFormViewModel = hil
                 error = if (state.purchaseInvalid) stringResource(R.string.form_invalid_number) else null,
             )
         }
+
+        FormSection(
+            stringResource(R.string.aurora_title),
+            action = if (state.auroraOverride != null) {
+                {
+                    TextButton(onClick = viewModel::useAppAurora, colors = glassTextButtonColors()) {
+                        Text(stringResource(R.string.aurora_use_app_setting))
+                    }
+                }
+            } else {
+                null
+            },
+        )
+        AuroraColorSetting(
+            match = state.auroraMatches,
+            onMatchChange = viewModel::setAuroraMatch,
+            color = Color(((state.auroraOverride ?: state.appAurora) as? AuroraChoice.Custom)?.argb ?: state.auroraColor),
+            onColorChange = { viewModel.setAuroraColor(it.toArgb()) },
+            matchDescription = stringResource(
+                when {
+                    state.auroraOverride == null && state.appAurora != AuroraChoice.MatchVehicle -> R.string.vehicle_aurora_follows_app
+                    state.auroraMatches -> R.string.vehicle_aurora_match_desc
+                    else -> R.string.vehicle_aurora_custom_desc
+                },
+            ),
+            horizontalPadding = 0.dp,
+        )
 
         FormNotesField(
             value = state.notes,

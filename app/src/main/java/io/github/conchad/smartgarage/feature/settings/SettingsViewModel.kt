@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.conchad.smartgarage.core.data.AppSettings
 import io.github.conchad.smartgarage.core.data.AppearanceSettings
 import io.github.conchad.smartgarage.core.data.AuthRepository
+import io.github.conchad.smartgarage.core.data.AuroraChoice
 import io.github.conchad.smartgarage.core.data.FuelSettings
 import io.github.conchad.smartgarage.core.data.ProfileStore
 import io.github.conchad.smartgarage.core.data.ServerProfile
@@ -43,6 +44,8 @@ data class SettingsUiState(
     val profile: ServerProfile? = null,
     val profileCount: Int = 0,
     val appearance: AppearanceSettings = AppearanceSettings(),
+    /** The app-wide aurora color (D-A44). */
+    val aurora: AuroraChoice = AuroraChoice.MatchVehicle,
     val fuel: FuelSettings = FuelSettings(),
     val signingOut: Boolean = false,
     val push: PushUiState = PushUiState(),
@@ -59,14 +62,16 @@ class SettingsViewModel @Inject constructor(
 
     private val signingOut = MutableStateFlow(false)
     private val pushUi = MutableStateFlow(PushUiState())
+    private val device = combine(settings.appearance, settings.aurora, ::Pair)
 
     val state: StateFlow<SettingsUiState> =
-        combine(profiles.state, settings.appearance, settings.fuel, signingOut, pushUi) { p, appearance, fuel, busy, pushState ->
+        combine(profiles.state, device, settings.fuel, signingOut, pushUi) { p, (appearance, aurora), fuel, busy, pushState ->
             val active = p.active
             SettingsUiState(
                 profile = active,
                 profileCount = p.profiles.size,
                 appearance = appearance,
+                aurora = aurora,
                 fuel = fuel,
                 signingOut = busy,
                 push = pushState.copy(
@@ -79,6 +84,14 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { settings.setThemeMode(mode) }
 
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { settings.setDynamicColor(enabled) }
+
+    fun setAurora(choice: AuroraChoice) = viewModelScope.launch { settings.setAurora(choice) }
+
+    /** The greeting name on this phone (D-A44); blank falls back to the account's name. */
+    fun setLocalName(name: String) {
+        val id = state.value.profile?.id ?: return
+        viewModelScope.launch { profiles.update(id) { it.copy(localName = name.trim().ifEmpty { null }) } }
+    }
 
     fun setTrackFuelEconomy(enabled: Boolean) = viewModelScope.launch { settings.setTrackFuelEconomy(enabled) }
 
