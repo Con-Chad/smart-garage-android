@@ -27,7 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import android.os.SystemClock
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import io.github.conchad.smartgarage.ui.glass.Motion
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -79,6 +85,10 @@ fun CantReachState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
  *   [SkeletonList] shaped like the screen's grouped list (D-A41: the list tabs and the More sections);
  * - the first sync failed and nothing is cached: [CantReachState];
  * - otherwise [content], which handles its own empty state.
+ *
+ * D-A51: a cache that answers within [Motion.LOADING_GRACE_MS] of the screen appearing (a tab opened for the first
+ * time, its ViewModel just created) swaps straight to the content instead of cross-fading the spinner over it, which
+ * on a tab switch read as a second page glitching in under the first. A real wait still cross-fades.
  */
 @Composable
 fun LoadedContent(loaded: Boolean, sync: SyncInfo, onRetry: () -> Unit, skeleton: Boolean = false, content: @Composable () -> Unit) {
@@ -87,7 +97,11 @@ fun LoadedContent(loaded: Boolean, sync: SyncInfo, onRetry: () -> Unit, skeleton
         sync.neverSynced -> Phase.CantReach
         else -> Phase.Content
     }
-    Crossfade(phase, label = "loaded") { current ->
+    val shownAt = remember { SystemClock.uptimeMillis() }
+    val spec: FiniteAnimationSpec<Float> = remember(phase) {
+        if (SystemClock.uptimeMillis() - shownAt < Motion.LOADING_GRACE_MS) snap() else tween()
+    }
+    Crossfade(phase, animationSpec = spec, label = "loaded") { current ->
         when (current) {
             Phase.Loading -> if (skeleton) {
                 SkeletonList(

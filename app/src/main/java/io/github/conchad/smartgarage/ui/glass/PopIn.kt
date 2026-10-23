@@ -22,7 +22,7 @@ import kotlinx.coroutines.delay
 /**
  * The bubble pop-in. One [PopInState] per page, from [rememberPopIn]; each card takes [Modifier.popIn].
  *
- * - Plain (D-A32, the Vehicles tab): every card grows from [POP_IN_FROM] of its size at its own centre on one spring,
+ * - Plain (D-A32; no caller since D-A51 took it off the Vehicles tab): every card grows from [POP_IN_FROM] of its size at its own centre on one spring,
  *   with a quick fade, all at once.
  * - Staggered (D-A37, the vehicle page): the cards pop one after another, top to bottom, each starting
  *   [Motion.POP_STAGGER_MS] after the one above started. Each grows from [POP_IN_STAGGER_FROM] to [POP_IN_OVERSHOOT]

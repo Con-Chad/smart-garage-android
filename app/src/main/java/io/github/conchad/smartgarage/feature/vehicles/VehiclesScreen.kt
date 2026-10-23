@@ -62,13 +62,10 @@ import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
-import io.github.conchad.smartgarage.ui.glass.PopInState
 import io.github.conchad.smartgarage.ui.glass.TiltDepths
 import io.github.conchad.smartgarage.ui.glass.TiltPhotoFrame
 import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
-import io.github.conchad.smartgarage.ui.glass.popIn
-import io.github.conchad.smartgarage.ui.glass.rememberPopIn
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
 import java.time.Instant
@@ -76,7 +73,7 @@ import java.time.Instant
 /**
  * The vehicles list on glass (D-A24, notes item 3): each card is a frosted panel with the chrome frame around the
  * photo, the same long-press menu and nickname as the home card, and since D-A32 the home card's "Quick info"
- * drop-down (insurance, mileage, inspection with Add / Update). The cards bubble in when the tab appears. Add FAB,
+ * drop-down (insurance, mileage, inspection with Add / Update). The cards arrive with the tab's fade (D-A51). Add FAB,
  * sync banner and the shared-by line stay as they were.
  *
  * The drop-down's per-vehicle policy, inspection and last odometer reading come from the same [DashboardViewModel]
@@ -87,8 +84,6 @@ fun VehiclesScreen(
     onOpenVehicle: (String) -> Unit,
     onAddVehicle: () -> Unit,
     quickInfoActions: QuickInfoActions,
-    /** False when Back returned to the tab: the cards are simply there (D-A46). */
-    popIn: Boolean = true,
     viewModel: VehiclesViewModel = hiltViewModel(),
     cardActionsViewModel: VehicleCardActionsViewModel = hiltViewModel(),
     dashboardViewModel: DashboardViewModel = hiltViewModel(),
@@ -122,8 +117,8 @@ fun VehiclesScreen(
                                     body = stringResource(R.string.vehicles_empty_body),
                                 )
                             } else {
-                                // The pop-in window starts with the list, so the cards bubble in together (D-A32).
-                                val popInState = rememberPopIn(enabled = popIn)
+                                // D-A51: no bubble on arrival (D-A32's replayed on every tab switch); the tab's fade-through
+                                // brings the cards in with the page.
                                 LazyColumn(
                                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -139,7 +134,6 @@ fun VehiclesScreen(
                                             fmt = state.formatter,
                                             cardActions = cardActions,
                                             quickInfoActions = quickInfoActions,
-                                            popIn = popInState,
                                             onClick = { onOpenVehicle(id) },
                                             onOpenOdometer = { odometerFor = id },
                                         )
@@ -172,7 +166,6 @@ private fun VehicleListCard(
     fmt: Formatter,
     cardActions: VehicleCardActions,
     quickInfoActions: QuickInfoActions,
-    popIn: PopInState,
     onClick: () -> Unit,
     onOpenOdometer: () -> Unit,
 ) {
@@ -182,7 +175,7 @@ private fun VehicleListCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     GlassPanel(
-        Modifier.fillMaxWidth().popIn(popIn),
+        Modifier.fillMaxWidth(),
         glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary),
         onClick = onClick,
     ) {

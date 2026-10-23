@@ -9,6 +9,7 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -80,8 +81,29 @@ object Motion {
     /** One pass of the loading skeleton's sweep (D-A41): the sync spin's pace, so every "still loading" moves alike. */
     const val SHIMMER_MS = SPIN_MS
 
-    /** NavHost's cross-fade between the tabs (D-A46: only tab to tab; pushed screens slide). */
-    const val NAV_FADE_MS = 700
+    /**
+     * Tab to tab (D-A51, replaces D-A46's 700 ms cross-fade): a fade-through. The page being left fades out in
+     * [NAV_TAB_OUT_MS], dropping fastest at the start; the tab arriving waits [NAV_TAB_IN_DELAY_MS] (the old page is
+     * then nearly gone) and fades in over [NAV_TAB_IN_MS] while growing from [NAV_TAB_SCALE_FROM]. 240 ms in all, and
+     * two busy glass pages are never on screen together at any strength.
+     */
+    const val NAV_TAB_OUT_MS = 80
+
+    /** See [NAV_TAB_OUT_MS]. */
+    const val NAV_TAB_IN_DELAY_MS = 60
+
+    /** See [NAV_TAB_OUT_MS]. */
+    const val NAV_TAB_IN_MS = 180
+
+    /** The arriving tab's starting scale: a hint of settling into place, not a zoom. */
+    const val NAV_TAB_SCALE_FROM = 0.98f
+
+    /**
+     * A screen whose cache answers within this long of it appearing shows its content at once rather than
+     * cross-fading from the loading state (D-A51): longer than the tab fade-through, so a tab opened for the first
+     * time arrives already filled.
+     */
+    const val LOADING_GRACE_MS = 250L
 
     /**
      * A plain pushed screen (a form, Settings, a section, the vehicle page opened from a list) slides in from the
@@ -166,7 +188,7 @@ object Motion {
     /** The bottom nav's blob and the active tab's lift: a lively bounce. */
     fun <T> bouncySpring() = spring<T>(dampingRatio = 0.55f, stiffness = 300f)
 
-    /** Pop-ins: the Vehicles tab's bubble (D-A32), the fan core's turn. */
+    /** Pop-ins: the plain bubble ([rememberPopIn], unused since D-A51), the fan core's turn. */
     fun <T> popSpring() = spring<T>(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow)
 
     /** The fan's petals flying out and back. */
@@ -195,6 +217,14 @@ object Motion {
 
 /** The fade of what the vehicle hero leaves behind or comes back to: [Motion.UNDER_HERO_FADE_MS] on the hero's curve. */
 fun <T> underHeroFadeSpec(): FiniteAnimationSpec<T> = tween(Motion.UNDER_HERO_FADE_MS, easing = Motion.EmphasizedEasing)
+
+/** A tab arriving from another (D-A51): after a beat, fades in while settling from a hair smaller. */
+fun navTabEnter(): EnterTransition =
+    fadeIn(tween(Motion.NAV_TAB_IN_MS, delayMillis = Motion.NAV_TAB_IN_DELAY_MS, easing = LinearOutSlowInEasing)) +
+        scaleIn(tween(Motion.NAV_TAB_IN_MS, delayMillis = Motion.NAV_TAB_IN_DELAY_MS, easing = LinearOutSlowInEasing), initialScale = Motion.NAV_TAB_SCALE_FROM)
+
+/** The tab being left (D-A51): gone fast, before the next one shows. */
+fun navTabExit(): ExitTransition = fadeOut(tween(Motion.NAV_TAB_OUT_MS, easing = LinearOutSlowInEasing))
 
 /** A plain screen arriving (D-A46): in from the right while fading in. */
 fun navPushEnter(): EnterTransition =

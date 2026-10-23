@@ -1567,3 +1567,24 @@ App decisions use the `D-A` prefix.
     keyboard), Back, focus loss; typing reopens. Expand + fade on `Motion.gentleSpring`/`SHORT_MS`, none under
     reduced motion. TalkBack: the panel is a pane titled "N suggestions" with collection info; rows are buttons.
     Saved values not on the list load and save unchanged (the ViewModel still holds a plain string).
+- **D-A51 (2026-10-23) — Tab switches: quick fade-through, no pop-in; loading never cross-fades over fresh content.**
+  - **Cause** (120 Hz screenrecord, stepped frame by frame, Home↔Vehicles, Home↔Service, Vehicles↔Fuel): the
+    D-A46 700 ms cross-fade left two busy glass pages half-visible together for most of a second (Home's cards
+    under Service's list, Fuel's empty state under the Vehicles card); into Vehicles the old page vanished in one
+    frame (enter/exit None) and the cards bubbled up from an empty aurora (D-A32 replayed on every tab arrival);
+    and the first visit to a tab cross-faded a "Loading…" spinner under the content for ~300 ms (ViewModel not
+    seeded yet, `LoadedContent`'s Crossfade). The hero (sharedBounds) does not engage on tab switches (no matching
+    key; the Home card fades with its page), and the aurora tint already eases (`TINT_MS` 800); ink low-passes.
+  - **Fix (Motion)**: tab to tab (and Back from a tab to Home) is a fade-through, `navTabExit`/`navTabEnter`: the
+    old page fades out in `NAV_TAB_OUT_MS` 80 (decelerating, so it drops fastest at once); the new one waits
+    `NAV_TAB_IN_DELAY_MS` 60 (old page ≈ 5 % left) and fades in over `NAV_TAB_IN_MS` 180 while scaling from
+    `NAV_TAB_SCALE_FROM` 0.98, LinearOutSlowIn; 240 ms in all. `NAV_FADE_MS` removed. Reduced motion: instant.
+  - **No pop-in on tabs**: the Vehicles tab's bubble (D-A32) is gone; its cards arrive with the page.
+    `NavArrivals` and `VehiclesScreen(popIn)` removed. The vehicle page's staggered pop on the hero path, the hero
+    open/back (D-A43/45) and the pushed-screen slides (D-A46) are unchanged (re-checked on device).
+  - **Loading grace**: `LoadedContent` swaps straight to the content (snap) when the cache answers within
+    `Motion.LOADING_GRACE_MS` 250 of the screen appearing; a longer wait still cross-fades. Applies to every
+    cache-backed screen. (Seeding the tab ViewModels' initial state would remove the loading frame entirely; that's
+    a data-layer change, not done.)
+  - Verified on the Pixel (release, screenrecord frame-step): Home↔Vehicles, Home↔Service, Vehicles↔Fuel each
+    settle in ~150–270 ms with no frame showing both pages at strength, no bubble, no "Loading…" on a first visit.
