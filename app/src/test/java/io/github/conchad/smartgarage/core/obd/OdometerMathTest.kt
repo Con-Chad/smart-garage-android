@@ -45,9 +45,11 @@ class OdometerMathTest {
             log("a", 80_000, "2026-09-01T10:00:00Z"),
             log("b", 81_000, "2026-10-01T10:00:00Z", source = "receipt"),
             log("c", 82_000, "2026-10-20T10:00:00Z", source = CodesClearedOffset.OBD_SOURCE),
+            // WiCAN's own server ingest (server D-046) is an adapter reading too.
+            log("d", 82_500, "2026-10-21T10:00:00Z", source = CodesClearedOffset.WICAN_SOURCE),
         )
         assertThat(CodesClearedOffset.latestManual(logs)?.id).isEqualTo("b")
-        assertThat(CodesClearedOffset.latestManual(logs.takeLast(1))).isNull()
+        assertThat(CodesClearedOffset.latestManual(logs.takeLast(2))).isNull()
     }
 
     @Test

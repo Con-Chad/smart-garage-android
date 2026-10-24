@@ -27,12 +27,18 @@ data class CodesClearedAnchor(
  * counter wrapped at 65 535 km): the chain then continues from the last odometer with the counter counted from 0.
  */
 object CodesClearedOffset {
-    /** Readings the app uploaded from the adapter; everything else (typed, from a receipt, from the server) is manual. */
+    /** Readings the app uploaded from the adapter. */
     const val OBD_SOURCE = "obd"
+
+    /** Readings WiCAN's own server ingest wrote (server D-046). */
+    const val WICAN_SOURCE = "wican"
+
+    /** Sources that came from an adapter; everything else (typed, from a receipt, unknown) is manual. */
+    val ADAPTER_SOURCES = setOf(OBD_SOURCE, WICAN_SOURCE)
 
     data class Step(val anchor: CodesClearedAnchor?, val odometerKm: Int?)
 
-    fun latestManual(logs: List<OdometerLog>): OdometerLog? = logs.filter { it.source != OBD_SOURCE }
+    fun latestManual(logs: List<OdometerLog>): OdometerLog? = logs.filter { it.source !in ADAPTER_SOURCES }
         .maxWithOrNull(compareBy<OdometerLog> { it.recordedAt.toInstantOrNull() }.thenBy { it.recordedAt })
 
     /** Without any manual reading there is nothing to add the counter to: no odometer, and no anchor yet. */

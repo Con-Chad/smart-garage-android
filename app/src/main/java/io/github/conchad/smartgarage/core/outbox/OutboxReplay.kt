@@ -32,6 +32,9 @@ const val DEPENDENCY_FAILED = "dependency_failed"
 /** The error code recorded when a staged upload has vanished from disk. */
 const val FILE_MISSING = "file_missing"
 
+/** The server's 409 when an odometer reading isn't above the one it has (server D-046); the entry is dropped silently. */
+const val ODOMETER_NOT_HIGHER = "odometer_not_higher"
+
 /**
  * Sends the outbox in `seq` order, one entry at a time, before every pull (D-A16).
  *
@@ -69,6 +72,7 @@ class OutboxReplay(
                     }
                     // A delete whose target is already gone has reached its goal.
                     entry.op == OutboxOp.DELETE && result.status == 404 -> complete(entry, null)
+                    result.isOdometerNotHigher(entry) -> drop(entry)
                     else -> fail(entry, result.status, result.code, result.message)?.let { return it }
                 }
                 is ApiResult.Failed -> {
@@ -81,6 +85,22 @@ class OutboxReplay(
 
     private val ApiResult.HttpError.isTransient: Boolean
         get() = status == 429 || status >= 500 || (status == 409 && code == "request_in_progress")
+
+    /**
+     * The server already holds this reading or a higher one (409 `odometer_not_higher`, server D-046), as when an
+     * adapter reading arrives after a manual one. Final, but nothing the user has to see or fix.
+     */
+    private fun ApiResult.HttpError.isOdometerNotHigher(entry: OutboxEntry): Boolean =
+        status == 409 && code == ODOMETER_NOT_HIGHER && entry.resource == "odometerLogs" && entry.op == OutboxOp.CREATE
+
+    /** Forgets an entry the server answered for good without it being a failure: no FAILED entry, no row. */
+    private suspend fun drop(entry: OutboxEntry) {
+        store.transaction {
+            store.deleteRow(entry.resource, entry.targetId)
+            store.delete(entry.seq)
+        }
+        files.discard(entry.filePath)
+    }
 
     /** Null when the staged file is gone, which no retry can fix. */
     private suspend fun send(entry: OutboxEntry): ApiResult<JsonObject?>? {

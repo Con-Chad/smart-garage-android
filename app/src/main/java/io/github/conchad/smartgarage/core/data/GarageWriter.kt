@@ -123,7 +123,7 @@ open class GarageWrites(private val open: suspend () -> WriteSession?) {
             resource = "odometerLogs",
             vehicleId = vehicleId,
             body = body,
-            local = body.with("recordedAt" to JsonPrimitive(input.recordedAt ?: s.now), "source" to JsonPrimitive("manual")),
+            local = body.with("recordedAt" to JsonPrimitive(input.recordedAt ?: s.now), "source" to JsonPrimitive(input.source ?: "manual")),
         )
     }
 
@@ -355,7 +355,24 @@ class GarageWriter @Inject constructor(
         openSession(profiles, stores, sync)?.outbox?.dismiss(key)
     }
 
+    /**
+     * [GarageWrites] for [profileId] whether or not it is the active profile, for writers that run in the background
+     * (OBD readings, D-A70). Nothing syncs on its own: the caller decides when and on which network.
+     */
+    fun writesFor(profileId: String): GarageWrites = GarageWrites { sessionFor(profiles, stores, profileId) }
+
+    /** [io.github.conchad.smartgarage.core.outbox.Outbox.withdraw] in [profileId]'s queue. */
+    suspend fun withdraw(profileId: String, resource: String, id: String): Boolean =
+        sessionFor(profiles, stores, profileId)?.outbox?.withdraw(resource, id) ?: false
+
     private companion object {
+        suspend fun sessionFor(profiles: ProfileStore, stores: OutboxStores, profileId: String): WriteSession? {
+            val state = profiles.current()
+            val profile = state.profiles.firstOrNull { it.id == profileId } ?: return null
+            if (!state.isSignedIn(profileId)) return null
+            return WriteSession(store = stores.store(profileId), files = stores.files(profileId), userId = profile.account?.userId)
+        }
+
         suspend fun openSession(profiles: ProfileStore, stores: OutboxStores, sync: SyncEngine): WriteSession? {
             val state = profiles.current()
             val active = state.active ?: return null

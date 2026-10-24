@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Cached document files, shared read-only with a viewer app when the user opens a PDF; and the camera's target
-    for a photo taken in the app (D-A23), which the camera app writes through a one-shot write grant.
+    for a photo taken in the app (D-A23), which the camera app writes through a one-shot write grant; and the OBD
+    diagnostics export.
 -->
 <paths>
     <cache-path name="documents" path="documents/" />
     <cache-path name="captures" path="captures/" />
+    <!-- The OBD diagnostics export (D-A70), shared as a text file. -->
+    <cache-path name="obd" path="obd/" />
 </paths>

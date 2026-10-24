@@ -296,6 +296,71 @@ class OutboxTest {
     }
 
     @Test
+    fun `an adapter reading carries source obd, a typed one leaves it out`() = runTest {
+        vehicle("v1", "OWNER", canEdit = true)
+        val obdId = (writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_500, source = "obd")) as WriteResult.Queued).id
+        writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_600))
+
+        assertThat(field(store.entry("k1").body, "source")).isEqualTo("obd")
+        assertThat(ApiJson.parseToJsonElement(store.entry("k2").body).jsonObject).doesNotContainKey("source")
+        assertThat(field(store.row("odometerLogs", obdId)!!.json, "source")).isEqualTo("obd")
+    }
+
+    @Test
+    fun `odometer_not_higher drops the reading silently and the queue moves on`() = runTest {
+        vehicle("v1", "OWNER", canEdit = true)
+        val obdId = (writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_000, source = "obd")) as WriteResult.Queued).id
+        writes.addFuelEntry("v1", fuel())
+        val api = api { call ->
+            when (call.line) {
+                "POST /api/v1/odometer" -> error(HttpStatusCode.Conflict, "odometer_not_higher", "The odometer must be higher than 12345 km")
+                else -> ok("""{"id":"f9","vehicleId":"v1"}""", HttpStatusCode.Created)
+            }
+        }
+
+        val outcome = replay(api)
+
+        assertThat(outcome).isEqualTo(ReplayOutcome.Done)
+        assertThat(calls.map { it.line }).containsExactly("POST /api/v1/odometer", "POST /api/v1/fuel").inOrder()
+        // Not FAILED: nothing for the outbox UI to show, and the optimistic row is gone.
+        assertThat(store.outbox).isEmpty()
+        assertThat(store.row("odometerLogs", obdId)).isNull()
+        assertThat(store.row("fuelEntries", "f9")).isNotNull()
+    }
+
+    @Test
+    fun `a 409 request_in_progress stays queued, other 409s on other resources fail`() = runTest {
+        vehicle("v1", "OWNER", canEdit = true)
+        writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_000, source = "obd"))
+
+        val busy = replay(api { error(HttpStatusCode.Conflict, "request_in_progress", "Still working on it") })
+
+        assertThat(busy).isInstanceOf(ReplayOutcome.Stopped::class.java)
+        assertThat(store.entry("k1").state).isEqualTo(OutboxState.PENDING)
+
+        writes.addFuelEntry("v1", fuel())
+        store.delete(store.entry("k1").seq)
+        val conflict = replay(api { error(HttpStatusCode.Conflict, "odometer_not_higher", "x") })
+
+        assertThat(conflict).isEqualTo(ReplayOutcome.Done)
+        assertThat(store.entry("k2").state).isEqualTo(OutboxState.FAILED)
+    }
+
+    @Test
+    fun `withdraw takes back an unsent create, never one in flight`() = runTest {
+        vehicle("v1", "OWNER", canEdit = true)
+        val first = (writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_000, source = "obd")) as WriteResult.Queued).id
+        val second = (writes.addOdometerLog("v1", OdometerInput(odometerKm = 12_100, source = "obd")) as WriteResult.Queued).id
+        store.update(listOf(store.entry("k2").copy(state = OutboxState.IN_FLIGHT)))
+
+        assertThat(outbox.withdraw("odometerLogs", first)).isTrue()
+        assertThat(outbox.withdraw("odometerLogs", second)).isFalse()
+
+        assertThat(store.row("odometerLogs", first)).isNull()
+        assertThat(store.outbox.map { it.key }).containsExactly("k2")
+    }
+
+    @Test
     fun `a created row gets its server id everywhere`() = runTest {
         val vehicleId = (writes.addVehicle(VehicleInput(make = "Mazda", model = "MX-5", productionYear = 2019, currentOdometerKm = 1000)) as WriteResult.Queued).id
         // Rights on the offline vehicle come from its optimistic row: the creator owns it.

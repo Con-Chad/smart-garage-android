@@ -43,6 +43,8 @@ data class OdometerInput(
     /** Defaults to now on the server. */
     val recordedAt: String? = null,
     val note: String? = null,
+    /** "obd" for a reading from the adapter (server D-046); null (left out) means manual. */
+    val source: String? = null,
 )
 
 @Serializable

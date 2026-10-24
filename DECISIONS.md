@@ -2208,3 +2208,42 @@ App decisions use the `D-A` prefix.
     down; uploads only past the last sent value, at trip end or after 25 (display unit).
   - **Simulator is debug-only**: `SimulatedElmLink` lives in `src/debug`, its tests in `src/testDebug`; the release
     APK's dex has no trace of it (checked with dexdump).
+
+- **D-A70 (2026-10-24) — OBD adapter: BLE link, companion presence, readings kept locally first, uploads on the
+  user's network.** CP3 of the OBD round; the settings screens are CP4. Entry point: `core/obd/ObdController`.
+  - **BLE** (`core/obd/ble`): `BleElmLink` over `BluetoothGatt`, one GATT operation at a time (mutex + callback). The
+    serial service is picked by `ElmGattProfiles.choose`: FFF0 (FFF1 notify / FFF2 write: WiCAN Pro, OBDLink CX, most
+    clones), FEE0, FFE0, 18F0 (unconfirmed), then any non-standard service with a listening and a writable
+    characteristic; WiCAN's CLI (BEF0ADDE-…-C0DE000x) never. MTU 517 is requested, but writes stay at 20 bytes
+    (`MAX_WRITE_BYTES`: WiCAN Pro's write characteristic limit; an ELM command is shorter anyway). An operation refused
+    for missing authentication/encryption starts the bond; Android shows its own pairing dialog (WiCAN passkey,
+    default 123456; OBDLink CX only within 5 min of power-on) and the status reads Pairing until it ends.
+  - **Presence** (`core/obd/device`): CompanionDeviceManager association (AOSP, no GMS) with a
+    `BluetoothLeDeviceFilter` on the scanned MAC; `ObdPresenceService` (CompanionDeviceService) starts the
+    connectedDevice foreground service when the adapter appears and stops waiting once it is gone and no trip runs.
+    Android 16+ uses `ObservingDevicePresenceRequest` / `onDevicePresenceEvent`, 13–15 the `AssociationInfo`
+    callbacks, 12 the MAC ones. Without CDM (stripped ROM, or declined) the adapter is used directly: the foreground
+    service holds a BLE autoConnect and is restarted after boot. "Forget" disassociates; the bond itself can only go
+    through `CompanionDeviceManager.removeBond` on Android 16+, otherwise the user removes it in Bluetooth settings.
+  - **Trip** = one connection (`TripRunner`): ELM init, read at once and every N min (default 5), store every reading,
+    queue one when `UploadPolicy` says so. It ends on disconnect, on 3 polls in a row without an answer from the car
+    while the adapter stays up (ignition off), or when stopped; the last reading of the trip then gets the trip-end
+    decision. BLE gives no warning before a drop, so there is no "last read as it drops".
+  - **Readings** live in their own Room file `obd.db` (not the profile cache: D-A12's cache is dropped on a schema
+    change, and an unsent reading exists nowhere else). No destructive fallback, exported schema, migrations only.
+    Rows: profile, vehicle, km (null for codes-cleared without a manual reading), 0131 counter, raw reply, time, trip,
+    state LOCAL → QUEUED → SENT (in the outbox) / SUPERSEDED / REJECTED. Wiped with the profile's cache (sign-out,
+    revoked token, removal); settings stay. Manual = any source but `obd`/`wican`.
+  - **Upload**: `ObdUploadWorker` (WorkManager, unique per profile, replaced on reschedule) hands the newest QUEUED
+    reading per vehicle to `GarageWriter` as an odometer log with `source: "obd"` (manual writes still omit it), then
+    syncs. "Cellular uploads" off = the worker's constraint is UNMETERED; the app's own syncs never see a reading before
+    the worker queued it, and if that sync can't reach the server the still-unsent entry is withdrawn from the outbox
+    and the reading goes back to QUEUED. The hourly SyncWorker keeps CONNECTED. 409 `odometer_not_higher` drops the
+    entry and its row silently (not FAILED).
+  - **Settings** per profile: one JSON value in a separate "obd" DataStore (`ObdSettings`: adapter, vehicle, profile,
+    poll, min distance in the display unit, trip-end and cellular toggles, codes-cleared anchor, last sync, last sent
+    km, simulator). Diagnostics (last 100 commands, connection log) are in memory and export as a shared text file.
+  - **Simulator**: `SimulatedTransport` + `SimulatorModule` in src/debug fill an `@BindsOptionalOf` binding; release
+    has neither (R8 mapping and dexdump checked). The car drives only while connected, on an accelerated clock.
+  - Unverified until CP5 on the phone: CDM presence events on Android 17 / GrapheneOS for a BLE adapter that stops
+    advertising while connected, and which characteristic WiCAN protects (bonding is handled for both).

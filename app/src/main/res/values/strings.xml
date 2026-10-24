@@ -1022,4 +1022,15 @@
     <string name="scan_delete_page">Delete page</string>
     <string name="scan_discard_title">Discard this scan?</string>
     <string name="scan_discard_body">The pages you photographed will be deleted.</string>
+    <!-- OBD adapter (D-A70): foreground service notification -->
+    <string name="obd_channel_name">OBD adapter</string>
+    <string name="obd_channel_desc">Shown while the app waits for or talks to the car\'s OBD adapter.</string>
+    <string name="obd_notification_connected">Connected to %1$s</string>
+    <string name="obd_notification_connected_plain">Connected to the OBD adapter</string>
+    <string name="obd_notification_connecting">Connecting to the OBD adapter…</string>
+    <string name="obd_notification_waiting">Waiting for the OBD adapter</string>
+    <string name="obd_notification_pairing">Pairing with the OBD adapter: enter its passkey</string>
+    <string name="obd_notification_pairing_failed">Pairing with the OBD adapter failed</string>
+    <string name="obd_notification_error">OBD adapter: can\'t connect</string>
+    <string name="obd_notification_stop">Disconnect</string>
 </resources>

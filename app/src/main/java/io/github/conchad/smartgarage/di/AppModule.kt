@@ -15,6 +15,8 @@ import io.github.conchad.smartgarage.core.cache.CacheProvider
 import io.github.conchad.smartgarage.core.data.ProfileDataCleaner
 import io.github.conchad.smartgarage.core.data.PushSessionHook
 import io.github.conchad.smartgarage.core.network.HttpClientFactory
+import io.github.conchad.smartgarage.core.obd.data.ObdDatabase
+import io.github.conchad.smartgarage.core.obd.upload.ObdUploadWorker
 import io.github.conchad.smartgarage.core.push.PushRegistrar
 import io.github.conchad.smartgarage.core.security.KeystoreSecretCipher
 import io.github.conchad.smartgarage.core.security.SecretCipher
@@ -34,8 +36,14 @@ object AppModule {
     @Singleton
     fun dataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.appDataStore
 
+    /** The cache and outbox, plus the profile's OBD readings and pending OBD upload (D-A70). */
     @Provides
-    fun profileDataCleaner(cache: CacheProvider): ProfileDataCleaner = cache
+    fun profileDataCleaner(@ApplicationContext context: Context, cache: CacheProvider, obd: ObdDatabase): ProfileDataCleaner =
+        ProfileDataCleaner { profileId ->
+            cache.clear(profileId)
+            obd.readings().clear(profileId)
+            ObdUploadWorker.cancel(context, profileId)
+        }
 
     /** Sign-out and revoked tokens also end the UnifiedPush registration (D-A29). */
     @Provides
