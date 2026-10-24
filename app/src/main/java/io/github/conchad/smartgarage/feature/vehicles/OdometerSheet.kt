@@ -1,14 +1,19 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -21,12 +26,14 @@ import io.github.conchad.smartgarage.core.data.GarageRepository
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.OdometerInput
 import io.github.conchad.smartgarage.core.format.Formatter
+import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.forms.ConfirmDialog
 import io.github.conchad.smartgarage.ui.components.forms.FormDateField
 import io.github.conchad.smartgarage.ui.components.forms.FormDistanceField
 import io.github.conchad.smartgarage.ui.components.forms.FormSheet
 import io.github.conchad.smartgarage.ui.components.forms.FormTextField
+import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.sync.SyncControl
 import io.github.conchad.smartgarage.ui.sync.WritingViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +42,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
 
 data class OdometerFormState(
@@ -42,6 +50,8 @@ data class OdometerFormState(
     val date: LocalDate = LocalDate.now(),
     val note: String = "",
     val currentOdometerKm: Int = 0,
+    /** When the odometer was last recorded (a log or a fill-up with a reading, D-A70); null when it never was. */
+    val lastUpdatedAt: Instant? = null,
     val formatter: Formatter = Formatter(null),
     val loaded: Boolean = false,
     val saving: Boolean = false,
@@ -79,10 +89,12 @@ class OdometerFormViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val fmt = garage.formatter.first()
             val current = garage.vehicles.first().firstOrNull { it.id == vehicleId }?.currentOdometerKm ?: 0
+            val lastUpdated = OdometerReminder.lastUpdate(vehicleId, garage.odometerLogs.first(), garage.fuelEntries.first())
             form.value = OdometerFormState(
                 reading = fmt.distanceInput(current),
                 date = fmt.today(),
                 currentOdometerKm = current,
+                lastUpdatedAt = lastUpdated,
                 formatter = fmt,
                 loaded = true,
             )
@@ -146,6 +158,21 @@ fun OdometerSheet(vehicleId: String, onDismiss: () -> Unit, snackbar: SnackbarHo
             else -> null
         },
     ) {
+        // D-A70: when the reading was last taken, so one can tell at a glance whether it is stale.
+        if (state.loaded) {
+            val last = state.lastUpdatedAt
+            Text(
+                when {
+                    last != null -> stringResource(R.string.odometer_last_updated, fmt.dateTime(last))
+                    // A reading from the vehicle itself (entered with the car), with no log or fill-up to date it.
+                    state.currentOdometerKm > 0 -> stringResource(R.string.odometer_update_unknown)
+                    else -> stringResource(R.string.odometer_never_updated)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = glass.textSecondary,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
         FormDistanceField(
             value = state.reading,
             onValueChange = viewModel::setReading,

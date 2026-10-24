@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -32,6 +33,19 @@ val LocalSheenPhase = compositionLocalOf<State<Float>> { ParkedSheen }
 
 private val ParkedSheen = object : State<Float> {
     override val value: Float get() = 0.5f
+}
+
+/**
+ * D-A70: false where text may not carry the sweeping sheen. Home and the vehicle page set it for everything under
+ * their top header ([NoSheen]): only that header glints; the other animated titles there (group headers, drop-down
+ * titles, card titles, sheets opened from the page) fall back to their still tier.
+ */
+val LocalSheenEnabled = staticCompositionLocalOf { true }
+
+/** [content] without the metallic sheen animation (D-A70): see [LocalSheenEnabled]. */
+@Composable
+fun NoSheen(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalSheenEnabled provides false, content = content)
 }
 
 private val wipeEasing = CubicBezierEasing(0.5f, 0f, 0.18f, 1f)
@@ -100,6 +114,8 @@ fun MetallicText(
     ink: AuroraInkSpec? = LocalAuroraInk.current,
 ) {
     val tokens = glass
+    // D-A70: the sweep only where the screen allows it; elsewhere an animated title takes the still tier.
+    val sweep = animated && LocalSheenEnabled.current
     if (ink != null) {
         Text(
             text,
@@ -107,9 +123,9 @@ fun MetallicText(
             maxLines = maxLines,
             overflow = overflow,
             textAlign = textAlign,
-            modifier = modifier.auroraInk(ink, sheen = if (animated) LocalSheenPhase.current else null),
+            modifier = modifier.auroraInk(ink, sheen = if (sweep) LocalSheenPhase.current else null),
         )
-    } else if (animated) {
+    } else if (sweep) {
         val phase = LocalSheenPhase.current
         Text(
             text,

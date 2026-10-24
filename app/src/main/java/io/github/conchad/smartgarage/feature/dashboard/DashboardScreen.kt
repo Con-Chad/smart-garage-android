@@ -93,6 +93,9 @@ import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.launch
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.NoSheen
+import io.github.conchad.smartgarage.ui.glass.AuroraInkGroup
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraInkGroup
 import io.github.conchad.smartgarage.ui.glass.onAuroraInk
 import io.github.conchad.smartgarage.ui.glass.PagerDots
 import io.github.conchad.smartgarage.ui.glass.RefreshIcon
@@ -180,17 +183,21 @@ fun DashboardScreen(
                 // D-A60: the header divider shows while the fan is open, as the scrim divides the page from the bar.
                 showHeaderDivider = fanOpen,
                 title = {
+                    // D-A70: the greeting and the sync line take one ink between them.
+                    val headerInk = remember { AuroraInkGroup() }
                     Column {
-                        MetallicText(greeting, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            syncLine(profile.name, state.sync),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = tokens.textSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            // On the aurora with the greeting: the adaptive ink (D-A46).
-                            modifier = Modifier.onAuroraInk(),
-                        )
+                        CompositionLocalProvider(LocalAuroraInkGroup provides headerInk) {
+                            MetallicText(greeting, style = MaterialTheme.typography.titleLarge, animated = true, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                syncLine(profile.name, state.sync),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = tokens.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                // On the aurora with the greeting: the adaptive ink (D-A46).
+                                modifier = Modifier.onAuroraInk(),
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -201,7 +208,8 @@ fun DashboardScreen(
                 },
                 snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
-                Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                // D-A70: only the greeting above keeps the metallic sheen; nothing below it sweeps.
+                NoSheen { Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
                         // Rejected writes stay with the banner; "can't reach" is the popup's, so the banner skips the sync states.
                         WriteQueueBanner(state.sync, viewModel, syncStates = false)
@@ -289,7 +297,7 @@ fun DashboardScreen(
                             onDismiss = { themeFor = null },
                         )
                     }
-                }
+                } }
             }
         }
     }

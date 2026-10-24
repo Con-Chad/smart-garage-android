@@ -82,6 +82,7 @@ import io.github.conchad.smartgarage.ui.glass.GlassGroupHeader
 import io.github.conchad.smartgarage.ui.glass.LocalTilt
 import io.github.conchad.smartgarage.ui.glass.MetallicSheenHost
 import io.github.conchad.smartgarage.ui.glass.MetallicText
+import io.github.conchad.smartgarage.ui.glass.NoSheen
 import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.orSnap
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
@@ -233,7 +234,8 @@ fun VehicleDetailScreen(
                     }
                 },
             ) { padding ->
-                Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+                // D-A70: only the bar's title keeps the metallic sheen; the cards' titles and headers don't sweep.
+                NoSheen { Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                     WriteQueueBanner(sync, viewModel, modifier = Modifier.popOutFade(popOut))
                     RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                         // Arriving from a card (D-A35): the state is seeded from what Home or the Vehicles tab holds, so it is
@@ -261,7 +263,7 @@ fun VehicleDetailScreen(
                             }
                         }
                     }
-                }
+                } }
             }
         }
     }

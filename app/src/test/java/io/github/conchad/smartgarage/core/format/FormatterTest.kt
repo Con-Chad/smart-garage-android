@@ -58,6 +58,17 @@ class FormatterTest {
     }
 
     @Test
+    fun `date and time follow the locale and the server's zone (D-A70)`() {
+        val instant = java.time.Instant.parse("2026-10-24T18:38:00Z")
+        val en = us.dateTime(instant)
+        assertThat(en).contains("Oct 24, 2026")
+        assertThat(en).contains("1:38")
+        val de = metric.dateTime(instant)
+        assertThat(de).contains("24.10.2026")
+        assertThat(de).contains("20:38")
+    }
+
+    @Test
     fun `short dates add the year only outside the current year`() {
         val today = LocalDate.parse("2026-10-21")
         assertThat(us.shortDate(Instant.parse("2026-03-05T18:00:00Z"), today)).isEqualTo("Mar 5")

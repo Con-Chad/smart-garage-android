@@ -1,6 +1,8 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
@@ -34,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -168,12 +172,17 @@ internal fun OwnerLine(ownerName: String?, shared: Boolean, detail: VehicleDetai
     }
 }
 
-/** One "At a glance" tile: icon, label, value, and for the insurer the installed app's launcher icon (D-A31). */
-private class GlanceTile(val icon: ImageVector, val label: String, val value: String, val badge: ImageBitmap? = null)
+/**
+ * One "At a glance" tile: icon, label, value, and for the insurer the installed app's launcher icon (D-A31), for the
+ * colour a swatch in the tint the aurora takes from it (D-A70).
+ */
+private class GlanceTile(val icon: ImageVector, val label: String, val value: String, val badge: ImageBitmap? = null, val swatch: Color? = null)
 
 /**
- * The figures wanted at a glance (note 14): mileage, the insurer in force and this year's money, two by two (the
- * last one full width). D-A52: the plate moved onto the photo card as a badge. Each tile is one TalkBack item ("Mileage, 123,456 km").
+ * The figures wanted at a glance (note 14): mileage and the insurer in force, then this year's money and the car's
+ * colour, two by two, so the colour sits under the insurance plan (D-A70: moved here from its own "Color" drop-down
+ * under Vehicle details). D-A52: the plate moved onto the photo card as a badge. Each tile is one TalkBack item
+ * ("Mileage, 123,456 km").
  */
 @Composable
 internal fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
@@ -184,6 +193,9 @@ internal fun ImmediateInfo(detail: VehicleDetail, fmt: Formatter) {
         // The sum is fuel + service + expenses, each stored in the server's preferred currency (D-A20), so it is
         // labelled with that currency, not the vehicle's purchaseCurrency, which the server may default differently.
         GlanceTile(Icons.Outlined.Payments, stringResource(R.string.vehicle_spent_this_year), fmt.money(detail.spentThisYearCents)),
+        vehicle.color?.takeIf { it.isNotBlank() }.let { colour ->
+            GlanceTile(Icons.Outlined.Palette, stringResource(R.string.field_color), colour ?: "—", swatch = colour?.let { VehicleTint.argb(it) }?.let { Color(it) })
+        },
     )
     Column(Modifier.padding(vertical = 4.dp)) {
         tiles.chunked(2).forEachIndexed { index, pair ->
@@ -221,6 +233,16 @@ private fun InfoTile(tile: GlanceTile, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (tile.badge != null) {
                 Image(tile.badge, contentDescription = null, modifier = Modifier.padding(end = 8.dp).size(ICON_SIZE))
+            }
+            if (tile.swatch != null) {
+                Box(
+                    Modifier
+                        .padding(end = 8.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(tile.swatch)
+                        .border(1.dp, tokens.pillBorder, CircleShape),
+                )
             }
             BasicText(
                 tile.value,

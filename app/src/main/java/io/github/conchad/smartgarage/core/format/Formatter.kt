@@ -35,6 +35,7 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
 
     // DateTimeFormatter is immutable and thread-safe; built once here rather than on every row of every list.
     private val mediumDate = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).withZone(zone)
+    private val mediumDateShortTime = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale).withZone(zone)
     private val shortDateSameYear = DateTimeFormatter.ofPattern(if (locale.language == "de") "d. MMM" else "MMM d", locale).withZone(zone)
     private val shortDateOtherYear = DateTimeFormatter.ofPattern(if (locale.language == "de") "d. MMM yyyy" else "MMM d, yyyy", locale).withZone(zone)
 
@@ -104,6 +105,9 @@ class Formatter(prefs: DisplayPreferences?, private val locale: Locale = Locale.
     }
 
     fun date(instant: Instant): String = mediumDate.format(instant)
+
+    /** A moment as the locale writes a date and time: "Oct 24, 2026, 1:38 PM", "24.10.2026, 13:38" (D-A70). */
+    fun dateTime(instant: Instant): String = mediumDateShortTime.format(instant)
 
     /** A calendar day (a due date already in the server's zone), in the same medium style. */
     fun date(date: LocalDate): String = mediumDate.format(date)

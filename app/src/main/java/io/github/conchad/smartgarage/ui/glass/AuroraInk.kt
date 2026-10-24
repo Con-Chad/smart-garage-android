@@ -7,6 +7,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -53,9 +54,9 @@ import kotlin.math.sin
 
 /*
  * Adaptive ink (D-A46): text that sits directly on the aurora (screen titles, group headers, section labels, the
- * greeting, Home's pills) takes its colour from the aurora behind it, white over the dark lower part of a gradient
- * and dark grey ([GlassTokens.inkDark], D-A49) over its lightest part, fading continuously through grey between (D-A48: grey may rest on a
- * mid-tone), and following the text as it scrolls.
+ * greeting, Home's pills) takes its colour from the aurora behind it: white where white contrasts more, the dark ink
+ * ([GlassTokens.inkDark]) where that does (D-A70, [AdaptiveInk.choose]; D-A48's resting grey is gone), easing from one
+ * to the other in time, and following the text as it scrolls.
  *
  * Cost by design:
  * - The aurora's colour is not read back from the GPU. [AuroraBackground] renders its own scene once per palette,
@@ -76,27 +77,43 @@ import kotlin.math.sin
  *   reads, nothing extra is drawn.
  */
 
-/** The pure mapping from a backdrop's luminance to the ink (unit-tested). */
+/**
+ * The one text-colour rule for the glass screens (D-A70), pure and unit-tested. Every piece of text picks its colour
+ * by WCAG contrast against what is actually behind it, aiming for [MIN_CONTRAST]:
+ * - Text straight on the aurora (titles, group headers, the greeting's sync line, pill labels) takes the light ink
+ *   ([GlassTokens.onPhoto]) or the dark ink ([GlassTokens.inkDark]), whichever contrasts more with the aurora under
+ *   it ([choose]). It never rests on a grey between them: the low-pass only passes through grey while it fades from
+ *   one to the other. Where even the better ink falls short, a halo makes up the rest ([haloStrength]).
+ * - Text on glass panels (the cards) keeps the theme's colours, each moved just far enough toward white or the dark
+ *   ink to clear [MIN_CONTRAST] on every backdrop the panel can be over ([legible], [legibleOnPanels]).
+ */
 object AdaptiveInk {
     /**
-     * D-A52: the ink is chosen by contrast, not by a fixed lightness threshold. This is the backdrop luminance where
-     * the light ink ([GlassTokens.onPhoto], L 0.92) and the dark ink ([GlassTokens.inkDark], L 0.070) contrast
-     * equally (both ≈ 2.85:1): `sqrt((Ll + 0.05)(Ld + 0.05)) − 0.05`. Below it white contrasts more, above it dark
-     * grey. (D-A48 held white up to 0.40, which left grey text resting on bright bands at ~1.1:1.)
+     * The backdrop luminance where the light ink ([GlassTokens.onPhoto], L 0.92) and the dark ink
+     * ([GlassTokens.inkDark] #1B2130, L 0.015) contrast equally (both ≈ 3.9:1): `sqrt((Ll + 0.05)(Ld + 0.05)) − 0.05`.
+     * Below it the light ink contrasts more, above it the dark one (D-A70; D-A52's grey band around it is gone).
      */
-    const val CENTER = 0.292f
+    const val CENTER = 0.2017f
 
-    /** Light ink up to this backdrop luminance (the cross-fade's lower end; CENTER / 1.12 on the contrast axis). */
-    const val BAND_LO = 0.255f
-
-    /** Dark ink from this backdrop luminance (the cross-fade's upper end; CENTER × 1.12 on the contrast axis). */
-    const val BAND_HI = 0.333f
+    /**
+     * How far past [CENTER] (as a factor on `L + 0.05`, ≈ 8 % on the contrast ratios) a backdrop must move before the
+     * ink flips, so text sitting right on the crossover, or a ribbon drifting across it, doesn't flicker.
+     */
+    const val HYSTERESIS = 1.04f
 
     /** The contrast the ink aims for; where neither ink reaches it, the halo ([haloStrength]) makes up the rest. */
     const val MIN_CONTRAST = 4.5f
 
-    /** At or below this contrast the halo is at full strength. */
-    const val HALO_FULL_AT = 2f
+    /**
+     * The halo starts below this contrast (D-A70: above [MIN_CONTRAST], because the ink is chosen on the aurora's
+     * average over its drift, while a ribbon passing behind the text can make the moment's backdrop a little
+     * lighter or darker), and is at full strength at or below [HALO_FULL_AT].
+     */
+    const val HALO_FROM = 5.5f
+    const val HALO_FULL_AT = 3f
+
+    /** No ink chosen yet (a node's first sample). */
+    const val NONE = -1f
 
     /** WCAG relative luminance of an sRGB colour, components 0..1. */
     fun relativeLuminance(r: Float, g: Float, b: Float): Float = 0.2126f * lin(r) + 0.7152f * lin(g) + 0.0722f * lin(b)
@@ -104,30 +121,29 @@ object AdaptiveInk {
     private fun lin(c: Float): Float = if (c <= 0.04045f) c / 12.92f else Math.pow(((c + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
 
     /**
-     * 0 = light ink, 1 = dark ink, for a backdrop of luminance [backdrop]: light up to [lo], dark from [hi], and a
-     * continuous smoothstep between on `ln(L + 0.05)`, the axis contrast ratios live on (D-A48: no snapping, no
-     * hysteresis). D-A52 narrowed the span around the equal-contrast point, so the ink only passes through grey
-     * while crossing it and never rests there on a wide band of mid-tones.
+     * 0 = light ink, 1 = dark ink, for a backdrop of luminance [backdrop] (D-A70): whichever contrasts more, never
+     * between. Within [HYSTERESIS] of [CENTER] the [previous] choice stands (or, with none yet, the nearer side).
      */
-    fun mix(backdrop: Float, lo: Float = BAND_LO, hi: Float = BAND_HI): Float {
-        if (backdrop <= lo) return 0f
-        if (backdrop >= hi) return 1f
-        val a = ln(lo + 0.05f)
-        val b = ln(hi + 0.05f)
-        val t = ((ln(backdrop + 0.05f) - a) / (b - a)).coerceIn(0f, 1f)
-        return t * t * (3f - 2f * t)
+    fun choose(backdrop: Float, previous: Float = NONE): Float {
+        val ratio = (backdrop + 0.05f) / (CENTER + 0.05f)
+        return when {
+            ratio >= HYSTERESIS -> 1f
+            ratio <= 1f / HYSTERESIS -> 0f
+            previous == 0f || previous == 1f -> previous
+            else -> if (ratio > 1f) 1f else 0f
+        }
     }
 
     /** WCAG 2 contrast between two relative luminances. */
     fun contrast(a: Float, b: Float): Float = (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
 
     /**
-     * How strongly to draw the halo behind ink of luminance [ink] on a backdrop of luminance [backdrop] (D-A52), 0..1:
-     * none from [MIN_CONTRAST] up, rising linearly to full at [HALO_FULL_AT]. Continuous in both, so it fades with the
-     * ink's own low-pass and never pops.
+     * How strongly to draw the halo behind ink of luminance [ink] on a backdrop of luminance [backdrop] (D-A52, D-A70),
+     * 0..1: none from [HALO_FROM] up, rising linearly to full at [HALO_FULL_AT]. Continuous in both, so it fades with
+     * the ink's own low-pass and never pops.
      */
     fun haloStrength(ink: Float, backdrop: Float): Float =
-        ((MIN_CONTRAST - contrast(ink, backdrop)) / (MIN_CONTRAST - HALO_FULL_AT)).coerceIn(0f, 1f)
+        ((HALO_FROM - contrast(ink, backdrop)) / (HALO_FROM - HALO_FULL_AT)).coerceIn(0f, 1f)
 
     /** The ink at [mix]: a straight sRGB blend from [light] through grey to [dark], as the gradient shader draws it. */
     fun ink(mix: Float, light: Color, dark: Color): Color {
@@ -137,6 +153,33 @@ object AdaptiveInk {
             green = light.green + (dark.green - light.green) * m,
             blue = light.blue + (dark.blue - light.blue) * m,
         )
+    }
+
+    /**
+     * The lowest contrast [lum] has with any backdrop luminance in [lo]..[hi]: 1 when it lies inside the range, else
+     * the nearer end's.
+     */
+    fun worstContrast(lum: Float, lo: Float, hi: Float): Float =
+        if (lum in lo..hi) 1f else minOf(contrast(lum, lo), contrast(lum, hi))
+
+    /**
+     * [preferred] (a theme text colour) as is when it clears [MIN_CONTRAST] on every backdrop in [lo]..[hi], else
+     * blended toward [lightInk] (a light colour) or [darkInk] (a dark one) just far enough that it does, or all the
+     * way when even that falls short (D-A70). Keeps the theme's tone wherever it already reads, and never goes past
+     * the inks, so secondary text never outshines primary.
+     */
+    fun legible(preferred: Color, lo: Float, hi: Float, lightInk: Color, darkInk: Color, target: Float = MIN_CONTRAST): Color {
+        fun lum(c: Color) = relativeLuminance(c.red, c.green, c.blue)
+        if (worstContrast(lum(preferred), lo, hi) >= target) return preferred
+        val toward = if (lum(preferred) > CENTER) lightInk else darkInk
+        if (worstContrast(lum(toward), lo, hi) < target) return toward
+        var a = 0f
+        var b = 1f
+        repeat(16) {
+            val m = (a + b) / 2f
+            if (worstContrast(lum(ink(m, preferred, toward)), lo, hi) >= target) b = m else a = m
+        }
+        return ink(b, preferred, toward)
     }
 }
 
@@ -173,6 +216,25 @@ class AuroraLumaMap(val cols: Int, val rows: Int, private val rgb: FloatArray) {
             b = overlay.blue * a + b * (1f - a)
         }
         return AdaptiveInk.relativeLuminance(r, g, b)
+    }
+
+    /**
+     * The darkest and the lightest the aurora gets anywhere under [overlay] (a glass panel's fill), as relative
+     * luminances (D-A70): every backdrop a card's text can land on as it scrolls.
+     */
+    fun luminanceRange(overlay: Color): ClosedFloatingPointRange<Float> {
+        var lo = Float.MAX_VALUE
+        var hi = -Float.MAX_VALUE
+        val a = overlay.alpha
+        for (i in 0 until cols * rows) {
+            val r = overlay.red * a + rgb[i * 3] * (1f - a)
+            val g = overlay.green * a + rgb[i * 3 + 1] * (1f - a)
+            val b = overlay.blue * a + rgb[i * 3 + 2] * (1f - a)
+            val l = AdaptiveInk.relativeLuminance(r, g, b)
+            if (l < lo) lo = l
+            if (l > hi) hi = l
+        }
+        return lo..hi
     }
 
     /**
@@ -268,6 +330,39 @@ class AuroraInkSpec(val overlay: () -> Color = { Color.Transparent }) {
 }
 
 /**
+ * Text that reads as one unit on the aurora (a group header's title and its "See all", Home's greeting and its sync
+ * line) takes one ink between them (D-A70): each member reports the backdrop under it and all take the ink
+ * [AdaptiveInk.choose] gives their mean, so a row never shows a dark title beside a white action. Each member keeps
+ * its own halo.
+ */
+@Stable
+class AuroraInkGroup {
+    private val samples = HashMap<Any, Float>()
+
+    /** The group's ink, 0 light, 1 dark; [AdaptiveInk.NONE] until a member reports. Snapshot state: members follow it. */
+    var choice by mutableFloatStateOf(AdaptiveInk.NONE)
+        private set
+
+    internal fun report(member: Any, luminance: Float) {
+        samples[member] = luminance
+        rechoose()
+    }
+
+    internal fun remove(member: Any) {
+        if (samples.remove(member) != null) rechoose()
+    }
+
+    private fun rechoose() {
+        if (samples.isEmpty()) return
+        val next = AdaptiveInk.choose(samples.values.average().toFloat(), choice)
+        if (next != choice) choice = next
+    }
+}
+
+/** The [AuroraInkGroup] the adaptive ink in this slot belongs to; null: each text decides alone. */
+val LocalAuroraInkGroup = staticCompositionLocalOf<AuroraInkGroup?> { null }
+
+/**
  * Set where everything in a slot sits on the aurora (a top bar's title): [MetallicText] and [onAuroraInk] inside it
  * pick it up. Null elsewhere: text on cards keeps its card-based colour.
  */
@@ -302,6 +397,9 @@ private class AuroraInkNode(
 
     // Placement in the root, from the last layout.
     private var centerX = Float.NaN
+    // D-A70: where the text starts; the ink is sampled there as well as at the centre, since a line's glyphs start at
+    // its left edge and a wide line can span a light and a dark part of the aurora.
+    private var startX = Float.NaN
     private var top = 0f
     private var bottom = 0f
 
@@ -320,6 +418,7 @@ private class AuroraInkNode(
     // Inputs read under observation (map, theme, overlay, density) and what derives from them, refreshed only when
     // one of them changes (D-A48): a scroll re-places the node every frame, and the placement path then only samples.
     private var holder: AuroraLumaHolder? = null
+    private var group: AuroraInkGroup? = null
     private var ceiling: AuroraInkCeiling? = null
     private var map: AuroraLumaMap? = null
     private var overlay = Color.Transparent
@@ -369,6 +468,8 @@ private class AuroraInkNode(
 
     override fun onDetach() {
         easing = null
+        group?.remove(this)
+        group = null
         if (isAttached && (glyphLayer != null || haloLayer != null)) {
             val context = requireGraphicsContext()
             glyphLayer?.let(context::releaseGraphicsLayer)
@@ -390,6 +491,7 @@ private class AuroraInkNode(
         val cx = p.x + coordinates.size.width / 2f
         if (cx == centerX && p.y == top && p.y + h == bottom) return
         centerX = cx
+        startX = p.x + coordinates.size.width * START_SAMPLE
         top = p.y
         bottom = p.y + h
         retarget()
@@ -400,6 +502,11 @@ private class AuroraInkNode(
         if (!isAttached) return
         observeReads {
             holder = currentValueOf(LocalAuroraLuma)
+            val g = currentValueOf(LocalAuroraInkGroup)
+            if (g !== group) group?.remove(this)
+            group = g
+            // Read so a change of the group's ink (another member moved) re-aims this one.
+            g?.choice
             ceiling = currentValueOf(LocalAuroraInkCeiling)
             map = holder?.map
             tokens = currentValueOf(LocalGlassTokens)
@@ -437,21 +544,26 @@ private class AuroraInkNode(
             yTop = m.holdY(x, yTop)
             yBottom = m.holdY(x, yBottom)
         }
-        val lumTopRaw = m.luminanceAt(x, yTop, overlay)
-        val lumBottomRaw = m.luminanceAt(x, yBottom, overlay)
-        val mixTopRaw = AdaptiveInk.mix(lumTopRaw)
-        val mixBottomRaw = AdaptiveInk.mix(lumBottomRaw)
+        val xs = (startX - bounds.left) / bounds.width
+        val lumTopRaw = (m.luminanceAt(x, yTop, overlay) + m.luminanceAt(xs, yTop, overlay)) / 2f
+        val lumBottomRaw = (m.luminanceAt(x, yBottom, overlay) + m.luminanceAt(xs, yBottom, overlay)) / 2f
         lumTarget = (lumTopRaw + lumBottomRaw) / 2f
-        // The mapping is continuous (D-A48): the ink follows the aurora through grey and may rest there; the low-pass
-        // below smooths it in time. A short block (a line or two) takes one value from its centre, so it never
-        // shades top-light / bottom-dark within a line.
-        if (bottom - top < tallPx) {
-            val c = (mixTopRaw + mixBottomRaw) / 2f
+        // D-A70: the ink is light or dark, whichever contrasts more, never resting on a grey between; the low-pass
+        // below fades between them in time. A short block (a line or two) takes one ink from its mean backdrop, so it
+        // never shades top-light / bottom-dark within a line; a tall one may take a different ink at each end.
+        val g = group
+        if (bottom - top < tallPx && g != null) {
+            g.report(this, lumTarget)
+            val c = g.choice
+            targetTop = c
+            targetBottom = c
+        } else if (bottom - top < tallPx) {
+            val c = AdaptiveInk.choose(lumTarget, if (active) targetTop else AdaptiveInk.NONE)
             targetTop = c
             targetBottom = c
         } else {
-            targetTop = mixTopRaw
-            targetBottom = mixBottomRaw
+            targetTop = AdaptiveInk.choose(lumTopRaw, if (active) targetTop else AdaptiveInk.NONE)
+            targetBottom = AdaptiveInk.choose(lumBottomRaw, if (active) targetBottom else AdaptiveInk.NONE)
         }
         if (!active || !settled) {
             // The first sample lands at once: a title doesn't fade in from white on every screen it opens.
@@ -591,6 +703,9 @@ private class AuroraInkNode(
     }
 
     private companion object {
+        /** The second sample's place across the text, from its start (D-A70). */
+        const val START_SAMPLE = 0.15f
+
         /** Blocks at least this tall shade across the aurora; shorter ones take one ink. */
         const val TALL_BLOCK_DP = 56f
 

@@ -7,45 +7,39 @@ import org.junit.Test
 
 class GlassInkTest {
     @Test
-    fun `dark and saturated tints keep white pill labels on dark glass`() {
-        for (hex in listOf(0xFF1F6B3A, 0xFF2E9A55, 0xFF1F3A7A, 0xFFD0302C, 0xFF7A3AB8)) {
-            assertThat(pillInk(DarkGlassTokens, Color(hex))).isEqualTo(DarkGlassTokens.onPhoto)
+    fun `on the light theme every preset's pill takes the dark ink (D-A70)`() {
+        for (argb in AuroraPresets) {
+            assertThat(pillInk(LightGlassTokens, Color(argb))).isEqualTo(LightGlassTokens.inkDark)
         }
     }
 
     @Test
-    fun `white, silver and pale tints switch to the dark grey ink`() {
+    fun `white, silver and pale tints switch to the dark ink`() {
         for (hex in listOf(0xFFFFFFFF, 0xFFE6E8EC, 0xFFC0C4CC, 0xFFFFF4C2)) {
             assertThat(pillInk(DarkGlassTokens, Color(hex))).isEqualTo(DarkGlassTokens.inkDark)
         }
     }
 
     @Test
-    fun `the chosen ink clears 3 to 1 on the estimated backdrop wherever either ink can`() {
+    fun `the pill ink is whichever of the two inks contrasts more with the estimated backdrop (D-A70)`() {
         for (hex in listOf(0xFF000000, 0xFF2E9A55, 0xFFD4AF37, 0xFFE8C62A, 0xFF9FB3C8, 0xFFFFFFFF)) {
-            val tint = Color(hex)
-            val ink = pillInk(DarkGlassTokens, tint)
-            val backdrop = estimatedPillBackdrop(DarkGlassTokens, tint)
-            val chosen = contrastRatio(ink, backdrop)
-            // D-A49: the dark grey gives up a little on mid-tone estimates (a white car's, L ≈ 0.24): where neither ink
-            // reaches 3:1 the chosen one is still within a hair of it.
-            val other = contrastRatio(if (ink == DarkGlassTokens.onPhoto) DarkGlassTokens.inkDark else DarkGlassTokens.onPhoto, backdrop)
-            if (other >= 3f) assertThat(chosen).isAtLeast(3f) else assertThat(chosen).isAtLeast(2.8f)
+            for (tokens in listOf(DarkGlassTokens, LightGlassTokens)) {
+                val tint = Color(hex)
+                val ink = pillInk(tokens, tint)
+                val backdrop = estimatedPillBackdrop(tokens, tint)
+                val other = if (ink == tokens.onPhoto) tokens.inkDark else tokens.onPhoto
+                assertThat(contrastRatio(ink, backdrop)).isAtLeast(contrastRatio(other, backdrop) * 0.92f)
+            }
         }
     }
 
     @Test
-    fun `the dark ink is a dark grey, not near-black, and still reads on the lightest backdrops (D-A49)`() {
+    fun `the dark ink is the light theme's text colour (D-A70)`() {
         for (tokens in listOf(DarkGlassTokens, LightGlassTokens)) {
-            val ink = tokens.inkDark
-            assertThat(ink).isNotEqualTo(tokens.onPale)
-            // A grey: neutral-ish, clearly above near-black, clearly below mid-grey.
-            assertThat(ink.luminance()).isGreaterThan(0.05f)
-            assertThat(ink.luminance()).isLessThan(0.10f)
-            // D-A52: ≥ 3:1 where the ink first turns fully dark (the halo covers the rest up to 4.5:1), 4.5:1 from L 0.50,
-            // and on the light theme's page.
-            assertThat((AdaptiveInk.BAND_HI + 0.05f) / (ink.luminance() + 0.05f)).isAtLeast(3f)
-            assertThat((0.50f + 0.05f) / (ink.luminance() + 0.05f)).isAtLeast(4.5f)
+            assertThat(tokens.inkDark).isEqualTo(Color(0xFF1B2130))
+            assertThat(tokens.inkDark).isEqualTo(LightGlassTokens.textPrimary)
+            // 4.5:1 from a backdrop of L 0.25 up (D-A49's grey needed 0.50), and on the light theme's page.
+            assertThat((0.25f + 0.05f) / (tokens.inkDark.luminance() + 0.05f)).isAtLeast(4.5f)
         }
         assertThat(contrastRatio(LightGlassTokens.inkDark, LightGlassTokens.pageBackground)).isAtLeast(4.5f)
     }

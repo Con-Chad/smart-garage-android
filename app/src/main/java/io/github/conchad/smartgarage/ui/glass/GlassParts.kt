@@ -12,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,21 +74,25 @@ fun GlassGroupHeader(
         }
         return
     }
-    Row(
-        modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MetallicText(
-            text,
-            style = MaterialTheme.typography.titleMedium,
-            animated = true,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
-            // On the aurora: the adaptive ink under the sheen (D-A46).
-            ink = AuroraInkSpec.Text,
-        )
-        end()
+    // D-A70: the title and its action take one ink between them.
+    val inkGroup = remember { AuroraInkGroup() }
+    CompositionLocalProvider(LocalAuroraInkGroup provides inkGroup) {
+        Row(
+            modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MetallicText(
+                text,
+                style = MaterialTheme.typography.titleMedium,
+                animated = true,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                // On the aurora: the adaptive ink under the sheen (D-A46).
+                ink = AuroraInkSpec.Text,
+            )
+            end()
+        }
     }
 }
 

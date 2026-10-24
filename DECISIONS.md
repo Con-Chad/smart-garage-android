@@ -2001,3 +2001,34 @@ App decisions use the `D-A` prefix.
     error line sits outside the text field, so the IME's bring-into-view may leave it half under the keyboard.
   - Verified on the Pixel 10 Pro (release build), dark and light, EN and DE: form, make list mid-scroll, HSN and TSN
     bubbles, year error, vehicle page "Vehicle ID Details". 322 unit tests pass; lint: no new issues.
+
+- **D-A70 (2026-10-24) — One text-colour rule on glass; sheen only on the top header; colour under "At a glance";
+  odometer "last updated".** User-requested UI pass (unattended run; judgment calls noted).
+  - **The rule** (`AdaptiveInk`, ui/glass/AuroraInk.kt; unit-tested in `TextInkRuleTest` across all 12 presets × both
+    themes): every text picks its colour by WCAG contrast against what is actually behind it, aiming for 4.5:1.
+    - *On the aurora* (greeting + sync line, group headers and their actions, pill labels): light ink (`onPhoto`) or
+      dark ink, whichever contrasts more (`choose`, crossover `CENTER` 0.2017, 4 % hysteresis on `L + 0.05`). No
+      resting grey any more (D-A48/D-A52's band left grey text at 1.4–2:1 on steel / yellow on dark). `inkDark` is now
+      #1B2130 (the light theme's text), not D-A49's #474B54, so dark ink clears 4.5:1 from L 0.25. The ink is sampled
+      at the text's start and centre. Text that reads as one unit shares one ink (`AuroraInkGroup`: a group header's
+      title + "See all", Home's greeting + sync line). Halo (D-A52) now starts below 5.5:1 and is full at 3:1, a
+      margin for the aurora drifting under text whose ink comes from the drift-averaged colour map.
+    - *On glass panels*: `GlassTokens.legibleOnPanels(map)` (provided by `MainShell` over the screens, from the
+      shell's luma map): if the theme's secondary text can't hold 5:1 (4.5 + a margin for drift) over the panel at the
+      map's darkest/brightest point (half the top gloss counted on the light end), the panel fill densifies (≤ 0.75
+      alpha); any text colour still short is moved toward its ink (`AdaptiveInk.legible`). Unchanged where it reads.
+      App-wide (all shell screens), not only Home.
+    - `pillInk` follows the same rule (D-A49's "white down to 3:1" dropped).
+  - **Sheen**: `LocalSheenEnabled` / `NoSheen`; Home and the vehicle page wrap their body (and the sheets / menus opened
+    from it), so only Home's greeting glints. Judgment call: the vehicle page's bar title (its top header) keeps it.
+    Other screens unchanged. Animated titles there fall back to the still tier / plain adaptive ink.
+  - **Colour**: a "Color" tile (swatch + name, "—" if unset) in "At a glance", 2×2 grid, directly beneath "Insurance
+    plan" (Spent this year moves to the bottom-left half). The "Color" drop-down under Vehicle details is gone.
+  - **Update odometer**: a line at the top, "Last updated: <date, time>" (`Formatter.dateTime`, locale medium date +
+    short time, server zone), from the newest odometer log or fill-up with a reading (`OdometerReminder.lastUpdate`,
+    plumbed into `OdometerFormState.lastUpdatedAt`); "Last update unknown" when only the vehicle's own reading exists,
+    "No reading recorded yet" when there is none. EN + DE.
+  - **Measured on the Pixel 10 Pro** (release build, 12 presets × light/dark, Home + vehicle page): card text ≥ 4.5:1
+    everywhere at rest; text on the bare aurora ≥ 4.5:1 except in Home's mid-tone band on dark (L ≈ 0.17–0.27, e.g.
+    sky blue, orange, gold), where no ink can reach it (best ≈ 3.9:1 at the crossover) and the halo carries it
+    (measured 3–4.4:1 without counting the halo). Left: putting those headers on glass (as D-A54) would close it.

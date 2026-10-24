@@ -1,15 +1,11 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material3.Icon
@@ -18,8 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,7 +32,6 @@ import io.github.conchad.smartgarage.ui.components.driveTypeLabel
 import io.github.conchad.smartgarage.ui.components.enumLabel
 import io.github.conchad.smartgarage.ui.components.fuelTypeLabel
 import io.github.conchad.smartgarage.ui.components.modificationCategoryLabel
-import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 
 /** One drop-down under "Vehicle details": a stable key for its saved open/closed state, the header, and the rows. */
@@ -46,7 +39,7 @@ internal class DetailSection(val key: String, val title: String, val content: @C
 
 /**
  * The groups under "Vehicle details" (note 15) that have anything to show, in reading order: registration (plate,
- * HSN/TSN, inspection sticker), VIN, colour, purchase, specs, tyres, modifications, the owner's custom fields and the
+ * HSN/TSN, inspection sticker), VIN, purchase (the colour is under "At a glance" since D-A70), specs, tyres, modifications, the owner's custom fields and the
  * notes. Tyres are only a group when the owner keeps a tyre custom field or modification; there is no tyre model to
  * invent one from.
  */
@@ -61,7 +54,6 @@ internal fun detailSections(vehicle: Vehicle, detail: VehicleDetail, state: Vehi
         detail.inspections.firstNotNullOfOrNull { it.stickerNumber?.takeIf(String::isNotBlank) }?.let { stringResource(R.string.inspection_sticker) to it },
     )
     val vin = vehicle.vin?.takeIf { it.isNotBlank() }
-    val colour = vehicle.color?.takeIf { it.isNotBlank() }
     val purchase = listOfNotNull(
         vehicle.purchaseDate.toInstantOrNull()?.let { stringResource(R.string.field_purchased) to fmt.date(it) },
         vehicle.purchasePriceCents?.let { stringResource(R.string.field_purchase_price) to fmt.money(it, vehicle.purchaseCurrency) },
@@ -88,7 +80,6 @@ internal fun detailSections(vehicle: Vehicle, detail: VehicleDetail, state: Vehi
     return listOfNotNull(
         registration.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("registration", stringResource(R.string.vehicle_registration)) { DetailRows(rows) } },
         vin?.let { DetailSection("vin", stringResource(R.string.field_vin)) { ValueBlock(it) } },
-        colour?.let { DetailSection("colour", stringResource(R.string.field_color)) { ColourBlock(it) } },
         purchase.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("purchase", stringResource(R.string.vehicle_purchase)) { DetailRows(rows) } },
         specRows.takeIf { it.isNotEmpty() }?.let { rows -> DetailSection("specs", stringResource(R.string.vehicle_specs)) { DetailRows(rows) } },
         tires?.let { DetailSection("tires", stringResource(R.string.vehicle_tires)) { ValueBlock(it) } },
@@ -114,26 +105,6 @@ private fun DetailRows(rows: List<Pair<String, String>>) {
 @Composable
 private fun ValueBlock(value: String) {
     Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth().padding(16.dp))
-}
-
-/** The colour as written, with a swatch in the tint the aurora takes from it when the text names a colour. */
-@Composable
-private fun ColourBlock(colour: String) {
-    val tokens = glass
-    val swatch = VehicleTint.argb(colour)?.let { Color(it) }
-    Row(Modifier.fillMaxWidth().padding(16.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-        if (swatch != null) {
-            Box(
-                Modifier
-                    .padding(end = 12.dp)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(swatch)
-                    .border(1.dp, tokens.pillBorder, CircleShape),
-            )
-        }
-        Text(colour, style = MaterialTheme.typography.bodyLarge)
-    }
 }
 
 @Composable

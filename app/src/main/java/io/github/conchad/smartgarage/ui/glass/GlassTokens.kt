@@ -96,10 +96,10 @@ data class GlassTokens(
      */
     val onPale: Color,
     /**
-     * The dark end of the adaptive ink on the aurora, for text and pills alike (D-A49): a dark grey rather than
-     * [onPale]'s near-black, so the lightest bands read softer. #474B54 (L 0.070) still clears 4.5:1 at the
-     * backdrop luminance where the ink first turns fully dark ([AdaptiveInk.BAND_HI] 0.50: 4.6:1), 4.9:1 on the
-     * Pixel's lightest green aurora (L 0.54) and 7.7:1 on the light theme's page. Shared by both sets.
+     * The dark ink on the aurora, for text and pills alike (D-A49, D-A70): #1B2130 (L 0.015), the light theme's text
+     * colour, so text that turns dark on a pale aurora is the same dark as the cards' text. D-A49's softer #474B54
+     * (L 0.070) sat at 1.4–2:1 on mid-tone auroras (steel, yellow on dark); this one meets the light ink at
+     * [AdaptiveInk.CENTER] (≈ 3.9:1 there, the halo making up the rest) and clears 4.5:1 from L 0.25 up. Shared by both sets.
      */
     val inkDark: Color,
     /**
@@ -160,7 +160,7 @@ private val PhotoScrim = listOf(Color.Transparent, Color(0xB3000000), Color(0xD9
 private val OnPhoto = Color(0xFFF4F6FB)
 private val OnPhotoSecondary = Color(0xFFC7CCDB)
 private val OnPale = Color(0xFF1B2130)
-private val InkDark = Color(0xFF474B54)
+private val InkDark = Color(0xFF1B2130)
 private val InkHaloDark = Color(0xFF000000)
 private val InkHaloLight = Color(0xFFFFFFFF)
 private val PlateFace = Color(0xFFF7F8FA)

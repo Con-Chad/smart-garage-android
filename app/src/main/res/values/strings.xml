@@ -507,6 +507,9 @@
     <string name="fuel_delete_title">Delete this fill-up?</string>
     <string name="fuel_delete_body">The entry is removed from this vehicle\'s fuel history. This can\'t be undone.</string>
     <string name="odometer_form_title">Update odometer</string>
+    <string name="odometer_last_updated">Last updated: %1$s</string>
+    <string name="odometer_never_updated">No reading recorded yet</string>
+    <string name="odometer_update_unknown">Last update unknown</string>
     <string name="odometer_form_reading">New reading</string>
     <string name="odometer_form_needs_reading">Enter the reading on the dash.</string>
     <string name="record_form_title">Log service</string>
