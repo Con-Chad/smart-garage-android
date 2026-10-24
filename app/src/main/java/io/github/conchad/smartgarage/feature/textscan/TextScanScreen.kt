@@ -51,6 +51,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -69,6 +70,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -80,9 +83,11 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -323,7 +328,8 @@ private fun ResultContent(
 
 /**
  * The photo with a box over each recognised line. Taps go through [hitTest] (every box answers within 48 dp, the
- * nearest wins); for TalkBack each box is a checkbox node named by its text, in reading order.
+ * nearest wins); for TalkBack each box is a checkbox node named by its text, bounded by exactly its box (no 48 dp
+ * growth, so explore-by-touch lands on the box under the finger), in reading order.
  */
 @Composable
 private fun ScanOverlay(result: ScanResult, selected: Set<Int>, onToggle: (Int) -> Unit) {
@@ -374,26 +380,40 @@ private fun ScanOverlay(result: ScanResult, selected: Set<Int>, onToggle: (Int) 
                     contentDescription = imageDescription
                 },
         ) {
-            result.rows.flatten().forEach { i ->
-                val r = rects[i]
-                val on = i in selected
-                Box(
-                    Modifier
-                        .offset { IntOffset(r.left.roundToInt(), r.top.roundToInt()) }
-                        .size(with(density) { r.width.toDp() }, with(density) { r.height.toDp() })
-                        .semantics {
-                            contentDescription = result.blocks[i].text
-                            role = Role.Checkbox
-                            toggleableState = ToggleableState(on)
-                            onClick {
-                                toggle(i)
-                                true
-                            }
-                        },
-                )
+            // Compose's accessibility layer grows every node with a click action to the view configuration's minimum
+            // touch target (48 dp) for its reported bounds and explore-by-touch hit test, so on a dense photo the
+            // nodes overlapped and cropped each other. Here the box is the node: no growth. Sighted taps keep their
+            // 48 dp reach through hitTest on the photo above (D-A68).
+            val base = LocalViewConfiguration.current
+            val exact = remember(base) { ExactTouchBounds(base) }
+            CompositionLocalProvider(LocalViewConfiguration provides exact) {
+                result.rows.flatten().forEachIndexed { order, i ->
+                    val r = rects[i]
+                    val on = i in selected
+                    Box(
+                        Modifier
+                            .offset { IntOffset(r.left.roundToInt(), r.top.roundToInt()) }
+                            .size(with(density) { r.width.toDp() }, with(density) { r.height.toDp() })
+                            .semantics {
+                                contentDescription = result.blocks[i].text
+                                role = Role.Checkbox
+                                toggleableState = ToggleableState(on)
+                                traversalIndex = order.toFloat()
+                                onClick {
+                                    toggle(i)
+                                    true
+                                }
+                            },
+                    )
+                }
             }
         }
     }
+}
+
+/** [base] with no minimum touch target, so accessibility nodes keep their real bounds. */
+private class ExactTouchBounds(base: ViewConfiguration) : ViewConfiguration by base {
+    override val minimumTouchTargetSize: DpSize get() = DpSize.Zero
 }
 
 private val MAX_IMAGE_HEIGHT = 520.dp

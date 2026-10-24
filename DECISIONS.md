@@ -1946,3 +1946,18 @@ App decisions use the `D-A` prefix.
     photo, ~600 MB after a 12 MP one, still held on the Home screen (the engine is a process singleton). Every run now
     sets `memory.enable_memory_arena_shrinkage = cpu:0` (`newRunOptions()`): ~140–160 MB retained, 12 MP inference
     unchanged (~1.5 s). Turning the arena off instead kept ~75 MB but made a 12 MP photo ~50 % slower (2.25 s).
+
+- **D-A68 (2026-10-24) — Scan text: each box's TalkBack node is exactly its box.** Fixes D-A64's overlay on dense
+  photos, where TalkBack's bounds were shifted/cropped and explore-by-touch landed on the neighbouring box.
+  - **Cause**: not a modifier (the boxes were bare `semantics` nodes with no `toggleable`/`Checkbox`/padding).
+    Compose's accessibility layer itself grows any node with an `onClick` action to
+    `ViewConfiguration.minimumTouchTargetSize` (48 dp) — both the bounds it reports (`touchBoundsInRoot`) and the
+    explore-by-touch hit test. Boxes ~10–15 dp tall overlapped by most of their height; later siblings then cropped
+    earlier ones in the uncovered-region pass, and the hit test took the nearest inflated node.
+  - **Fix** (`TextScanScreen`): the box nodes are composed under a `LocalViewConfiguration` that delegates to the
+    real one but reports a zero minimum touch target (`ExactTouchBounds`); the photo's own tap handling is outside
+    it and unchanged. Each node also gets `traversalIndex` = its position in `readingOrder`, so swipe order doesn't
+    depend on Compose's geometric sort. Sighted taps keep D-A64's `hitTest` (48 dp reach, inside-then-nearest).
+  - **Left as is**: a node is the axis-aligned bounds of its drawn quadrilateral, so boxes on a tilted photo can
+    still overlap a little (12 of 48 pairs on the Swiggy receipt, by 3–18 px); there the later box in reading order
+    answers. On the Pixel 10 Pro the 48 nodes matched the drawn boxes, and taps on boxes 12–30 px tall picked them.
