@@ -1924,3 +1924,12 @@ App decisions use the `D-A` prefix.
     `ocr/src/androidTest/assets/test_ocr/` with README + LICENSE; HEIC and the 3 MB duplicate photo skipped) with
     upstream's normalised-substring matching; requires aggregate required-text recall ≥ 90 % and each image's
     `minimumBlocks`. Baseline and after: 33/33 (100 %).
+
+- **D-A67 (2026-10-23) — Receipt fallback reads rows like Scan text.** CP10b of the on-device OCR round.
+  `toOcrLines()` sorted the engine's boxes by top edge, then left edge. On a slightly tilted photo the amount at the
+  far right of a row sits a few pixels above its label, so it came first, and the "Text read from the photo" sheet
+  listed every box on its own line ("72,15" before "SUMME"). Both now use Scan text's `readingOrder` (D-A64): the
+  parser gets the boxes row by row, label first (it still regroups by centre line itself, so parsing is unchanged),
+  and the sheet shows one line per printed row, its boxes joined by a space (`toTextRows()`), as Scan text copies it.
+  A tilt large enough that the amount drifts more than half a line height into the row above still splits the row
+  in both; deskewing from the boxes' corner points was not attempted.

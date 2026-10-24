@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.feature.receipts.ocr
 
 import android.net.Uri
+import io.github.conchad.smartgarage.feature.textscan.readingOrder
 import io.github.conchad.smartgarage.ocr.OcrEngine
 import io.github.conchad.smartgarage.ocr.OcrError
 import io.github.conchad.smartgarage.ocr.OcrTextBlock
@@ -49,7 +50,7 @@ class OcrReceiptTextReader @Inject constructor(
         return try {
             val lines = image.blocks.toOcrLines()
             val receipt = withContext(Dispatchers.Default) { parser.parse(lines, locale) }
-            DeviceRead.Text(receipt, lines.map { it.text })
+            DeviceRead.Text(receipt, image.blocks.toTextRows())
         } finally {
             // Only the text is kept; the decoded image (up to 12 MP) goes straight away.
             image.bitmap.recycle()
@@ -58,22 +59,32 @@ class OcrReceiptTextReader @Inject constructor(
 }
 
 /**
- * The engine's blocks as parser lines in reading order (top to bottom, then left to right), with each box's centre
- * and height so the parser can pair a label with the amount printed at the far end of the same row.
+ * The engine's blocks as parser lines in reading order, with each box's centre and height so the parser can pair a
+ * label with the amount printed at the far end of the same row. Rows come from Scan text's [readingOrder], so an
+ * amount sitting a little higher than its label on a skewed photo still follows the label (D-A67).
  */
-fun List<OcrTextBlock>.toOcrLines(): List<OcrLine> = this
-    .filter { it.text.isNotBlank() }
-    .sortedWith(compareBy({ it.boundingRect.top }, { it.boundingRect.left }))
-    .map {
-        val r = it.boundingRect
+fun List<OcrTextBlock>.toOcrLines(): List<OcrLine> {
+    val blocks = filter { it.text.isNotBlank() }
+    return readingOrder(blocks.map { it.boundingRect }).flatten().map { i ->
+        val r = blocks[i].boundingRect
         OcrLine(
-            text = it.text.trim(),
-            confidence = it.confidence,
+            text = blocks[i].text.trim(),
+            confidence = blocks[i].confidence,
             centerX = (r.left + r.right) / 2f,
             centerY = (r.top + r.bottom) / 2f,
             height = r.height,
         )
     }
+}
+
+/**
+ * The text for the "Text read from the photo" sheet: one line per printed row, its boxes left to right, as Scan
+ * text copies it (D-A67).
+ */
+fun List<OcrTextBlock>.toTextRows(): List<String> {
+    val blocks = filter { it.text.isNotBlank() }
+    return readingOrder(blocks.map { it.boundingRect }).map { row -> row.joinToString(" ") { blocks[it].text.trim() } }
+}
 
 internal fun failureOf(error: Throwable): DeviceReadFailure = when (error) {
     is CancellationException -> throw error

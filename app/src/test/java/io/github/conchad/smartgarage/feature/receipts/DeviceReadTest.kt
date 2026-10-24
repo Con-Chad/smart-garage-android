@@ -20,6 +20,7 @@ import io.github.conchad.smartgarage.feature.receipts.ocr.ParseWarning
 import io.github.conchad.smartgarage.feature.receipts.ocr.ParsedReceipt
 import io.github.conchad.smartgarage.feature.receipts.ocr.ReceiptTextReader
 import io.github.conchad.smartgarage.feature.receipts.ocr.toOcrLines
+import io.github.conchad.smartgarage.feature.receipts.ocr.toTextRows
 import io.github.conchad.smartgarage.ocr.BoundingRect
 import io.github.conchad.smartgarage.ocr.OcrError
 import io.github.conchad.smartgarage.ocr.OcrTextBlock
@@ -150,10 +151,26 @@ class DeviceReadTest {
             block("ARAL", 10f, 10f, 90f, 40f),
             block("  ", 0f, 0f, 1f, 1f),
         ).toOcrLines()
-        assertThat(result.map { it.text }).containsExactly("ARAL", "72,15", "SUMME").inOrder()
-        assertThat(result[1].centerX).isEqualTo(330f)
-        assertThat(result[1].centerY).isEqualTo(110f)
-        assertThat(result[1].height).isEqualTo(20f)
+        assertThat(result.map { it.text }).containsExactly("ARAL", "SUMME", "72,15").inOrder()
+        assertThat(result[2].centerX).isEqualTo(330f)
+        assertThat(result[2].centerY).isEqualTo(110f)
+        assertThat(result[2].height).isEqualTo(20f)
+    }
+
+    @Test
+    fun `a skewed row stays one line, label first, in the recognised text (D-A67)`() {
+        fun block(text: String, l: Float, t: Float, r: Float, b: Float) = OcrTextBlock(text, 0.9f, emptyList(), BoundingRect(l, t, r, b))
+        // Tilted photo: each amount at the far right sits 8 px above its label, rows 30 px apart.
+        val blocks = listOf(
+            block("ARAL Tankstelle", 10f, 10f, 200f, 30f),
+            block("40,08 l", 500f, 52f, 580f, 72f),
+            block("Menge", 10f, 60f, 90f, 80f),
+            block("72,15", 500f, 82f, 580f, 102f),
+            block("SUMME", 10f, 90f, 90f, 110f),
+        )
+        assertThat(blocks.toTextRows()).containsExactly("ARAL Tankstelle", "Menge 40,08 l", "SUMME 72,15").inOrder()
+        assertThat(blocks.toOcrLines().map { it.text })
+            .containsExactly("ARAL Tankstelle", "Menge", "40,08 l", "SUMME", "72,15").inOrder()
     }
 
     // ── Fuel form ────────────────────────────────────────────────────────────────────────────────────────────
