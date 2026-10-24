@@ -111,6 +111,37 @@ composeCompiler {
     }
 }
 
+/**
+ * Copies the repo-root OPEN_SOURCE_NOTICES.md into the APK's assets (D-A65): Settings → Open-source licenses reads
+ * this exact file, so the in-app list cannot drift from the one in the repo. No plugin, just a generated asset dir.
+ */
+abstract class CopyOpenSourceNoticesTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val notices: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        notices.get().asFile.copyTo(File(out, "open_source_notices.md"))
+    }
+}
+
+val copyOpenSourceNotices = tasks.register<CopyOpenSourceNoticesTask>("copyOpenSourceNotices") {
+    notices.set(rootProject.layout.projectDirectory.file("OPEN_SOURCE_NOTICES.md"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyOpenSourceNotices, CopyOpenSourceNoticesTask::outputDir)
+    }
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }

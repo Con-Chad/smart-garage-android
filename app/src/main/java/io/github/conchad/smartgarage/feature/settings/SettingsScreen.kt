@@ -19,6 +19,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocalGasStation
@@ -98,6 +99,7 @@ import java.time.format.FormatStyle
 fun SettingsScreen(
     onBack: () -> Unit,
     onManageProfiles: () -> Unit,
+    onOpenLicenses: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -240,6 +242,14 @@ fun SettingsScreen(
                         },
                         leadingContent = { IconBadge(Icons.Outlined.Dns) },
                         colors = transparentRow(),
+                    )
+                    RowDivider()
+                    // D-A65: the bundled OPEN_SOURCE_NOTICES.md, listed with the full licence texts.
+                    NavRow(
+                        icon = Icons.Outlined.Description,
+                        title = stringResource(R.string.settings_open_source_licenses),
+                        subtitle = stringResource(R.string.settings_open_source_licenses_desc),
+                        onClick = onOpenLicenses,
                     )
                 }
             }

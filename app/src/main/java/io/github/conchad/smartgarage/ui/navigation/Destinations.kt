@@ -31,6 +31,9 @@ import kotlinx.serialization.Serializable
 @Serializable object MoreRoute
 @Serializable object SettingsRoute
 @Serializable object ProfilesRoute
+
+/** Settings → About → Open-source licenses (D-A65). */
+@Serializable object LicensesRoute
 @Serializable object AddProfileRoute
 @Serializable data class VehicleDetailRoute(val vehicleId: String)
 

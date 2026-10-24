@@ -195,6 +195,18 @@
     <string name="settings_dynamic_color_desc">Material-You-Farben deines Telefons statt Smart-Garage-Blau verwenden</string>
     <string name="settings_about">Über</string>
     <string name="settings_app_version">App-Version</string>
+    <string name="settings_open_source_licenses">Open-Source-Lizenzen</string>
+    <string name="settings_open_source_licenses_desc">Bibliotheken, OCR-Modelle und ihre Lizenzen</string>
+    <string name="licenses_title">Open-Source-Lizenzen</string>
+    <string name="licenses_intro">Smart Garage Companion baut auf der folgenden Open-Source-Software auf. Tippe auf einen Eintrag für den Urheberrechtsvermerk, einen Link zum Quellcode und den vollständigen Lizenztext (auf Englisch).</string>
+    <string name="licenses_load_failed">Die Lizenzliste konnte nicht geladen werden.</string>
+    <string name="licenses_row_summary">%1$s · %2$s</string>
+    <string name="licenses_version">Version</string>
+    <string name="licenses_artifacts">Artefakte</string>
+    <string name="licenses_note">Hinweis</string>
+    <string name="licenses_source">Quellcode</string>
+    <string name="licenses_expanded">Ausgeklappt</string>
+    <string name="licenses_collapsed">Eingeklappt</string>
     <string name="settings_server_version">Serverversion</string>
 
     <string name="unit_miles">Meilen</string>

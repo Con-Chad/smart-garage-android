@@ -1873,3 +1873,31 @@ App decisions use the `D-A` prefix.
   - **Motion**: state changes cross-fade (`Motion.SHORT_MS` in, `QUICK_MS` out), none under reduced motion; box
     selection changes instantly. Tests: `TextScanLayoutTest` (fit/letterbox, hit-testing, reading order, assembly,
     selection).
+- **D-A65 (2026-10-23) — Open-source notices: one Markdown file in the repo, the same file in the app.** CP9 of
+  the on-device OCR round.
+  - **`OPEN_SOURCE_NOTICES.md`** (repo root, the file the :ocr source headers cite) lists every component of the
+    release runtime classpath (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`, 255 modules)
+    grouped by project, each with licence, copyright, source link and its Maven coordinates, plus: the ente/mobile_ocr
+    port (MIT, Copyright (c) 2025 Laurens Priem, commit 0c68f88f…), the PaddleOCR PP-OCRv5 det/rec/cls models and
+    dictionary (Apache-2.0, PaddlePaddle Authors; the ONNX files are ente's conversions from
+    `https://models.ente.io/PP-OCRv5/`, byte-identical by SHA-256), OnnxOCR (the reference pipeline mobile_ocr
+    mirrors, attribution only), ONNX Runtime (MIT, Microsoft, link to its v1.31.0 ThirdPartyNotices) and the
+    upstream Smart Garage web app (MIT, flizzy27: API contract, label wording, calculations). Full texts once at the
+    end: Apache-2.0, MIT (each MIT entry carries its own copyright line), BSD-3-Clause (Protocol Buffers: Tink's
+    protobuf-java and DataStore's repackaged copy). Jakarta Inject's NOTICE is reproduced in its entry; SLF4J is MIT.
+    Build tools, annotation processors and test-only libraries are not listed. Hand-written: no oss-licenses plugin.
+  - **No drift**: `app/build.gradle.kts` registers `copyOpenSourceNotices` (a plain task, no new plugin) whose output
+    is added to every variant's assets through `androidComponents.onVariants { sources.assets.addGeneratedSourceDirectory }`
+    as `assets/open_source_notices.md`; the app parses that copy. The file's header comment documents the format
+    (`## ` group, `### ` component with `- Key: value` lines, licence ids = `### ` headings under `## License texts`
+    with one ```text block). `OpenSourceNoticesTest` runs the app's parser over the real root file: every component
+    has a licence/copyright/https source and a resolvable licence text, the OCR/ORT/upstream credits are present
+    (ORT version = `libs.versions.toml`), and every non-test library in the version catalog appears in an Artifacts
+    line. When a dependency is added or bumped, update the Artifacts lines from the classpath dump.
+  - **UI**: Settings → About gains "Open-source licenses" (`NavRow`, Description icon) → `LicensesRoute` /
+    `OpenSourceLicensesScreen`: an intro card, then each group as a `SectionLabel` + `GroupCard`; a row shows name and
+    "licence · copyright" and drops down (`drawerExpand`/`drawerCollapse`, none under reduced motion; state
+    description Expanded/Collapsed for TalkBack) to version, artifacts, note, a "Source code" button
+    (`openUri`, https only), the copyright line and the full licence text in monospace. The asset is read off the main
+    thread with `produceState`; a read failure shows one line. Group names and legal texts stay in English (the German
+    intro says so); the screen's own strings are in en and de. Aurora tint: the Settings secondary.
