@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +40,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -74,6 +78,13 @@ fun GlassIconBadge(icon: ImageVector, modifier: Modifier = Modifier, size: Dp = 
  * top highlight and the plate glow in the aurora tint on top (drawn inside the sheet's content, with the drag
  * handle, since the sheet's own modifier sits on a full-screen wrapper), a 1 dp panel border and the large radius.
  * No elevation shadow: the scrim already separates it.
+ *
+ * The glass is at most the window less the system bars and [SheetTopGap], a fixed height, and taller content
+ * scrolls inside it. M3 1.4 pads the sheet for the status bar only while the sheet overlaps it, so it hands that room
+ * back as the sheet is dragged down; content that wanted more room than it had grew with every pixel dragged, a
+ * sheet whose height follows its offset moves its own resting point and re-snaps each frame, and swiping it down
+ * bounced instead of closing (long schedules at a large font scale). Capped, it rests [SheetTopGap] below the
+ * status bar, where that padding is already zero.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +92,8 @@ fun GlassBottomSheet(onDismissRequest: () -> Unit, content: @Composable ColumnSc
     val tokens = glass
     val shape = RoundedCornerShape(topStart = tokens.radiusLarge, topEnd = tokens.radiusLarge)
     val glow = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
+    val windowHeight = LocalWindowInfo.current.containerSize.height
+    val insets = WindowInsets.safeDrawing
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -93,6 +106,11 @@ fun GlassBottomSheet(onDismissRequest: () -> Unit, content: @Composable ColumnSc
     ) {
         Column(
             Modifier
+                .layout { measurable, constraints ->
+                    val cap = (windowHeight - insets.getTop(this) - insets.getBottom(this) - SheetTopGap.roundToPx()).coerceAtLeast(constraints.minHeight)
+                    val placeable = measurable.measure(constraints.copy(maxHeight = minOf(constraints.maxHeight, cap)))
+                    layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+                }
                 .fillMaxWidth()
                 .glassPlate(tokens, glow)
                 .border(1.dp, tokens.panelBorder, shape),
@@ -104,6 +122,9 @@ fun GlassBottomSheet(onDismissRequest: () -> Unit, content: @Composable ColumnSc
         }
     }
 }
+
+/** How far below the status bar the tallest [GlassBottomSheet] stops. */
+private val SheetTopGap = 32.dp
 
 /**
  * The filled button on glass (D-A41): a form's Save and a sheet's primary verb. The sheen as the fill with the

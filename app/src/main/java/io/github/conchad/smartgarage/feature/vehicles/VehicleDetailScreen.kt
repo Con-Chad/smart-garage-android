@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,7 @@ import io.github.conchad.smartgarage.ui.components.LoadedContent
 import io.github.conchad.smartgarage.ui.components.RefreshBox
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.components.SheetTarget
+import io.github.conchad.smartgarage.ui.components.SwipeToDelete
 import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.dueDays
 import io.github.conchad.smartgarage.ui.components.forms.ActionButton
@@ -405,7 +407,19 @@ private fun VehicleDetailContent(
                 GlassCard(Modifier.drawerSlide(slide).popIn(pop)) {
                     detail.due.forEachIndexed { index, item ->
                         if (index > 0) RowDivider()
-                        DueRow(item, fmt, onClick = { open = SheetTarget.Schedule(item.schedule.id) }, showVehicle = false)
+                        // Swipe left to deactivate, behind the same question as the sheet's button; keyed so the
+                        // swipe state stays with its schedule when one above goes.
+                        key(item.schedule.id) {
+                            SwipeToDelete(
+                                enabled = canEdit,
+                                title = stringResource(R.string.schedule_deactivate_title, item.name),
+                                body = stringResource(R.string.schedule_deactivate_body),
+                                confirmLabel = stringResource(R.string.schedule_deactivate),
+                                onDelete = { viewModel.deleteSchedule(item.schedule.id) },
+                            ) {
+                                DueRow(item, fmt, onClick = { open = SheetTarget.Schedule(item.schedule.id) }, showVehicle = false)
+                            }
+                        }
                     }
                 }
             }
