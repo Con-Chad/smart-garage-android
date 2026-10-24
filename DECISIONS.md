@@ -2183,3 +2183,28 @@ App decisions use the `D-A` prefix.
   - **Reduced motion**: the reveal snaps (open until the page is half-way out, then 0), and the tap open/close
     transitions become `orNone(reduced)`, as elsewhere. Covered by `QuickInfoRevealTest`.
   - **Rejected**: animating the close on `currentPage` change (still lags the finger, and fights a drag back).
+
+- **D-A72 (2026-10-24) — OBD odometer core: WiCAN byte numbering, debug-only simulator.** CP2 of the OBD round
+  (adapter: WiCAN Pro, also OBDLink CX / generic BLE ELM327/STN; car: 2016 Honda HR-V). Pure Kotlin in `core/obd`, no
+  BLE, UI or service yet (CP3/CP4).
+  - **Byte numbering is WiCAN's**, so a vehicle profile from wican-fw's `vehicle_profiles.json` evaluates the same when
+    pasted (checked against `autopid.c parse_elm327_response` and `expression_parser.c`): headers on, only each
+    frame's CAN ID stripped, every other byte of every frame kept, ISO-TP PCI included. Single frame B0 = length,
+    B1 = 0x40 + service; multi-frame B0 = 0x10, B1 = length, B8 = 0x21, B16 = 0x22. Replies printed with ATH0 (plain or
+    ELM's numbered "014 / 0: / 1:" form) get the PCI bytes rebuilt, so the Clarity profile's `[B12:B14]` reads the same
+    bytes either way. Spaceless ATH1 lines (we send ATS0) split by the protocol's CAN ID width (ATSP6/8 = 3 chars,
+    7/9 = 8; ATDPN after an automatic search), else odd/even line length.
+  - **Deliberate differences**: several ECUs are kept apart and the one answering the request wins (lowest CAN ID
+    first, as WiCAN's `priority_data`), where WiCAN concatenates all ECUs for custom PIDs; a 7F .. 78 "pending" frame
+    before the answer is skipped; data that doesn't answer the request is never evaluated (no wrong odometer upload).
+    Profile commands that would undo the setup (ATH0, ATE1, ATZ, ATWS, ATD) are dropped, as WiCAN drops ATH0/ATS0/ATE1.
+  - **Expression extensions** on top of WiCAN's exact grammar and precedence: hex literals (WiCAN's docs show them, its
+    parser rejects them), unary minus, and errors naming the index and the reply length. Bitwise operands wrap to a
+    32-bit int (WiCAN's C cast is undefined out of range).
+  - **Built-ins**: Honda cluster 22 70 22 (default; WiCAN "Honda: Clarity-2018", request "2270229" sent with its
+    response-count digit), standard 01A6 `[B3:B6]/10` (WiCAN's generic profile omits the /10 that J1979's 0.1 km
+    unit needs), 0131 counter + `CodesClearedOffset` (last manual reading + counter delta; re-anchors on a newer manual
+    reading or when the counter drops), Custom, and import from a pasted WiCAN JSON snippet. Values become km rounded
+    down; uploads only past the last sent value, at trip end or after 25 (display unit).
+  - **Simulator is debug-only**: `SimulatedElmLink` lives in `src/debug`, its tests in `src/testDebug`; the release
+    APK's dex has no trace of it (checked with dexdump).
