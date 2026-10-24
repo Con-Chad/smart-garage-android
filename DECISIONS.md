@@ -1901,3 +1901,26 @@ App decisions use the `D-A` prefix.
     (`openUri`, https only), the copyright line and the full licence text in monospace. The asset is read off the main
     thread with `produceState`; a read failure shows one line. Group names and legal texts stay in English (the German
     intro says so); the screen's own strings are in en and de. Aurora tint: the Settings secondary.
+
+- **D-A66 (2026-10-23) — OCR speed: measure non-debuggable, keep ONNX Runtime defaults.** CP10a of the on-device
+  OCR round.
+  - **Why it looked slow**: the ~0.9 s warm figure for a 900×260 label came from the debuggable instrumentation APK,
+    where ART runs the pure-Kotlin pre/post-processing several times slower (det preprocess ~200 ms, DB
+    post-processing ~270–460 ms, CTC decode ~180 ms per batch). Non-debuggable, those drop to ~9, ~10 and ~30 ms and
+    the model runs dominate (det ~120–150 ms, rec ~100–230 ms per batch). Pixel 10 Pro, non-debuggable: cold load
+    ~750–900 ms, warm small label ~150–320 ms, warm 9.4 MP photo ~630–860 ms (spread is thermal state).
+  - **`:ocr` instrumented tests run on the release variant** (`testBuildType = "release"`; the library is not
+    minified) so timings in `OcrBenchmarkTest` / logcat are representative. Side effect: the module's unit-test task
+    is `:ocr:testReleaseUnitTest` (no `testDebugUnitTest`).
+  - **No SessionOptions change.** Swept on-device, interleaved: optimisation level BASIC (current) / EXTENDED / ALL,
+    intra-op threads default / 1 / 2 / 4 / 6, spinning off, XNNPACK EP (in the stock AAR) with 4 / 6 threads, and
+    recogniser batch 1 / 3 / 6 / 12. Nothing beat the defaults beyond thermal noise; fewer threads, no-spin and
+    XNNPACK were clearly slower (XNNPACK ~1.8×, no-spin ~3×). NNAPI not tried (deprecated).
+  - **Kept**: `ImageUtils.toFloatArray` returns the heap array behind `OnnxTensor.getFloatBuffer()` (already a
+    fresh copy) instead of copying it again. No speed change, but the recogniser's transient output allocation
+    (batch × seq × 18385 floats, ~87 MB for six long lines) is halved; batch 12 went from OOM to passing. Decoding
+    straight from the `FloatBuffer` with absolute `get` was tried and rejected: ~50 % slower on the photo on ART.
+  - **Accuracy gate**: `OcrAccuracyTest` runs 12 of ente/mobile_ocr's fixtures (MIT, copied to
+    `ocr/src/androidTest/assets/test_ocr/` with README + LICENSE; HEIC and the 3 MB duplicate photo skipped) with
+    upstream's normalised-substring matching; requires aggregate required-text recall ≥ 90 % and each image's
+    `minimumBlocks`. Baseline and after: 33/33 (100 %).

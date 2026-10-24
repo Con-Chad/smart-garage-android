@@ -13,6 +13,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Instrumented tests run against the non-debuggable release variant (D-A66): ART runs the debuggable variant's
+    // pure-Kotlin pre/post-processing several times slower, which made warm inference read ~0.9 s instead of ~0.2 s.
+    testBuildType = "release"
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

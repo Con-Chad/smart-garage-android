@@ -2,7 +2,8 @@
 // Copyright (c) 2025 Laurens Priem. Licensed under the MIT License (see OPEN_SOURCE_NOTICES.md).
 //
 // Changes from upstream: the pure point helpers (orderPointsClockwise, clipBoxToImageBounds,
-// calculateBoxArea, distance) live in PolygonGeometry; this object keeps the Bitmap/buffer work.
+// calculateBoxArea, distance) live in PolygonGeometry; this object keeps the Bitmap/buffer work. toFloatArray
+// returns a heap buffer's backing array instead of copying it.
 package io.github.conchad.smartgarage.ocr.internal
 
 import android.graphics.Bitmap
@@ -19,8 +20,15 @@ internal object ImageUtils {
      * Safely converts a FloatBuffer to a FloatArray.
      * This handles both heap and direct buffers, unlike FloatBuffer.array()
      * which throws UnsupportedOperationException for direct buffers.
+     *
+     * A writable heap buffer that spans its whole backing array (what OnnxTensor.getFloatBuffer() returns: it is
+     * already a fresh copy of the native output) is returned without copying, so the result may alias [buffer].
+     * For the recognizer that skips a second batch x seq x 18385-float allocation (up to ~87 MB for six long lines).
      */
     fun toFloatArray(buffer: FloatBuffer): FloatArray {
+        if (buffer.hasArray() && buffer.arrayOffset() == 0 && buffer.capacity() == buffer.array().size) {
+            return buffer.array()
+        }
         val duplicate = buffer.duplicate()
         duplicate.rewind()
         val array = FloatArray(duplicate.remaining())
