@@ -78,6 +78,7 @@ import io.github.conchad.smartgarage.feature.profiles.ProfilesScreen
 import io.github.conchad.smartgarage.feature.settings.SettingsScreen
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
+import io.github.conchad.smartgarage.feature.textscan.TextScanScreen
 import io.github.conchad.smartgarage.ui.components.LocalBottomBarInset
 import io.github.conchad.smartgarage.ui.components.LocalPhotoLoader
 import io.github.conchad.smartgarage.ui.components.PhotoLoader
@@ -264,6 +265,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                                 onLogService = { navController.navigate(RecordFormRoute(vehicleId = it)) },
                                                 onAddExpense = { navController.navigate(ExpenseFormRoute(vehicleId = it)) },
                                                 onScanReceipt = { id, gallery -> navController.navigate(FuelEntryRoute(vehicleId = id, scan = true, gallery = gallery)) },
+                                                onScanText = { navController.navigate(TextScanRoute) },
                                                 onAddInsurance = { navController.navigate(InsuranceFormRoute(vehicleId = it)) },
                                                 onEditInsurance = { vehicleId, id -> navController.navigate(InsuranceFormRoute(vehicleId = vehicleId, policyId = id)) },
                                                 onAddInspection = { navController.navigate(InspectionFormRoute(vehicleId = it)) },
@@ -371,6 +373,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                             composable<InspectionFormRoute> { InspectionFormScreen(onClose = navController::popBackStack) }
                             composable<InsuranceFormRoute> { InsuranceFormScreen(onClose = navController::popBackStack) }
                             composable<DocumentFormRoute> { DocumentFormScreen(onClose = navController::popBackStack) }
+                            composable<TextScanRoute> { TextScanScreen(onClose = navController::popBackStack) }
                             composable<MoreRoute> {
                                 MoreScreen(
                                     onOpenSection = { navController.navigate(SectionRoute(it)) },

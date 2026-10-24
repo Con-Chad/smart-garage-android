@@ -55,6 +55,12 @@ data class RecordFormRoute(
     val scan: String? = null,
 )
 
+/**
+ * "Scan text" (D-A64), the third choice under the Home fan's scan petal: read the text on a photo on this phone,
+ * pick lines, copy or share them. Not tied to a vehicle.
+ */
+@Serializable object TextScanRoute
+
 /** Add an expense; [vehicleId] preselects the vehicle. */
 /**
  * The expense form; the optional rest prefills it from a scanned bill (D-A53, "Save as expense instead" on the

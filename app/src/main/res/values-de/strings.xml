@@ -452,6 +452,34 @@
     <string name="receipt_scan_no_text">Kein Text auf dem Foto gefunden. Versuche es mit einer schärferen, gut beleuchteten Aufnahme.</string>
     <string name="receipt_scan_device_memory">Nicht genug Speicher, um das Foto zu lesen. Fülle das Formular von Hand aus.</string>
     <string name="receipt_scan_device_failed">Die Texterkennung auf diesem Telefon ist fehlgeschlagen. Fülle das Formular von Hand aus.</string>
+    <!-- "Text scannen", der eigenständige Textscanner auf dem Gerät (D-A64). -->
+    <string name="fab_scan_text">Text scannen</string>
+    <string name="text_scan_title">Text scannen</string>
+    <string name="text_scan_intro">Nimm ein Foto auf oder wähle eines, und dieses Telefon findet den Text darauf. Nichts wird hochgeladen.</string>
+    <string name="text_scan_reading">Text wird auf diesem Telefon gelesen…</string>
+    <string name="text_scan_hint_tap">Tippe auf einen Rahmen, um seinen Text auszuwählen.</string>
+    <plurals name="text_scan_selected">
+        <item quantity="one">%1$d von %2$d ausgewählt</item>
+        <item quantity="other">%1$d von %2$d ausgewählt</item>
+    </plurals>
+    <string name="text_scan_select_all">Alle auswählen</string>
+    <string name="text_scan_clear">Aufheben</string>
+    <string name="text_scan_text_label">Text</string>
+    <string name="text_scan_text_all">Der ganze Text in Lesereihenfolge. Du kannst ihn vor dem Kopieren oder Teilen bearbeiten.</string>
+    <string name="text_scan_text_selected">Der ausgewählte Text. Du kannst ihn vor dem Kopieren oder Teilen bearbeiten.</string>
+    <string name="text_scan_copy">Kopieren</string>
+    <string name="text_scan_share">Teilen</string>
+    <string name="text_scan_copied">Text kopiert</string>
+    <string name="text_scan_share_title">Text teilen</string>
+    <string name="text_scan_no_share">Keine App auf diesem Telefon kann Text teilen.</string>
+    <string name="text_scan_another">Weiteres Foto scannen</string>
+    <plurals name="text_scan_image_desc">
+        <item quantity="one">Foto mit %1$d Textzeile</item>
+        <item quantity="other">Foto mit %1$d Textzeilen</item>
+    </plurals>
+    <string name="text_scan_unreadable">Dieses Foto ließ sich nicht öffnen. Versuche ein anderes.</string>
+    <string name="text_scan_memory">Nicht genug Speicher, um dieses Foto zu lesen. Schließe andere Apps oder versuche ein kleineres Foto.</string>
+    <string name="text_scan_failed">Die Texterkennung auf diesem Telefon ist fehlgeschlagen. Versuche es noch einmal.</string>
     <string name="fuel_delete_title">Diesen Tankvorgang löschen?</string>
     <string name="fuel_delete_body">Der Eintrag wird aus dem Tankverlauf des Fahrzeugs entfernt. Das lässt sich nicht rückgängig machen.</string>
     <string name="odometer_form_title">Kilometerstand aktualisieren</string>

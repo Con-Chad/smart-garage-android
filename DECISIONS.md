@@ -1837,3 +1837,39 @@ App decisions use the `D-A` prefix.
     59,652,162 → 38,216,506 bytes, at the cost of the extracted copy on the phone.
   - Not done here: the standalone "Scan text" tool (CP8); `RecognisedTextSheet` and `OcrReceiptTextReader` /
     `toOcrLines` are written to be reused there. Tests: `DeviceReadTest`.
+- **D-A64 (2026-10-23) — "Scan text": a standalone on-device text scanner under the Home fan's scan petal.** CP8 of
+  the on-device OCR plan. Built, unit-tested and linted; not yet tried on the Pixel (CP10).
+  - **Entry**: a third item, "Scan text" (TextFields icon), in the scan petal's glass menu after "Take photo" and
+    "Pick from gallery" (D-A61). It opens `TextScanRoute` (an `object`, no vehicle); camera or gallery is chosen on
+    that screen (and again there for "Scan another photo"), so the petal itself is unchanged.
+  - **Capture**: `rememberReceiptCamera` / `rememberReceiptGallery` and `ReceiptCapture` (`start`/`taken`,
+    `fromGallery` copies into `cache/captures/`) as on the forms, but **not** `finish`: the full photo goes to
+    `OcrEngine.recognize(uri)` (the engine downsamples to ≤ 4096 px / 12 MP and applies EXIF); no 1600 px JPEG step.
+  - **Ownership** (`TextScanViewModel`): `recognize(uri)` is called directly (not `OcrReceiptTextReader`, which
+    recycles the bitmap). Blocks with blank text are dropped; none left → the bitmap is recycled and "No text found"
+    shows. Otherwise a display copy with long edge ≤ 2048 px is kept (the OCR bitmap recycled when it was larger);
+    boxes stay in OCR-image coordinates (`width` × `height`). The ViewModel holds the bitmap across rotation and
+    recycles it in `onCleared`; a newer scan only drops the older one (it may still be drawn by the outgoing
+    cross-fade). The photo path, selection and any typed edit live in `SavedStateHandle`: after a process death the
+    same photo is read again and both are restored. The photo is deleted in `onCleared` or when replaced.
+  - **Overlay** (`TextScanScreen` / `TextScanLayout.kt`): the photo is drawn by hand into an `ImageFit` rect
+    (uniform fit, centred, letterboxed; image height capped at 520 dp) and each block's quadrilateral on top in the
+    glass sheen (fill 10 % / 38 % when picked, thicker stroke when picked). Taps go through `hitTest`: every box
+    answers within at least 48 × 48 dp around its centre; a box the tap is inside wins, then the nearest, then the
+    smaller. For TalkBack each box is an invisible checkbox node named by its text, in reading order, inside a
+    traversal group described as "Photo with N lines of text".
+  - **Text**: `readingOrder` groups boxes into rows (a box joins the row when its centre line is inside the row's
+    mean band and the row's centre line inside the box: skew-tolerant, and a tall logo word doesn't swallow lines
+    beside it), left to right within a row. `assembleText` joins a row with spaces and rows with line breaks; the
+    editable field (`FormNotesField`) holds the picked boxes' text, or all text when none is picked. Changing the
+    selection (tap, Select all, Clear) rewrites the field, replacing an edit. `toOcrLines()` (top-then-left sort) and
+    `RecognisedTextSheet` were not reused: the field already shows all text, and the plain sort splits a row whose
+    right-hand item sits a few pixels higher.
+  - **Actions**: Copy (`ClipboardManager.setPrimaryClip`, plain text; a "Text copied" snackbar only below Android 13,
+    which confirms copies itself) and Share (`ACTION_SEND` text/plain in a chooser; a snackbar when no app takes
+    it); both disabled while the text is blank. Errors: no text → the receipt scan's "No text found…" line;
+    unreadable photo / out of memory / engine failure → their own short messages with the two sources to try again;
+    a cancelled read returns quietly to the previous state.
+  - **Motion**: state changes cross-fade (`Motion.SHORT_MS` in, `QUICK_MS` out), none under reduced motion; box
+    selection changes instantly. Tests: `TextScanLayoutTest` (fit/letterbox, hit-testing, reading order, assembly,
+    selection).

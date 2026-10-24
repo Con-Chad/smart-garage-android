@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Garage
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material3.IconButton
@@ -118,6 +119,8 @@ class DashboardActions(
      * camera or, with [gallery] (D-A61), from an existing photo through the Photo Picker.
      */
     val onScanReceipt: (vehicleId: String, gallery: Boolean) -> Unit,
+    /** "Scan text" under the same petal (D-A64): the standalone on-device text scanner. */
+    val onScanText: () -> Unit,
     val onAddInsurance: (vehicleId: String) -> Unit,
     val onEditInsurance: (vehicleId: String, policyId: String) -> Unit,
     val onAddInspection: (vehicleId: String) -> Unit,
@@ -269,6 +272,11 @@ fun DashboardScreen(
                         GlassMenuItem(Icons.Outlined.PhotoLibrary, stringResource(R.string.receipt_scan_pick_gallery)) {
                             scanFor?.let { actions.onScanReceipt(it, true) }
                             scanFor = null
+                        }
+                        // D-A64: any text on a photo, read on this phone, to copy or share; camera or gallery is picked there.
+                        GlassMenuItem(Icons.Outlined.TextFields, stringResource(R.string.fab_scan_text)) {
+                            scanFor = null
+                            actions.onScanText()
                         }
                     }
                     // The fan's "Theme color" sheet (D-A57): the vehicle's aurora override, applied live.
