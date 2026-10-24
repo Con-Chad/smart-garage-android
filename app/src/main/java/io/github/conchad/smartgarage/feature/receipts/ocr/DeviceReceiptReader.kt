@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.feature.receipts.ocr
 
 import android.net.Uri
+import io.github.conchad.smartgarage.feature.textscan.levelledBounds
 import io.github.conchad.smartgarage.feature.textscan.readingOrder
 import io.github.conchad.smartgarage.ocr.OcrEngine
 import io.github.conchad.smartgarage.ocr.OcrError
@@ -60,13 +61,15 @@ class OcrReceiptTextReader @Inject constructor(
 
 /**
  * The engine's blocks as parser lines in reading order, with each box's centre and height so the parser can pair a
- * label with the amount printed at the far end of the same row. Rows come from Scan text's [readingOrder], so an
- * amount sitting a little higher than its label on a skewed photo still follows the label (D-A67).
+ * label with the amount printed at the far end of the same row. Positions are taken with the photo turned level
+ * ([levelledBounds]) and rows come from Scan text's [readingOrder], so on a tilted photo an amount still follows its
+ * own label, not the next row's (D-A67).
  */
 fun List<OcrTextBlock>.toOcrLines(): List<OcrLine> {
     val blocks = filter { it.text.isNotBlank() }
-    return readingOrder(blocks.map { it.boundingRect }).flatten().map { i ->
-        val r = blocks[i].boundingRect
+    val level = levelledBounds(blocks.map { it.points }, blocks.map { it.boundingRect })
+    return readingOrder(level).flatten().map { i ->
+        val r = level[i]
         OcrLine(
             text = blocks[i].text.trim(),
             confidence = blocks[i].confidence,
@@ -83,7 +86,8 @@ fun List<OcrTextBlock>.toOcrLines(): List<OcrLine> {
  */
 fun List<OcrTextBlock>.toTextRows(): List<String> {
     val blocks = filter { it.text.isNotBlank() }
-    return readingOrder(blocks.map { it.boundingRect }).map { row -> row.joinToString(" ") { blocks[it].text.trim() } }
+    val level = levelledBounds(blocks.map { it.points }, blocks.map { it.boundingRect })
+    return readingOrder(level).map { row -> row.joinToString(" ") { blocks[it].text.trim() } }
 }
 
 internal fun failureOf(error: Throwable): DeviceReadFailure = when (error) {

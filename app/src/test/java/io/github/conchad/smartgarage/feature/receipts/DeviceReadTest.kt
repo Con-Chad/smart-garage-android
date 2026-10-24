@@ -18,11 +18,13 @@ import io.github.conchad.smartgarage.feature.receipts.ocr.DeviceRead
 import io.github.conchad.smartgarage.feature.receipts.ocr.DeviceReadFailure
 import io.github.conchad.smartgarage.feature.receipts.ocr.ParseWarning
 import io.github.conchad.smartgarage.feature.receipts.ocr.ParsedReceipt
+import io.github.conchad.smartgarage.feature.receipts.ocr.ReceiptTextParser
 import io.github.conchad.smartgarage.feature.receipts.ocr.ReceiptTextReader
 import io.github.conchad.smartgarage.feature.receipts.ocr.toOcrLines
 import io.github.conchad.smartgarage.feature.receipts.ocr.toTextRows
 import io.github.conchad.smartgarage.ocr.BoundingRect
 import io.github.conchad.smartgarage.ocr.OcrError
+import io.github.conchad.smartgarage.ocr.OcrPoint
 import io.github.conchad.smartgarage.ocr.OcrTextBlock
 import io.github.conchad.smartgarage.feature.receipts.ocr.failureOf
 import kotlinx.coroutines.test.runTest
@@ -171,6 +173,33 @@ class DeviceReadTest {
         assertThat(blocks.toTextRows()).containsExactly("ARAL Tankstelle", "Menge 40,08 l", "SUMME 72,15").inOrder()
         assertThat(blocks.toOcrLines().map { it.text })
             .containsExactly("ARAL Tankstelle", "Menge", "40,08 l", "SUMME", "72,15").inOrder()
+    }
+
+    @Test
+    fun `a receipt photographed at a tilt still pairs TOTAL with its own amount (D-A67)`() {
+        // As read on the Pixel from a fuel receipt turned 4 degrees: before levelling, TOTAL took the VAT amount.
+        val a = Math.toRadians(-4.0)
+        fun block(text: String, l: Float, t: Float, r: Float, b: Float): OcrTextBlock {
+            val q = listOf(OcrPoint(l, t), OcrPoint(r, t), OcrPoint(r, b), OcrPoint(l, b))
+                .map { OcrPoint((it.x * Math.cos(a) - it.y * Math.sin(a)).toFloat(), (it.x * Math.sin(a) + it.y * Math.cos(a)).toFloat()) }
+            return OcrTextBlock(text, 0.95f, q, BoundingRect(q.minOf { it.x }, q.minOf { it.y }, q.maxOf { it.x }, q.maxOf { it.y }))
+        }
+        val blocks = listOf(
+            block("SHELL STATION 1234", 80f, 80f, 700f, 130f),
+            block("Volume", 80f, 620f, 290f, 670f),
+            block("42.37 L", 1080f, 620f, 1320f, 670f),
+            block("Price/L", 80f, 710f, 330f, 760f),
+            block("1.799", 1150f, 710f, 1320f, 760f),
+            block("TOTAL", 80f, 890f, 250f, 940f),
+            block("76.22", 1150f, 890f, 1320f, 940f),
+            block("VAT 20%", 80f, 980f, 330f, 1030f),
+            block("12.70", 1150f, 980f, 1320f, 1030f),
+        )
+        assertThat(blocks.toTextRows())
+            .containsExactly("SHELL STATION 1234", "Volume 42.37 L", "Price/L 1.799", "TOTAL 76.22", "VAT 20% 12.70").inOrder()
+        val receipt = ReceiptTextParser().parse(blocks.toOcrLines(), Locale.UK)
+        assertThat(receipt.totalCents).isEqualTo(7622)
+        assertThat(receipt.volumeLiters).isEqualTo(42.37)
     }
 
     // ── Fuel form ────────────────────────────────────────────────────────────────────────────────────────────

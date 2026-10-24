@@ -40,7 +40,7 @@ class OnnxCancellationSignal {
         inputs: Map<String, OnnxTensorLike>
     ): OrtSession.Result {
         ensureActive()
-        val options = OrtSession.RunOptions()
+        val options = newRunOptions()
         synchronized(lock) {
             if (cancelled) {
                 options.close()
@@ -77,5 +77,14 @@ internal fun runOnnx(
     inputs: Map<String, OnnxTensorLike>,
     cancellationSignal: OnnxCancellationSignal?
 ): OrtSession.Result {
-    return cancellationSignal?.run(session, inputs) ?: session.run(inputs)
+    return (cancellationSignal ?: OnnxCancellationSignal()).run(session, inputs)
+}
+
+/**
+ * Run options that hand the CPU arena's grown chunks back after each run (D-A67). Without this the arena keeps its
+ * peak for the life of the process: ~400-600 MB of native heap after one photo, held while the app sits in the
+ * background. Measured on a Pixel 10 Pro: ~150 MB retained instead, with no measurable slowdown.
+ */
+internal fun newRunOptions(): OrtSession.RunOptions = OrtSession.RunOptions().apply {
+    addRunConfigEntry("memory.enable_memory_arena_shrinkage", "cpu:0")
 }

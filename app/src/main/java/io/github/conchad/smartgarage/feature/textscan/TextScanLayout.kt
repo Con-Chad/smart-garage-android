@@ -1,9 +1,14 @@
 package io.github.conchad.smartgarage.feature.textscan
 
 import io.github.conchad.smartgarage.ocr.BoundingRect
+import io.github.conchad.smartgarage.ocr.OcrPoint
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 
 /*
  * The "Scan text" tool's geometry and text assembly (D-A64): plain functions on plain values so they run in JVM
@@ -67,9 +72,12 @@ fun hitTest(boxes: List<ViewRect>, x: Float, y: Float, minTarget: Float): Int? =
  * The boxes as rows in reading order: top to bottom, and left to right within a row. A box joins the row above it
  * when its centre line lies within the row's (mean) band and the row's centre line within the box, so a total
  * printed at the far right of its label stays on the label's line even when the photo is slightly skewed, and one
- * tall box doesn't swallow the lines beside it. Indices refer to [rects].
+ * tall box doesn't swallow the lines beside it. For that second test a box shorter than the median line (a lone
+ * "1" in a quantity column) counts as a median line about its own centre, so it isn't dropped onto a row of its
+ * own when skew puts it a little low (D-A67). Indices refer to [rects].
  */
 fun readingOrder(rects: List<BoundingRect>): List<List<Int>> {
+    val lineHeight = rects.map { it.height }.sorted().let { if (it.isEmpty()) 0f else it[it.size / 2] }
     val byCentre = rects.indices.sortedWith(compareBy({ centreY(rects[it]) }, { rects[it].left }))
     val rows = mutableListOf<MutableList<Int>>()
     var topSum = 0f
@@ -81,7 +89,8 @@ fun readingOrder(rects: List<BoundingRect>): List<List<Int>> {
             val bandTop = topSum / row.size
             val bandBottom = bottomSum / row.size
             val bandCentre = (bandTop + bandBottom) / 2f
-            if (centreY(r) in bandTop..bandBottom && bandCentre in r.top..r.bottom) {
+            val reach = max(r.height, lineHeight) / 2f
+            if (centreY(r) in bandTop..bandBottom && bandCentre in centreY(r) - reach..centreY(r) + reach) {
                 row += i
                 topSum += r.top
                 bottomSum += r.bottom
@@ -96,6 +105,44 @@ fun readingOrder(rects: List<BoundingRect>): List<List<Int>> {
 }
 
 private fun centreY(r: BoundingRect): Float = (r.top + r.bottom) / 2f
+
+/**
+ * The boxes' bounds as if the photo were turned level (D-A67), for [readingOrder] and the receipt parser's row
+ * grouping. On a receipt the amount sits at the far end of its label's row, so even 1-2 degrees of tilt moves it by
+ * more than half a line and pairs "TOTAL" with the next row's amount. The tilt is the median slope of the line boxes'
+ * top edges (a box at least twice as wide as tall: its top edge runs along the text; [corners] are clockwise from
+ * the top-left, as the engine gives them); each box's corners are rotated back by it about the origin, then bounded.
+ * Below a third of a degree, or with no line boxes, [bounds] come back as they are. Only for ordering: the screen
+ * still draws the real boxes.
+ */
+fun levelledBounds(corners: List<List<OcrPoint>>, bounds: List<BoundingRect>): List<BoundingRect> {
+    val angle = tilt(corners)
+    if (abs(angle) < MIN_TILT) return bounds
+    val c = cos(angle)
+    val s = sin(angle)
+    return bounds.indices.map { i ->
+        val points = corners.getOrNull(i)?.takeIf { it.size == 4 }
+            ?: bounds[i].let { listOf(OcrPoint(it.left, it.top), OcrPoint(it.right, it.top), OcrPoint(it.right, it.bottom), OcrPoint(it.left, it.bottom)) }
+        val xs = points.map { it.x * c + it.y * s }
+        val ys = points.map { it.y * c - it.x * s }
+        BoundingRect(xs.min(), ys.min(), xs.max(), ys.max())
+    }
+}
+
+/** The median top-edge slope of the line boxes, in radians (positive: lines run down to the right); 0 if none. */
+internal fun tilt(corners: List<List<OcrPoint>>): Float {
+    val slopes = corners.mapNotNull { q ->
+        if (q.size != 4) return@mapNotNull null
+        val dx = q[1].x - q[0].x
+        val dy = q[1].y - q[0].y
+        val side = hypot(q[2].x - q[1].x, q[2].y - q[1].y)
+        if (dx <= 0f || hypot(dx, dy) < 2f * side) null else atan2(dy, dx)
+    }.filter { abs(it) <= MAX_TILT }.sorted()
+    return if (slopes.isEmpty()) 0f else slopes[slopes.size / 2]
+}
+
+private const val MIN_TILT = 0.006f // ~0.3 degrees
+private const val MAX_TILT = 0.52f // ~30 degrees: steeper than that the corner order isn't trustworthy
 
 /**
  * The text of [selected] boxes in reading order ([rows] from [readingOrder]): a row's boxes joined by a space, rows

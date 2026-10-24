@@ -180,7 +180,7 @@ class TextScanViewModel @Inject constructor(
             width = image.width,
             height = image.height,
             blocks = blocks,
-            rows = readingOrder(blocks.map { it.bounds }),
+            rows = readingOrder(levelledBounds(blocks.map { it.points }, blocks.map { it.bounds })),
         )
     }
 

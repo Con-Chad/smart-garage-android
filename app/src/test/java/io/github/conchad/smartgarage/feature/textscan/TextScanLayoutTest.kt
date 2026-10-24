@@ -2,6 +2,7 @@ package io.github.conchad.smartgarage.feature.textscan
 
 import com.google.common.truth.Truth.assertThat
 import io.github.conchad.smartgarage.ocr.BoundingRect
+import io.github.conchad.smartgarage.ocr.OcrPoint
 import org.junit.Test
 
 class TextScanLayoutTest {
@@ -103,6 +104,56 @@ class TextScanLayoutTest {
             box(0f, 150f, 100f, 170f),
         )
         assertThat(readingOrder(rects)).containsExactly(listOf(0, 1, 2), listOf(3)).inOrder()
+    }
+
+    @Test
+    fun `a small box set low by skew stays on its row (D-A67)`() {
+        // Measured on the Pixel from a tilted bill: a tiny quantity "1" sits lower than the row's centre line.
+        val rects = listOf(
+            box(80f, 860f, 200f, 888f), //  0: "Burritos (Ga)"
+            box(80f, 900f, 230f, 928f), //  1: "Veggie burger"
+            box(560f, 912f, 640f, 938f), // 2: "75.000" (TT)
+            box(400f, 918f, 480f, 946f), // 3: "75.000"
+            box(300f, 927f, 312f, 940f), // 4: "1"
+            box(80f, 960f, 230f, 988f), //  5: "Chicken curry"
+        )
+        assertThat(readingOrder(rects)).containsExactly(listOf(0), listOf(1, 4, 3, 2), listOf(5)).inOrder()
+    }
+
+    // ── Tilted photos (D-A67) ───────────────────────────────────────────────────────────────────────────────
+
+    /** A receipt's rows (label left, amount far right, 60 px apart) photographed turned by [degrees]. */
+    private fun tiltedReceipt(degrees: Double): Pair<List<List<OcrPoint>>, List<BoundingRect>> {
+        val upright = (0 until 4).flatMap { row ->
+            val top = 100f + row * 60f
+            listOf(box(80f, top, 300f, top + 40f), box(1100f, top, 1300f, top + 40f))
+        }
+        val a = Math.toRadians(degrees)
+        val quads = upright.map { r ->
+            listOf(OcrPoint(r.left, r.top), OcrPoint(r.right, r.top), OcrPoint(r.right, r.bottom), OcrPoint(r.left, r.bottom))
+                .map { p -> OcrPoint((p.x * Math.cos(a) - p.y * Math.sin(a)).toFloat(), (p.x * Math.sin(a) + p.y * Math.cos(a)).toFloat()) }
+        }
+        val bounds = quads.map { q -> BoundingRect(q.minOf { it.x }, q.minOf { it.y }, q.maxOf { it.x }, q.maxOf { it.y }) }
+        return quads to bounds
+    }
+
+    @Test
+    fun `a tilted receipt keeps each amount on its own label's row`() {
+        val (quads, bounds) = tiltedReceipt(-3.0) // amounts drift up a row's worth: 63 px over 1200 px
+        val rows = listOf(listOf(0, 1), listOf(2, 3), listOf(4, 5), listOf(6, 7))
+        assertThat(readingOrder(bounds)).isNotEqualTo(rows) // the problem
+        assertThat(readingOrder(levelledBounds(quads, bounds))).isEqualTo(rows)
+        assertThat(readingOrder(levelledBounds(tiltedReceipt(4.0).first, tiltedReceipt(4.0).second))).isEqualTo(rows)
+    }
+
+    @Test
+    fun `a level photo or one without line boxes is left as it is`() {
+        val (quads, bounds) = tiltedReceipt(0.0)
+        assertThat(levelledBounds(quads, bounds)).isEqualTo(bounds)
+        val squares = listOf(listOf(OcrPoint(0f, 0f), OcrPoint(20f, 5f), OcrPoint(15f, 25f), OcrPoint(-5f, 20f)))
+        val squareBounds = listOf(box(-5f, 0f, 20f, 25f))
+        assertThat(levelledBounds(squares, squareBounds)).isEqualTo(squareBounds)
+        assertThat(levelledBounds(emptyList(), squareBounds)).isEqualTo(squareBounds)
     }
 
     @Test

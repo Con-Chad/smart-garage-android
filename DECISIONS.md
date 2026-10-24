@@ -1925,11 +1925,24 @@ App decisions use the `D-A` prefix.
     upstream's normalised-substring matching; requires aggregate required-text recall ≥ 90 % and each image's
     `minimumBlocks`. Baseline and after: 33/33 (100 %).
 
-- **D-A67 (2026-10-23) — Receipt fallback reads rows like Scan text.** CP10b of the on-device OCR round.
-  `toOcrLines()` sorted the engine's boxes by top edge, then left edge. On a slightly tilted photo the amount at the
-  far right of a row sits a few pixels above its label, so it came first, and the "Text read from the photo" sheet
-  listed every box on its own line ("72,15" before "SUMME"). Both now use Scan text's `readingOrder` (D-A64): the
-  parser gets the boxes row by row, label first (it still regroups by centre line itself, so parsing is unchanged),
-  and the sheet shows one line per printed row, its boxes joined by a space (`toTextRows()`), as Scan text copies it.
-  A tilt large enough that the amount drifts more than half a line height into the row above still splits the row
-  in both; deskewing from the boxes' corner points was not attempted.
+- **D-A67 (2026-10-23) — Read tilted photos row by row; let ONNX Runtime hand memory back.** CP10b of the on-device
+  OCR round, from testing the release build on the Pixel 10 Pro.
+  - **Receipt fallback used a flat top-then-left sort.** `toOcrLines()` sorted boxes by top edge, so the amount at
+    the far right of a row could come before its label, and the "Text read from the photo" sheet listed every box on
+    its own line. Both now use Scan text's `readingOrder` (D-A64); the sheet shows one line per printed row
+    (`toTextRows()`), as Scan text copies it.
+  - **Tilt broke label/amount pairing in both features.** A fuel receipt turned 4° came out "TOTAL 12.70" (the VAT
+    amount) and the form prefilled the wrong total: on a receipt the amount sits a whole row-width from its label, so
+    1–2° already moves it more than half a line, beyond any row band. New `levelledBounds()`: the tilt is the median
+    slope of the line boxes' top edges (boxes ≥ 2× wider than tall, within ±30°; the engine's corners are clockwise
+    from the top-left), each box is rotated back by it, and rows are built from those bounds; below ~0.3° nothing
+    changes. Scan text's row order and the receipt parser's centres/heights use it; the screen still draws the real
+    boxes. On the phone the 4° receipt then read "TOTAL 76.22" and prefilled correctly, and a skewed restaurant bill
+    kept every "item qty price amount" row together.
+  - **A small box set low by skew dropped onto its own row** (a lone quantity "1"): `readingOrder`'s "row centre lies
+    inside the box" test now treats a box shorter than the median line as a median line about its centre. Tall boxes
+    still don't swallow the lines beside them.
+  - **ONNX Runtime's CPU arena kept its peak for the life of the process**: ~410 MB native heap after one small
+    photo, ~600 MB after a 12 MP one, still held on the Home screen (the engine is a process singleton). Every run now
+    sets `memory.enable_memory_arena_shrinkage = cpu:0` (`newRunOptions()`): ~140–160 MB retained, 12 MP inference
+    unchanged (~1.5 s). Turning the arena off instead kept ~75 MB but made a 12 MP photo ~50 % slower (2.25 s).
