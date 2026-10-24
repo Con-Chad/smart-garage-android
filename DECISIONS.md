@@ -1961,3 +1961,43 @@ App decisions use the `D-A` prefix.
   - **Left as is**: a node is the axis-aligned bounds of its drawn quadrilateral, so boxes on a tilted photo can
     still overlap a little (12 of 48 pairs on the Swiggy receipt, by 3–18 px); there the later box in reading order
     answers. On the Pixel 10 Pro the 48 nodes matched the drawn boxes, and taps on boxes 12–30 px tall picked them.
+
+- **D-A69 (2026-10-24) — Add vehicle on Home's glass; attached suggestion lists; HSN / TSN bubbles; "Vehicle ID
+  Details".** User-requested UI pass (unattended run; judgment calls noted).
+  - **Layout**: `FormScreen(grouped = true)` lays the vehicle form out as separate glass cards on the aurora, 16 dp
+    apart like Home's, the inline Save on its own card at the end. New `FormCard` (icon in a `GlassIconBadge`,
+    animated metallic title marked as a heading, optional action, plate glow in the aurora tint) and
+    `FormDisclosureCard` (Specs: the header is the ≥ 48 dp toggle, body glides with `drawerExpand` / `drawerCollapse`,
+    snaps under reduced motion). Cards: Vehicle (new) or the car's name (edit), Vehicle ID Details, Color, Purchased
+    (edit), Aurora, Notes, Specs. Other forms keep the single panel (`grouped` defaults to false).
+  - **Aurora**: a new vehicle with no colour picked used to drop to the theme primary (a grey aurora with wallpaper
+    colours). It now keeps the tint it was opened over (Home's car), saved across recreation; a picked colour or
+    override still previews as before (D-A44).
+  - **Glass fields** (emphasized form only, D-A62): new tokens `fieldFill` (dark 8 % white, light 45 % white) and
+    `radiusField` (12 dp). M3 cuts the floating label's notch out of the container *fill* as well as the outline, which
+    showed as a dark hole under the label, so emphasized fields are drawn by `FormOutlinedField` (BasicTextField + M3's
+    `OutlinedTextFieldDefaults.DecorationBox`/`Container`, transparent container) with the fill painted under the
+    whole field, sized to the container (not the supporting line). Outline colours, thickness and the notch stay M3's;
+    the error is announced on the field (`semantics.error`). Non-emphasized forms still use `OutlinedTextField`.
+  - **Make / model / year lists attached** (`FormAutocompleteField`, also the insurer field): as the list opens
+    (`Motion.SHORT_MS`, emphasized easing) the field's bottom corners square off and its bottom edge fades; the list
+    hangs from it at the same width with the field's outline (sheen, 2 dp when focused) carried down its sides and
+    round its bottom corners, a hairline divider between. Field and list share one surface (`frost`, which the field
+    takes on while joined). The error line moved under the whole piece. Rows unchanged for TalkBack (pane title,
+    collection info, ≥ 48 dp).
+  - **Drum scroll**: while the list is scrolling or flinging, rows tilt by distance from the list's centre
+    (`rotationX` ≤ 18°, scale −6 %, alpha −35 % at the edges, far camera), easing back flat over `MEDIUM_MS` when it
+    stops; layer-only (layout, touch and a11y bounds unchanged); off under reduced motion and for lists that don't
+    scroll. Kept at rest flat on purpose so the top match is never dimmed.
+  - **HSN / TSN bubble**: new `GlassHintBubble` (ui/glass): a non-focusable popup above the field (flips below if no
+    room; centred, kept 12 dp inside the window) with a tail at the field's centre; raised glass (frost over the page
+    colour at 94 % so the fields under it don't read through — first try at plain frost was illegible on device),
+    bevel rim, lift shadow; grows from the tail on `gentleSpring`, none under reduced motion; polite live region;
+    tap to put away; dismissed on focus loss. Text names fields 2.1 / 2.2 of the Zulassungsbescheinigung Teil I
+    (TSN = first three characters of 2.2). EN + DE strings.
+  - **Rename**: `vehicle_form_registration` and `vehicle_registration` → "Vehicle ID Details" / "Fahrzeug-ID-Angaben"
+    (form card and the vehicle page's drop-down). `vehicle_no_details` still says "registration" in prose; left.
+  - **Not changed**: the Specs `FormPicker` menus stay the opaque page-colour menus of D-A41. The suggestion list's
+    error line sits outside the text field, so the IME's bring-into-view may leave it half under the keyboard.
+  - Verified on the Pixel 10 Pro (release build), dark and light, EN and DE: form, make list mid-scroll, HSN and TSN
+    bubbles, year error, vehicle page "Vehicle ID Details". 322 unit tests pass; lint: no new issues.

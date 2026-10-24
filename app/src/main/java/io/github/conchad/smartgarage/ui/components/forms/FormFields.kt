@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -78,8 +77,7 @@ fun FormTextField(
     imeAction: ImeAction = ImeAction.Next,
 ) {
     FormFieldTypography {
-        OutlinedTextField(
-            colors = formFieldColors(),
+        FormOutlinedField(
             value = value,
             onValueChange = onValueChange,
             label = { Text(label) },
@@ -88,6 +86,7 @@ fun FormTextField(
             singleLine = true,
             isError = error != null,
             supportingText = supportingText(error, supporting),
+            errorDescription = error,
             keyboardOptions = KeyboardOptions(
                 capitalization = if (capitalizeWords) KeyboardCapitalization.Words else KeyboardCapitalization.Sentences,
                 imeAction = imeAction,
@@ -117,8 +116,7 @@ fun FormNumberField(
 ) {
     FormFieldTypography {
         val style: TextStyle = if (large) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge
-        OutlinedTextField(
-            colors = formFieldColors(),
+        FormOutlinedField(
             value = value,
             onValueChange = { text -> onValueChange(text.filter { it.isDigit() || it == '.' || it == ',' || it == ' ' }) },
             label = { Text(label) },
@@ -128,6 +126,7 @@ fun FormNumberField(
             textStyle = style.copy(textAlign = TextAlign.End),
             isError = error != null,
             supportingText = supportingText(error, supporting),
+            errorDescription = error,
             prefix = prefix?.let { { Text(it, style = style) } },
             suffix = unit?.let { { Text(it, style = style, modifier = Modifier.padding(start = 4.dp)) } },
             keyboardOptions = KeyboardOptions(keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal, imeAction = imeAction),
@@ -217,8 +216,7 @@ fun FormNotesField(
     enabled: Boolean = true,
 ) {
     FormFieldTypography {
-        OutlinedTextField(
-            colors = formFieldColors(),
+        FormOutlinedField(
             value = value,
             onValueChange = onValueChange,
             label = { Text(label) },
@@ -227,6 +225,7 @@ fun FormNotesField(
             minLines = 3,
             isError = error != null,
             supportingText = supportingText(error, supporting),
+            errorDescription = error,
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.Sentences,
                 imeAction = ImeAction.Default,
@@ -260,8 +259,7 @@ fun FormDateField(
     }
     val text = fmt.date(date.atStartOfDay(fmt.zone).toInstant())
     FormFieldTypography {
-        OutlinedTextField(
-            colors = formFieldColors(),
+        FormOutlinedField(
             value = text,
             onValueChange = {},
             readOnly = true,
@@ -270,6 +268,7 @@ fun FormDateField(
             trailingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
             isError = error != null,
             supportingText = supportingText(error, supporting),
+            errorDescription = error,
             interactionSource = interaction,
             modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
         )
@@ -327,8 +326,7 @@ fun FormOptionalDateField(
     }
     val text = date?.let { fmt.date(it.atStartOfDay(fmt.zone).toInstant()) }.orEmpty()
     FormFieldTypography {
-        OutlinedTextField(
-            colors = formFieldColors(),
+        FormOutlinedField(
             value = text,
             onValueChange = {},
             readOnly = true,
@@ -346,6 +344,7 @@ fun FormOptionalDateField(
             },
             isError = error != null,
             supportingText = supportingText(error, supporting),
+            errorDescription = error,
             interactionSource = interaction,
             modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
         )
@@ -396,8 +395,7 @@ fun <T> FormPicker(
     var expanded by rememberSaveable { mutableStateOf(false) }
     FormFieldTypography {
         ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {
-            OutlinedTextField(
-                colors = formFieldColors(),
+            FormOutlinedField(
                 value = selected?.let(optionLabel) ?: "",
                 onValueChange = {},
                 readOnly = true,
@@ -407,6 +405,7 @@ fun <T> FormPicker(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 isError = error != null,
                 supportingText = supportingText(error, supporting),
+                errorDescription = error,
                 modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled),
             )
             // The opaque glass menu (D-A41): page colour, panel border, the medium radius; menus keep their shadow.

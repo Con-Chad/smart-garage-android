@@ -70,6 +70,20 @@ import io.github.conchad.smartgarage.ui.glass.SkeletonFields
 import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.headerDivider
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.font.FontWeight
+import io.github.conchad.smartgarage.ui.glass.GlassIconBadge
+import io.github.conchad.smartgarage.ui.glass.LocalAuroraTint
+import io.github.conchad.smartgarage.ui.glass.Motion
+import io.github.conchad.smartgarage.ui.glass.drawerCollapse
+import io.github.conchad.smartgarage.ui.glass.drawerExpand
+import io.github.conchad.smartgarage.ui.glass.orNone
+import io.github.conchad.smartgarage.ui.glass.orSnap
+import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 
 /**
  * Full-screen editor (D-A20): a close button and title on top, the fields in a scrolling column. Back or close with
@@ -92,6 +106,11 @@ fun FormScreen(
     dirty: Boolean = false,
     validation: String? = null,
     snackbarHost: SnackbarHostState? = null,
+    /**
+     * D-A69: the caller lays its fields out on its own glass cards ([FormCard], [FormDisclosureCard]), spaced like
+     * Home's; the inline Save then sits on a card of its own at the end. False: everything on the one panel.
+     */
+    grouped: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
@@ -130,9 +149,16 @@ fun FormScreen(
                 .verticalScroll(formScroll)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            GlassPanel(Modifier.fillMaxWidth(), contentPadding = 16.dp) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
-                SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation, inSheet = true, inset = 0.dp)
+            if (grouped) {
+                Column(verticalArrangement = Arrangement.spacedBy(FORM_CARD_GAP), content = content)
+                GlassPanel(Modifier.fillMaxWidth().padding(top = FORM_CARD_GAP), contentPadding = 16.dp, glow = cardGlow()) {
+                    SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation, inSheet = true, inset = 0.dp)
+                }
+            } else {
+                GlassPanel(Modifier.fillMaxWidth(), contentPadding = 16.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+                    SaveBar(saveLabel, enabled = canSave, saving = saving, onSave = onSave, validation = validation, inSheet = true, inset = 0.dp)
+                }
             }
         }
     }
@@ -242,6 +268,115 @@ fun SaveBar(
                 }
                 Text(label, style = MaterialTheme.typography.titleMedium)
             }
+        }
+    }
+}
+
+/** The space between a grouped form's cards (D-A69), as between Home's. */
+private val FORM_CARD_GAP = 16.dp
+
+/** The plate glow of a form card: the aurora's tint, like Home's cards (D-A30). */
+@Composable
+private fun cardGlow(): Color = LocalAuroraTint.current.effective ?: MaterialTheme.colorScheme.primary
+
+/**
+ * One group of a grouped [FormScreen] on its own glass card (D-A69): the panel fill, rim and plate glow of Home's
+ * cards, a header of [icon] in a small glass badge and the animated metallic [title] (a heading for TalkBack) with an
+ * optional [action] at its end, then the fields 12 dp apart. Without [title] the card holds only the fields.
+ */
+@Composable
+fun FormCard(
+    title: String?,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    GlassPanel(modifier.fillMaxWidth(), contentPadding = 16.dp, glow = cardGlow()) {
+        if (title != null) {
+            FormCardHeader(title, icon, action)
+            Spacer(Modifier.height(12.dp))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+    }
+}
+
+@Composable
+private fun FormCardHeader(title: String, icon: ImageVector?, action: (@Composable () -> Unit)?, modifier: Modifier = Modifier, trailing: (@Composable () -> Unit)? = null) {
+    Row(modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            GlassIconBadge(icon, size = 36.dp)
+            Spacer(Modifier.width(12.dp))
+        }
+        MetallicText(
+            title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            animated = true,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+        action?.invoke()
+        trailing?.invoke()
+    }
+}
+
+/**
+ * [FormDisclosure] as its own glass card (D-A69, "Specs" on the vehicle form): the [FormCard] header is the toggle
+ * (≥ 48 dp, a button with its expanded / collapsed state), [summary] under it, a chevron that turns, and the body
+ * glides open inside the glass ([drawerExpand] / [drawerCollapse], snapping under reduced motion).
+ */
+@Composable
+fun FormDisclosureCard(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    summary: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val tokens = glass
+    val reduced = rememberReducedMotion()
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, Motion.standardSpring<Float>().orSnap(reduced), label = "chevron")
+    val state = stringResource(if (expanded) R.string.form_expanded else R.string.form_collapsed)
+    GlassPanel(modifier.fillMaxWidth(), glow = cardGlow()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle, role = Role.Button)
+                .semantics(mergeDescendants = true) { stateDescription = state }
+                .heightIn(min = 56.dp)
+                .padding(16.dp),
+        ) {
+            FormCardHeader(
+                title,
+                icon,
+                action = null,
+                trailing = {
+                    Icon(
+                        Icons.Outlined.ExpandMore,
+                        contentDescription = null,
+                        tint = tokens.sheen,
+                        modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = rotation },
+                    )
+                },
+            )
+            summary?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tokens.textSecondary,
+                    modifier = Modifier.padding(start = if (icon != null) 48.dp else 0.dp, top = 2.dp),
+                )
+            }
+        }
+        AnimatedVisibility(expanded, enter = drawerExpand().orNone(reduced), exit = drawerCollapse().orNone(reduced)) {
+            Column(
+                Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content,
+            )
         }
     }
 }

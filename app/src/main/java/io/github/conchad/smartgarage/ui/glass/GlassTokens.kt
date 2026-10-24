@@ -135,9 +135,18 @@ data class GlassTokens(
      * panel over the page background, where [panelBorder] is a faint hairline. Focused fields keep the [sheen].
      */
     val fieldBorderStrong: Color,
+    /**
+     * The frosted fill of a glass form field at rest (D-A69, the Add vehicle form): a faint frost on the card's glass so
+     * the field reads as a soft well rather than a hollow box. Focused, and while its suggestion list is attached
+     * below it, the field takes [frost] instead, the same surface as the list.
+     */
+    val fieldFill: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
+
+    /** The corner of a glass form field and of the suggestion list joined to it (D-A69). */
+    val radiusField: Dp get() = 12.dp
 
     /**
      * How far below its bounds a soft-edged top bar's glass fades out (D-A49, the vehicle page): the bar has no hard
@@ -205,6 +214,7 @@ val DarkGlassTokens = GlassTokens(
     plateBand = PlateBand,
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x99FFFFFF),
+    fieldFill = Color(0x14FFFFFF),
 )
 
 val LightGlassTokens = GlassTokens(
@@ -253,6 +263,7 @@ val LightGlassTokens = GlassTokens(
     plateBand = PlateBand,
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x8C141826),
+    fieldFill = Color(0x73FFFFFF),
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

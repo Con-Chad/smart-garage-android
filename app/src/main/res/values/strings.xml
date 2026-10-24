@@ -672,13 +672,19 @@
     <string name="vehicle_form_model">Model</string>
     <string name="vehicle_form_year">Production year</string>
     <string name="vehicle_form_year_invalid">Enter a four-digit year.</string>
-    <string name="vehicle_form_registration">Registration</string>
+    <string name="vehicle_form_registration">Vehicle ID Details</string>
     <string name="vehicle_form_vin_invalid">A VIN has up to 17 letters and digits, without I, O or Q.</string>
     <string name="vehicle_form_hsn">HSN</string>
     <string name="vehicle_form_hsn_invalid">Up to 4 digits.</string>
     <string name="vehicle_form_tsn">TSN</string>
     <string name="vehicle_form_tsn_invalid">Up to 3 letters or digits.</string>
     <string name="vehicle_form_hsn_tsn">HSN / TSN</string>
+    <!-- D-A69: the Add vehicle form's first card, and the bubbles over the HSN / TSN fields. -->
+    <string name="vehicle_form_section_vehicle">Vehicle</string>
+    <string name="vehicle_form_hsn_hint_title">HSN – manufacturer key number</string>
+    <string name="vehicle_form_hsn_hint">A 4-digit code for the manufacturer. On the German registration certificate (Zulassungsbescheinigung Teil I) it is in field 2.1.</string>
+    <string name="vehicle_form_tsn_hint_title">TSN – type key number</string>
+    <string name="vehicle_form_tsn_hint">A 3-character code for the model and version: the first three characters in field 2.2 of the Zulassungsbescheinigung Teil I.</string>
     <string name="vehicle_form_specs">Specs</string>
     <string name="vehicle_form_specs_hint">Fuel, body, drive, power, torque, displacement, engine. All optional.</string>
     <string name="vehicles_empty_body">Add your first vehicle here, or in Smart Garage on the web.</string>
@@ -870,7 +876,7 @@
     <string name="vehicle_mileage">Mileage</string>
     <string name="vehicle_insurance_plan">Insurance plan</string>
     <string name="vehicle_details_all">Vehicle details</string>
-    <string name="vehicle_registration">Registration</string>
+    <string name="vehicle_registration">Vehicle ID Details</string>
     <string name="vehicle_specs">Specifications</string>
     <string name="vehicle_tires">Tires</string>
     <string name="vehicle_no_details">Nothing recorded yet. Edit the vehicle to add its registration, VIN and specs.</string>

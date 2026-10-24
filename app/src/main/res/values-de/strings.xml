@@ -658,13 +658,19 @@
     <string name="vehicle_form_model">Modell</string>
     <string name="vehicle_form_year">Produktionsjahr</string>
     <string name="vehicle_form_year_invalid">Gib ein vierstelliges Jahr ein.</string>
-    <string name="vehicle_form_registration">Zulassung</string>
+    <string name="vehicle_form_registration">Fahrzeug-ID-Angaben</string>
     <string name="vehicle_form_vin_invalid">Eine FIN hat bis zu 17 Buchstaben und Ziffern, ohne I, O oder Q.</string>
     <string name="vehicle_form_hsn">HSN</string>
     <string name="vehicle_form_hsn_invalid">Bis zu 4 Ziffern.</string>
     <string name="vehicle_form_tsn">TSN</string>
     <string name="vehicle_form_tsn_invalid">Bis zu 3 Buchstaben oder Ziffern.</string>
     <string name="vehicle_form_hsn_tsn">HSN / TSN</string>
+    <!-- D-A69: the Add vehicle form's first card, and the bubbles over the HSN / TSN fields. -->
+    <string name="vehicle_form_section_vehicle">Fahrzeug</string>
+    <string name="vehicle_form_hsn_hint_title">HSN – Herstellerschlüsselnummer</string>
+    <string name="vehicle_form_hsn_hint">Vierstelliger Code des Herstellers. Er steht in der Zulassungsbescheinigung Teil I (Fahrzeugschein) in Feld 2.1.</string>
+    <string name="vehicle_form_tsn_hint_title">TSN – Typschlüsselnummer</string>
+    <string name="vehicle_form_tsn_hint">Dreistelliger Code für Typ und Ausführung: die ersten drei Zeichen in Feld 2.2 der Zulassungsbescheinigung Teil I (Fahrzeugschein).</string>
     <string name="vehicle_form_specs">Technische Daten</string>
     <string name="vehicle_form_specs_hint">Kraftstoff, Karosserie, Antrieb, Leistung, Drehmoment, Hubraum, Motor. Alles optional.</string>
     <string name="vehicles_empty_body">Füge hier dein erstes Fahrzeug hinzu, oder in Smart Garage im Web.</string>
@@ -856,7 +862,7 @@
     <string name="vehicle_mileage">Kilometerstand</string>
     <string name="vehicle_insurance_plan">Versicherung</string>
     <string name="vehicle_details_all">Fahrzeugdetails</string>
-    <string name="vehicle_registration">Zulassung</string>
+    <string name="vehicle_registration">Fahrzeug-ID-Angaben</string>
     <string name="vehicle_specs">Technische Daten</string>
     <string name="vehicle_tires">Reifen</string>
     <string name="vehicle_no_details">Noch nichts hinterlegt. Bearbeite das Fahrzeug, um Zulassung, FIN und technische Daten zu ergänzen.</string>
