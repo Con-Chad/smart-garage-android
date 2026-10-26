@@ -38,7 +38,7 @@ sealed interface AssociationStart {
 }
 
 /**
- * CompanionDeviceManager (AOSP, no Play services; D-A70): the system's "allow Garage to manage <adapter>?" dialog,
+ * CompanionDeviceManager (AOSP, no Play services; D-A73): the system's "allow Garage to manage <adapter>?" dialog,
  * and presence observation so the system starts [ObdPresenceService] when the adapter shows up. Presence uses
  * [ObservingDevicePresenceRequest] on Android 16+ and the MAC-based call before (deprecated there).
  */

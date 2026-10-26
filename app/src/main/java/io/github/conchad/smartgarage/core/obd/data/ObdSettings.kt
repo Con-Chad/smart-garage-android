@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
-/** The debug simulator's car (D-A70): how fast it drives and how much faster than real time its clock runs. */
+/** The debug simulator's car (D-A73): how fast it drives and how much faster than real time its clock runs. */
 @Serializable
 data class SimulatorSettings(
     val speedKmh: Double = 60.0,
@@ -20,7 +20,7 @@ data class SimulatorSettings(
 )
 
 /**
- * Everything the OBD feature keeps for one server profile (D-A70), stored as one JSON value in the "obd" DataStore.
+ * Everything the OBD feature keeps for one server profile (D-A73), stored as one JSON value in the "obd" DataStore.
  * Unknown keys are ignored and missing ones take these defaults, so adding a field never needs a migration.
  */
 @Serializable
@@ -33,7 +33,7 @@ data class ObdSettings(
     /** In the user's display unit (mi or km, from the server's preferences). */
     val minUploadDistance: Double = UploadPolicy.DEFAULT_MIN_DISTANCE,
     val uploadOnTripEnd: Boolean = true,
-    /** Off: readings only go to the server on an unmetered network (Wi-Fi), D-A70. */
+    /** Off: readings only go to the server on an unmetered network (Wi-Fi), D-A73. */
     val cellularUploads: Boolean = true,
     /** The codes-cleared profile's chain (CODES_CLEARED only); reset with the vehicle. */
     val anchor: CodesClearedAnchor? = null,

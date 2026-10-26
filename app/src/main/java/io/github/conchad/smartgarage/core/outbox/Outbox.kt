@@ -112,7 +112,7 @@ class Outbox(
     /**
      * Takes back a create that hasn't been sent yet (still PENDING, nothing built on it), with its optimistic row.
      * False when it is in flight, already answered or referenced: then it stays queued. Used by the OBD upload worker
-     * to keep a reading off mobile data when the server couldn't be reached on Wi-Fi (D-A70).
+     * to keep a reading off mobile data when the server couldn't be reached on Wi-Fi (D-A73).
      */
     suspend fun withdraw(resource: String, id: String): Boolean = cancelPendingCreate(resource, id)
 

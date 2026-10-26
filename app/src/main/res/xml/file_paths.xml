@@ -7,6 +7,6 @@
 <paths>
     <cache-path name="documents" path="documents/" />
     <cache-path name="captures" path="captures/" />
-    <!-- The OBD diagnostics export (D-A70), shared as a text file. -->
+    <!-- The OBD diagnostics export (D-A73), shared as a text file. -->
     <cache-path name="obd" path="obd/" />
 </paths>

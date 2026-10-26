@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 /**
- * "Simulated adapter" (debug builds only, D-A70): one [SimulatedElmLink] car that drives while connected and parks
+ * "Simulated adapter" (debug builds only, D-A73): one [SimulatedElmLink] car that drives while connected and parks
  * when the link closes, on a clock that runs [SimulatorSettings.timeScale] times faster than real time. The odometer
  * carries over between connections and setting changes, so connect → read → queue → sync tests end to end.
  */

@@ -36,7 +36,7 @@ object AppModule {
     @Singleton
     fun dataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.appDataStore
 
-    /** The cache and outbox, plus the profile's OBD readings and pending OBD upload (D-A70). */
+    /** The cache and outbox, plus the profile's OBD readings and pending OBD upload (D-A73). */
     @Provides
     fun profileDataCleaner(@ApplicationContext context: Context, cache: CacheProvider, obd: ObdDatabase): ProfileDataCleaner =
         ProfileDataCleaner { profileId ->

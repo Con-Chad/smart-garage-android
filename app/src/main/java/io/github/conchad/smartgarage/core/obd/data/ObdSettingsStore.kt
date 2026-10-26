@@ -12,7 +12,7 @@ import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
-/** The "obd" preferences DataStore, apart from the app's (D-A70). */
+/** The "obd" preferences DataStore, apart from the app's (D-A73). */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ObdPrefs

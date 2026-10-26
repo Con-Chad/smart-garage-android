@@ -10,7 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.conchad.smartgarage.core.obd.ObdController
 
 /**
- * After a reboot or an app update (D-A70): re-registers presence observation for an associated adapter, and starts
+ * After a reboot or an app update (D-A73): re-registers presence observation for an associated adapter, and starts
  * the waiting foreground service for one used without association (the autoConnect fallback).
  */
 class ObdBootReceiver : BroadcastReceiver() {

@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Keeps the process alive while the phone waits for or talks to the adapter (D-A70); type connectedDevice. The work
+ * Keeps the process alive while the phone waits for or talks to the adapter (D-A73); type connectedDevice. The work
  * itself is [ObdController]'s session manager; this only starts it, mirrors its status in a small low-importance
  * notification ("Connected to HR-V · 84,512 mi") and stops when the manager stops (presence lost, user disconnect,
  * a fatal error). Being stopped by the system or from the notification ends the trip.

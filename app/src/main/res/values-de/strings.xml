@@ -1008,7 +1008,7 @@
     <string name="scan_delete_page">Seite löschen</string>
     <string name="scan_discard_title">Diesen Scan verwerfen?</string>
     <string name="scan_discard_body">Die fotografierten Seiten werden gelöscht.</string>
-    <!-- OBD-Adapter (D-A70): Benachrichtigung des Vordergrunddienstes -->
+    <!-- OBD-Adapter (D-A73): Benachrichtigung des Vordergrunddienstes -->
     <string name="obd_channel_name">OBD-Adapter</string>
     <string name="obd_channel_desc">Wird angezeigt, solange die App auf den OBD-Adapter im Auto wartet oder mit ihm spricht.</string>
     <string name="obd_notification_connected">Verbunden mit %1$s</string>

@@ -18,7 +18,7 @@ import io.github.conchad.smartgarage.core.obd.ObdController
 import java.util.concurrent.TimeUnit
 
 /**
- * Sends queued OBD readings ([ObdUploader]) once a suitable network is there (D-A70). One unique job per profile;
+ * Sends queued OBD readings ([ObdUploader]) once a suitable network is there (D-A73). One unique job per profile;
  * re-scheduling replaces it, so a changed "cellular uploads" setting takes effect at once. Its network constraint is
  * its own: the hourly [io.github.conchad.smartgarage.core.sync.SyncWorker] keeps CONNECTED and never sees a reading
  * that hasn't been handed to the outbox yet.

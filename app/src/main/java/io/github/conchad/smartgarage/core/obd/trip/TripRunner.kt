@@ -28,7 +28,7 @@ import kotlin.time.Duration
 
 /** What a trip needs from the rest of the app; the real one is Room plus the settings DataStore. */
 interface TripStore {
-    /** Stores the reading before anything else happens to it (D-A70); returns its id. */
+    /** Stores the reading before anything else happens to it (D-A73); returns its id. */
     suspend fun record(reading: ObdReading): Long
 
     /** Picks a stored reading for upload: QUEUED, "last sent" = [km], upload worker scheduled. */
@@ -93,7 +93,7 @@ class TranscriptTap(private val delegate: ElmTranscript?) : ElmTranscript {
 }
 
 /**
- * One connection session = one trip (D-A70). Initializes the adapter, reads the odometer at once and then every
+ * One connection session = one trip (D-A73). Initializes the adapter, reads the odometer at once and then every
  * [TripConfig.pollInterval], stores every reading, and queues one for upload when [UploadPolicy] says so. The trip
  * ends when the link closes, when the car stops answering while the adapter stays up (ignition off), or when the
  * caller cancels; at the end the last reading of the trip gets the trip-end upload decision. There is no reading

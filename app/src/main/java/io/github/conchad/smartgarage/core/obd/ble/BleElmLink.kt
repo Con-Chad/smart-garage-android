@@ -42,7 +42,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * An ELM327 over BLE GATT (D-A70): connects, asks for a large MTU, discovers services, picks the serial pipe
+ * An ELM327 over BLE GATT (D-A73): connects, asks for a large MTU, discovers services, picks the serial pipe
  * ([ElmGattProfiles]), turns its notifications on and then carries bytes both ways. Android's GATT client allows one
  * operation at a time, so every operation goes through [op] (a mutex plus the callback's answer).
  *

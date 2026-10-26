@@ -3,7 +3,7 @@ package io.github.conchad.smartgarage.core.obd.link
 import io.github.conchad.smartgarage.core.obd.data.SimulatorSettings
 
 /**
- * The debug simulator as a transport (D-A70). Only debug builds bind one (src/debug); in release the optional binding
+ * The debug simulator as a transport (D-A73). Only debug builds bind one (src/debug); in release the optional binding
  * is absent, so "Simulated adapter" isn't offered and no simulator code ships.
  */
 interface SimulatorTransport : AdapterTransport {

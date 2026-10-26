@@ -2209,7 +2209,7 @@ App decisions use the `D-A` prefix.
   - **Simulator is debug-only**: `SimulatedElmLink` lives in `src/debug`, its tests in `src/testDebug`; the release
     APK's dex has no trace of it (checked with dexdump).
 
-- **D-A70 (2026-10-24) — OBD adapter: BLE link, companion presence, readings kept locally first, uploads on the
+- **D-A73 (2026-10-24) — OBD adapter: BLE link, companion presence, readings kept locally first, uploads on the
   user's network.** CP3 of the OBD round; the settings screens are CP4. Entry point: `core/obd/ObdController`.
   - **BLE** (`core/obd/ble`): `BleElmLink` over `BluetoothGatt`, one GATT operation at a time (mutex + callback). The
     serial service is picked by `ElmGattProfiles.choose`: FFF0 (FFF1 notify / FFF2 write: WiCAN Pro, OBDLink CX, most

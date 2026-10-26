@@ -18,7 +18,7 @@ import javax.inject.Singleton
 
 private val Context.obdDataStore: DataStore<Preferences> by preferencesDataStore(name = "obd")
 
-/** OBD storage (D-A70). The simulator is optional: only debug builds bind it (src/debug `SimulatorModule`). */
+/** OBD storage (D-A73). The simulator is optional: only debug builds bind it (src/debug `SimulatorModule`). */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ObdModule {

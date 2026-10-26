@@ -12,7 +12,7 @@ import io.github.conchad.smartgarage.core.sync.SyncOutcome
 import java.time.Instant
 
 /**
- * The OBD upload worker's job (D-A70), Android-free. It only runs on a network the user allows (WorkManager:
+ * The OBD upload worker's job (D-A73), Android-free. It only runs on a network the user allows (WorkManager:
  * unmetered when "cellular uploads" is off), and there it hands the newest QUEUED reading of each vehicle to the
  * outbox as an odometer log with source "obd", marks older queued ones SUPERSEDED, and syncs. If that sync can't
  * reach the server and cellular uploads are off, the entries it just queued are taken back out of the outbox
