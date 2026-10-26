@@ -149,11 +149,14 @@ internal fun FormOutlinedField(
 ) {
     val colors = formFieldColors()
     val shape = formFieldShape()
+    // D-A71: a one-line or read-only field keeps its error / supporting line above the keyboard too, not only the
+    // cursor. Multi-line notes are left to the text field's own cursor tracking (revealing a tall field would jump).
+    val outer = if (singleLine || readOnly) modifier.revealWhenFocused() else modifier
     if (!LocalFormFieldEmphasis.current) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = modifier,
+            modifier = outer,
             enabled = enabled,
             readOnly = readOnly,
             textStyle = textStyle,
@@ -187,7 +190,7 @@ internal fun FormOutlinedField(
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier
+        modifier = outer
             .then(if (label != null) Modifier.padding(top = FIELD_LABEL_ROOM) else Modifier)
             .semantics { if (isError && errorDescription != null) error(errorDescription) }
             .drawBehind {

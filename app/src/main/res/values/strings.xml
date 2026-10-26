@@ -882,7 +882,7 @@
     <string name="vehicle_registration">Vehicle ID Details</string>
     <string name="vehicle_specs">Specifications</string>
     <string name="vehicle_tires">Tires</string>
-    <string name="vehicle_no_details">Nothing recorded yet. Edit the vehicle to add its registration, VIN and specs.</string>
+    <string name="vehicle_no_details">Nothing recorded yet. Edit the vehicle to add its ID details and specs.</string>
     <string name="vehicle_at_a_glance">At a glance</string>
     <string name="vehicle_quick_actions">Quick actions</string>
     <string name="vehicle_purchase">Purchase</string>

@@ -2032,3 +2032,28 @@ App decisions use the `D-A` prefix.
     everywhere at rest; text on the bare aurora ≥ 4.5:1 except in Home's mid-tone band on dark (L ≈ 0.17–0.27, e.g.
     sky blue, orange, gold), where no ink can reach it (best ≈ 3.9:1 at the crossover) and the halo carries it
     (measured 3–4.4:1 without counting the halo). Left: putting those headers on glass (as D-A54) would close it.
+
+- **D-A71 (2026-10-26) — Specs pickers on the joined glass; whole field kept above the keyboard; "ID details" in
+  prose.** Follow-up to D-A69's "Not changed" list.
+  - **Specs pickers**: on the emphasized form (`LocalFormFieldEmphasis`, i.e. Add / Edit vehicle) `FormPicker` hands off
+    to `JoinedPicker` (FormAutocomplete.kt), which reuses D-A69's pieces rather than a second style: one `JoinLook`
+    (join animation, outline colour / width, rest fill, `frost` list surface, `radiusField`), `joinedFieldFrame`,
+    `JoinedDecoration` (M3 decoration box with `drawFieldEdge`), the same `SuggestionPanel` (attached list, drum
+    curve while scrolling, flat at rest and under reduced motion) and the error / supporting line under the whole
+    piece. `FormAutocompleteField` was refactored onto the same helpers (look unchanged). The field is a focusable
+    ≥ 56 dp `Role.DropdownList` with an Expanded / Collapsed state; tapping it takes focus (puts the keyboard away)
+    and toggles the list; it closes on a pick, a second tap, Back, or focus moving on. The current option shows a
+    tick in `sheen` and is marked `selected`. Other forms keep the D-A41 opaque menu.
+  - **Keyboard**: new `Modifier.revealWhenFocused()` (RevealField.kt). While focus is inside, it brings the whole
+    field into view (error / supporting line and attached list included, plus an 8 dp margin) once the IME inset has
+    stopped moving and again whenever the field's size changes (an error appearing, a list opening). Applied to
+    `FormAutocompleteField`, `JoinedPicker`, and every one-line or read-only `FormOutlinedField` (all forms, not just
+    this one: same problem, same fix). Multi-line notes are left out because revealing a tall field would jump away
+    from the cursor. `FormScreen` already had `imePadding` on the scroll container.
+  - **Copy**: `vehicle_no_details` → "Nothing recorded yet. Edit the vehicle to add its ID details and specs." /
+    "… um Fahrzeug-ID-Angaben und technische Daten zu ergänzen." (VIN is part of the ID details now, so it's no
+    longer listed on its own.)
+  - Verified on the Pixel 10 Pro (release build, dark, EN, font scale 1.3): Body picker open (joined, full width,
+    tick on the selection, drum curve mid-scroll), year error and two-line HSN error fully above the keyboard with
+    the field sitting at the keyboard's edge. 327 unit tests pass; lint: same 9 issues as before.
+  - Seen, not changed: a swipe that starts on the open HSN / TSN hint bubble doesn't scroll the form.

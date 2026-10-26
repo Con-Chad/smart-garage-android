@@ -378,7 +378,10 @@ fun FormOptionalDateField(
     }
 }
 
-/** A choice from a short list (vehicle, schedule): an exposed dropdown with the same frame as the text fields. */
+/**
+ * A choice from a short list (vehicle, schedule): an exposed dropdown with the same frame as the text fields; on an
+ * emphasized form the joined glass list of [JoinedPicker] (D-A71).
+ */
 @Composable
 fun <T> FormPicker(
     label: String,
@@ -392,6 +395,12 @@ fun <T> FormPicker(
     enabled: Boolean = true,
     placeholder: String? = null,
 ) {
+    // D-A71: on the emphasized form (Add / Edit vehicle) the options hang from the field as one piece of glass,
+    // like make / model / year; every other form keeps the D-A41 menu.
+    if (LocalFormFieldEmphasis.current) {
+        JoinedPicker(label, options, selected, optionLabel, onSelect, modifier, supporting, error, enabled, placeholder)
+        return
+    }
     var expanded by rememberSaveable { mutableStateOf(false) }
     FormFieldTypography {
         ExposedDropdownMenuBox(expanded = expanded && enabled, onExpandedChange = { expanded = it }, modifier = modifier) {

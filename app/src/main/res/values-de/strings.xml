@@ -868,7 +868,7 @@
     <string name="vehicle_registration">Fahrzeug-ID-Angaben</string>
     <string name="vehicle_specs">Technische Daten</string>
     <string name="vehicle_tires">Reifen</string>
-    <string name="vehicle_no_details">Noch nichts hinterlegt. Bearbeite das Fahrzeug, um Zulassung, FIN und technische Daten zu ergänzen.</string>
+    <string name="vehicle_no_details">Noch nichts hinterlegt. Bearbeite das Fahrzeug, um Fahrzeug-ID-Angaben und technische Daten zu ergänzen.</string>
     <string name="vehicle_at_a_glance">Auf einen Blick</string>
     <string name="vehicle_quick_actions">Schnellaktionen</string>
     <string name="vehicle_purchase">Kauf</string>

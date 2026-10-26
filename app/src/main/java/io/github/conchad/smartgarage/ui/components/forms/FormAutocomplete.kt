@@ -99,6 +99,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.focusable
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.RowDivider
 import io.github.conchad.smartgarage.ui.glass.Motion
@@ -166,41 +171,16 @@ fun FormAutocompleteField(
 
     BackHandler(enabled = open) { dismissed = true }
 
-    val tokens = glass
     val reduced = rememberReducedMotion()
-    // 0 = a field on its own, 1 = the list hangs from it; drives the corners and the bottom edge.
-    val join = animateFloatAsState(
-        if (open) 1f else 0f,
-        tween<Float>(Motion.SHORT_MS, easing = Motion.EmphasizedEasing).orSnap(reduced),
-        label = "join",
-    )
 
     FormFieldTypography {
-        Column(modifier.fillMaxWidth()) {
-            val colors = formFieldColors()
-            val radius = formFieldRadius()
+        // D-A71: the whole piece (field, list, error line) is kept above the keyboard while focused.
+        Column(modifier.fillMaxWidth().revealWhenFocused()) {
             val interaction = remember { MutableInteractionSource() }
             val isFocused by interaction.collectIsFocusedAsState()
             val isError = error != null
-            // The list's surface, which the field takes on as the list attaches: the denser frost of raised glass.
-            val listFill = tokens.frost
-            val restFill = when {
-                isError -> colors.errorContainerColor
-                isFocused -> colors.focusedContainerColor
-                else -> colors.unfocusedContainerColor
-            }
-            val edge by animateColorAsState(
-                when {
-                    !enabled -> colors.disabledIndicatorColor
-                    isError -> colors.errorIndicatorColor
-                    isFocused -> colors.focusedIndicatorColor
-                    else -> colors.unfocusedIndicatorColor
-                },
-                tween(Motion.QUICK_MS),
-                label = "edge",
-            )
-            val edgeWidth = if (isFocused || isError) FOCUSED_EDGE else RESTING_EDGE
-            val textStyle = LocalTextStyle.current.merge(TextStyle(color = if (enabled) tokens.textPrimary else tokens.textSecondary))
+            val look = rememberJoinLook(open, enabled, isError, isFocused, reduced)
+            val textStyle = LocalTextStyle.current.merge(TextStyle(color = if (enabled) glass.textPrimary else glass.textSecondary))
             BasicTextField(
                 value = shown,
                 onValueChange = { raw ->
@@ -213,24 +193,16 @@ fun FormAutocompleteField(
                     if (next.text != value) onValueChange(next.text)
                 },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = FIELD_LABEL_ROOM)
-                    .defaultMinSize(minHeight = OutlinedTextFieldDefaults.MinHeight)
+                    .joinedFieldFrame(look)
                     .focusRequester(focusRequester)
                     .onFocusChanged {
                         focused = it.isFocused
                         if (!it.isFocused) browsing = false
                     }
-                    .semantics { if (error != null) error(error) }
-                    // The fill under the whole field, not in M3's container, which cuts the floating label's notch
-                    // out of it: the label sits on the glass instead of in a hole through it.
-                    .drawBehind {
-                        val r = radius.toPx()
-                        drawPath(roundedPath(Rect(Offset.Zero, size), r, r * (1f - join.value)), lerp(restFill, listFill, join.value))
-                    },
+                    .semantics { if (error != null) error(error) },
                 enabled = enabled,
                 textStyle = textStyle,
-                cursorBrush = SolidColor(if (isError) colors.errorCursorColor else colors.cursorColor),
+                cursorBrush = SolidColor(if (isError) look.colors.errorCursorColor else look.colors.cursorColor),
                 singleLine = true,
                 interactionSource = interaction,
                 keyboardOptions = KeyboardOptions(
@@ -248,15 +220,14 @@ fun FormAutocompleteField(
                     defaultKeyboardAction(ImeAction.Done)
                 }),
                 decorationBox = { inner ->
-                    OutlinedTextFieldDefaults.DecorationBox(
+                    JoinedDecoration(
                         value = shown.text,
-                        innerTextField = inner,
+                        inner = inner,
+                        look = look,
                         enabled = enabled,
-                        singleLine = true,
-                        visualTransformation = VisualTransformation.None,
-                        interactionSource = interaction,
                         isError = isError,
-                        label = { Text(label) },
+                        interaction = interaction,
+                        label = label,
                         trailingIcon = if (browse.isNotEmpty()) {
                             {
                                 val description = stringResource(if (open) R.string.form_suggestions_hide else R.string.form_suggestions_show, label)
@@ -278,29 +249,20 @@ fun FormAutocompleteField(
                         } else {
                             null
                         },
-                        colors = colors,
-                        container = {
-                            Box(
-                                Modifier.fillMaxSize().drawBehind {
-                                    drawFieldEdge(edge, edgeWidth.toPx(), radius.toPx(), join.value)
-                                },
-                            )
-                        },
                     )
                 },
             )
             SuggestionPanel(
                 open = open,
-                typed = value.trim(),
-                suggestions = suggestions,
+                title = pluralStringResource(R.plurals.form_suggestions_count, suggestions.size, suggestions.size),
+                rows = suggestions,
+                other = value.trim(),
                 fallbackIcon = fallbackIcon,
                 icon = icon,
-                fill = listFill,
-                edge = edge,
-                edgeWidth = edgeWidth,
-                radius = radius,
+                look = look,
                 reduced = reduced,
-                onPick = { name ->
+                onPick = { index ->
+                    val name = suggestions[index]
                     field = TextFieldValue(name, TextRange(name.length))
                     dismissed = true
                     browsing = false
@@ -312,16 +274,220 @@ fun FormAutocompleteField(
                 },
             )
             // Under the whole piece, not between the field and its list; TalkBack hears it on the field (above).
-            if (error != null) {
-                Text(
-                    error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.errorSupportingTextColor,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp).clearAndSetSemantics {},
-                )
-            }
+            JoinedSupportingLine(error, null, look)
         }
     }
+}
+
+/**
+ * The emphasized form's [FormPicker] (D-A71): the same joined glass as [FormAutocompleteField] instead of a
+ * floating menu. Tapping the field (a ≥ 56 dp target, heard as a drop-down list with its expanded state) opens the
+ * options hanging from it on one frosted surface, the field's outline carried round them, the drum curve while
+ * they scroll; the chosen one is ticked and marked selected for TalkBack. It closes on a pick, on a second tap, on
+ * Back and when focus moves to another field (taking focus also puts the keyboard away). The error or supporting
+ * line sits under the whole piece.
+ */
+@Composable
+internal fun <T> JoinedPicker(
+    label: String,
+    options: List<T>,
+    selected: T?,
+    optionLabel: (T) -> String,
+    onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    supporting: String? = null,
+    error: String? = null,
+    enabled: Boolean = true,
+    placeholder: String? = null,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val open = expanded && enabled && options.isNotEmpty()
+    BackHandler(enabled = open) { expanded = false }
+    val reduced = rememberReducedMotion()
+    val focusRequester = remember { FocusRequester() }
+    val interaction = remember { MutableInteractionSource() }
+    val isFocused by interaction.collectIsFocusedAsState()
+    val isError = error != null
+    val text = selected?.let(optionLabel).orEmpty()
+    val rows = options.map(optionLabel)
+    val state = stringResource(if (open) R.string.form_expanded else R.string.form_collapsed)
+    FormFieldTypography {
+        Column(modifier.fillMaxWidth().revealWhenFocused()) {
+            val look = rememberJoinLook(open, enabled, isError, isFocused || open, reduced)
+            Box(
+                Modifier
+                    .joinedFieldFrame(look)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { if (!it.hasFocus) expanded = false }
+                    .focusable(enabled, interaction)
+                    .clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        enabled = enabled,
+                        role = Role.DropdownList,
+                    ) {
+                        focusRequester.requestFocus()
+                        expanded = !expanded
+                    }
+                    .semantics {
+                        stateDescription = state
+                        if (error != null) error(error)
+                    },
+                // The decoration (and its outline) spans the frame's full width and height, as a text field's does.
+                propagateMinConstraints = true,
+            ) {
+                JoinedDecoration(
+                    value = text,
+                    inner = {
+                        Text(
+                            text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (enabled) glass.textPrimary else glass.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    look = look,
+                    enabled = enabled,
+                    isError = isError,
+                    interaction = interaction,
+                    label = label,
+                    placeholder = placeholder,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+                )
+            }
+            SuggestionPanel(
+                open = open,
+                title = label,
+                rows = rows,
+                selected = options.indexOf(selected),
+                other = "",
+                fallbackIcon = null,
+                icon = { null },
+                look = look,
+                reduced = reduced,
+                onPick = { index ->
+                    onSelect(options[index])
+                    expanded = false
+                },
+                onOther = {},
+            )
+            JoinedSupportingLine(error, supporting, look)
+        }
+    }
+}
+
+/**
+ * The joined look's moving parts (D-A69), one for [FormAutocompleteField] and [JoinedPicker] alike: [join] (0 = a
+ * field on its own, 1 = the list hangs from it), the outline's colour and width, the field's resting fill and the
+ * shared list surface it takes on while joined.
+ */
+private class JoinLook(
+    val join: State<Float>,
+    val edge: State<Color>,
+    val edgeWidth: Dp,
+    val restFill: Color,
+    val listFill: Color,
+    val radius: Dp,
+    val colors: TextFieldColors,
+)
+
+@Composable
+private fun rememberJoinLook(open: Boolean, enabled: Boolean, isError: Boolean, isFocused: Boolean, reduced: Boolean): JoinLook {
+    val colors = formFieldColors()
+    val join = animateFloatAsState(
+        if (open) 1f else 0f,
+        tween<Float>(Motion.SHORT_MS, easing = Motion.EmphasizedEasing).orSnap(reduced),
+        label = "join",
+    )
+    val edge = animateColorAsState(
+        when {
+            !enabled -> colors.disabledIndicatorColor
+            isError -> colors.errorIndicatorColor
+            isFocused -> colors.focusedIndicatorColor
+            else -> colors.unfocusedIndicatorColor
+        },
+        tween(Motion.QUICK_MS),
+        label = "edge",
+    )
+    return JoinLook(
+        join = join,
+        edge = edge,
+        edgeWidth = if (isFocused || isError) FOCUSED_EDGE else RESTING_EDGE,
+        restFill = when {
+            isError -> colors.errorContainerColor
+            isFocused -> colors.focusedContainerColor
+            else -> colors.unfocusedContainerColor
+        },
+        // The list's surface, which the field takes on as the list attaches: the denser frost of raised glass.
+        listFill = glass.frost,
+        radius = formFieldRadius(),
+        colors = colors,
+    )
+}
+
+/**
+ * The joined field's frame: room for the floating label, M3's minimum height, and the fill under the whole field
+ * (not in M3's container, which cuts the label's notch out of it), its bottom corners squaring off as it joins.
+ */
+private fun Modifier.joinedFieldFrame(look: JoinLook): Modifier =
+    this
+        .fillMaxWidth()
+        .padding(top = FIELD_LABEL_ROOM)
+        .defaultMinSize(minHeight = OutlinedTextFieldDefaults.MinHeight)
+        .drawBehind {
+            val r = look.radius.toPx()
+            val j = look.join.value
+            drawPath(roundedPath(Rect(Offset.Zero, size), r, r * (1f - j)), lerp(look.restFill, look.listFill, j))
+        }
+
+/** M3's outlined decoration (label, notch, icons) round [inner], with the joined outline as its container. */
+@Composable
+private fun JoinedDecoration(
+    value: String,
+    inner: @Composable () -> Unit,
+    look: JoinLook,
+    enabled: Boolean,
+    isError: Boolean,
+    interaction: MutableInteractionSource,
+    label: String,
+    placeholder: String? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+) {
+    OutlinedTextFieldDefaults.DecorationBox(
+        value = value,
+        innerTextField = inner,
+        enabled = enabled,
+        singleLine = true,
+        visualTransformation = VisualTransformation.None,
+        interactionSource = interaction,
+        isError = isError,
+        label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
+        trailingIcon = trailingIcon,
+        colors = look.colors,
+        container = {
+            Box(
+                Modifier.fillMaxSize().drawBehind {
+                    drawFieldEdge(look.edge.value, look.edgeWidth.toPx(), look.radius.toPx(), look.join.value)
+                },
+            )
+        },
+    )
+}
+
+/** The error (TalkBack hears it on the field) or supporting line, under the whole joined piece. */
+@Composable
+private fun JoinedSupportingLine(error: String?, supporting: String?, look: JoinLook) {
+    val line = error ?: supporting ?: return
+    Text(
+        line,
+        style = MaterialTheme.typography.bodySmall,
+        color = if (error != null) look.colors.errorSupportingTextColor else look.colors.unfocusedSupportingTextColor,
+        modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp)
+            .then(if (error != null) Modifier.clearAndSetSemantics {} else Modifier),
+    )
 }
 
 /**
@@ -373,17 +539,16 @@ private fun roundedPath(rect: Rect, top: Float, bottom: Float): Path = Path().ap
 @Composable
 private fun SuggestionPanel(
     open: Boolean,
-    typed: String,
-    suggestions: List<String>,
+    title: String,
+    rows: List<String>,
+    other: String,
     fallbackIcon: ImageVector?,
     icon: @Composable (String) -> ImageBitmap?,
-    fill: Color,
-    edge: Color,
-    edgeWidth: Dp,
-    radius: Dp,
+    look: JoinLook,
     reduced: Boolean,
-    onPick: (String) -> Unit,
+    onPick: (Int) -> Unit,
     onOther: () -> Unit,
+    selected: Int = -1,
 ) {
     val tokens = glass
     val bringIntoView = remember { BringIntoViewRequester() }
@@ -394,8 +559,8 @@ private fun SuggestionPanel(
     ) {
         // Scroll the whole panel into view in the form once it has its size (the field may sit just above the keyboard).
         LaunchedEffect(Unit) { bringIntoView.bringIntoView() }
+        val radius = look.radius
         val shape = RoundedCornerShape(bottomStart = radius, bottomEnd = radius)
-        val count = pluralStringResource(R.plurals.form_suggestions_count, suggestions.size, suggestions.size)
         Column(
             Modifier
                 .fillMaxWidth()
@@ -404,13 +569,13 @@ private fun SuggestionPanel(
                 // D-A69: the field's frost and outline carried down: no top edge, the field's sides continue into
                 // this one's, round its bottom corners; a hairline under the field separates the two.
                 .drawWithContent {
-                    drawRect(fill)
+                    drawRect(look.listFill)
                     drawContent()
-                    drawListEdge(edge, edgeWidth.toPx(), radius.toPx(), tokens.panelBorder, 12.dp.toPx())
+                    drawListEdge(look.edge.value, look.edgeWidth.toPx(), radius.toPx(), tokens.panelBorder, 12.dp.toPx())
                 }
                 .semantics {
-                    paneTitle = count
-                    collectionInfo = CollectionInfo(rowCount = suggestions.size + if (typed.isNotEmpty()) 1 else 0, columnCount = 1)
+                    paneTitle = title
+                    collectionInfo = CollectionInfo(rowCount = rows.size + if (other.isNotEmpty()) 1 else 0, columnCount = 1)
                 },
         ) {
             val scroll = rememberScrollState()
@@ -427,7 +592,7 @@ private fun SuggestionPanel(
                     .onSizeChanged { viewport.intValue = it.height }
                     .verticalScroll(scroll),
             ) {
-                suggestions.forEachIndexed { index, name ->
+                rows.forEachIndexed { index, name ->
                     // Where this row's centre sits in the list's content, written on placement, read while drawing.
                     val place = remember { mutableFloatStateOf(Float.NaN) }
                     SuggestionRow(
@@ -435,21 +600,22 @@ private fun SuggestionPanel(
                         bitmap = icon(name),
                         vector = fallbackIcon,
                         index = index,
-                        onClick = { onPick(name) },
+                        onClick = { onPick(index) },
+                        selected = index == selected,
                         modifier = if (reduced) Modifier else Modifier.convexRow(scroll, viewport, curve, place),
                     )
                 }
             }
-            // "Keep what I typed" means nothing for a blank field (browsing the whole list): no row then.
-            if (typed.isNotEmpty()) {
+            // "Keep what I typed" means nothing for a blank field (browsing the whole list) or a picker: no row then.
+            if (other.isNotEmpty()) {
                 RowDivider()
-                val otherDescription = stringResource(R.string.form_suggestion_other_description, typed)
+                val otherDescription = stringResource(R.string.form_suggestion_other_description, other)
                 SuggestionRow(
                     text = stringResource(R.string.form_suggestion_other),
-                    supporting = stringResource(R.string.form_suggestion_other_keep, typed),
+                    supporting = stringResource(R.string.form_suggestion_other_keep, other),
                     bitmap = null,
                     vector = Icons.Outlined.Edit,
-                    index = suggestions.size,
+                    index = rows.size,
                     description = otherDescription,
                     onClick = onOther,
                 )
@@ -523,6 +689,7 @@ private fun SuggestionRow(
     modifier: Modifier = Modifier,
     supporting: String? = null,
     description: String? = null,
+    selected: Boolean = false,
 ) {
     val tokens = glass
     Row(
@@ -532,6 +699,7 @@ private fun SuggestionRow(
             .semantics(mergeDescendants = true) {
                 collectionItemInfo = CollectionItemInfo(rowIndex = index, rowSpan = 1, columnIndex = 0, columnSpan = 1)
                 if (description != null) contentDescription = description
+                if (selected) this.selected = true
             }
             .heightIn(min = SUGGESTION_ROW)
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -541,7 +709,7 @@ private fun SuggestionRow(
             bitmap != null -> Image(bitmap, contentDescription = null, modifier = Modifier.size(24.dp))
             vector != null -> Icon(vector, contentDescription = null, tint = tokens.textSecondary, modifier = Modifier.size(24.dp))
         }
-        Column(Modifier.padding(start = if (bitmap != null || vector != null) 16.dp else 0.dp)) {
+        Column(Modifier.weight(1f).padding(start = if (bitmap != null || vector != null) 16.dp else 0.dp)) {
             Text(
                 text,
                 style = MaterialTheme.typography.bodyLarge,
@@ -558,6 +726,10 @@ private fun SuggestionRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        // A picker's current choice (D-A71), in the accent; the row is also marked selected for TalkBack.
+        if (selected) {
+            Icon(Icons.Outlined.Check, contentDescription = null, tint = tokens.sheen, modifier = Modifier.padding(start = 16.dp).size(24.dp))
         }
     }
 }
