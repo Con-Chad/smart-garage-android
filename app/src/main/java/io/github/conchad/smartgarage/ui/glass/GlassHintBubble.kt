@@ -8,6 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
@@ -41,6 +45,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -53,6 +61,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
@@ -68,6 +77,11 @@ import androidx.compose.ui.window.PopupProperties
  * (a field scrolled up under the top bar). It grows out of its tail on [Motion.gentleSpring] and fades; under
  * reduced motion it just appears. A tap on the bubble puts it away until [visible] next turns on; it also goes when
  * [visible] turns off (the caller ties it to focus). TalkBack announces it politely as it appears.
+ *
+ * A popup is its own window, so a drag that starts on it would never reach the form's scroll (D-A72). The anchor
+ * therefore carries a [NestedScrollDispatcher] in the form's layout tree, and vertical drags (and their fling) on the
+ * bubble are handed to it: the scrolling parent takes them as a child's leftover scroll, exactly as if the finger had
+ * landed on the field. A tap still puts the bubble away (the drag only starts past touch slop).
  */
 @Composable
 fun GlassHintBubble(
@@ -81,7 +95,8 @@ fun GlassHintBubble(
     LaunchedEffect(visible) { if (visible) dismissed = false }
     val state = remember { MutableTransitionState(false) }
     state.targetState = visible && !dismissed
-    Box(modifier) {
+    val scrollDispatcher = remember { NestedScrollDispatcher() }
+    Box(modifier.nestedScroll(NoNestedScroll, scrollDispatcher)) {
         content()
         if (state.currentState || state.targetState) {
             val density = LocalDensity.current
@@ -96,7 +111,7 @@ fun GlassHintBubble(
                 )
             }
             Popup(popupPositionProvider = provider, properties = PopupProperties(focusable = false)) {
-                HintBubbleBody(state, title, text, tailX.floatValue, below.value, onDismiss = { dismissed = true })
+                HintBubbleBody(state, title, text, tailX.floatValue, below.value, scrollDispatcher, onDismiss = { dismissed = true })
             }
         }
     }
@@ -109,6 +124,7 @@ private fun HintBubbleBody(
     text: String,
     tailX: Float,
     below: Boolean,
+    scrollDispatcher: NestedScrollDispatcher,
     onDismiss: () -> Unit,
 ) {
     val tokens = glass
@@ -117,6 +133,12 @@ private fun HintBubbleBody(
     // Grows out of its tail: the pivot is the tail's tip.
     var width by remember { mutableFloatStateOf(0f) }
     val origin = TransformOrigin(if (width > 0f && !tailX.isNaN()) (tailX / width).coerceIn(0f, 1f) else 0.5f, if (below) 0f else 1f)
+    // Vertical drags on the bubble scroll the form under it (D-A72): handed to the anchor's nested-scroll parents.
+    val dragState = rememberDraggableState { delta ->
+        val available = Offset(0f, delta)
+        val pre = scrollDispatcher.dispatchPreScroll(available, NestedScrollSource.UserInput)
+        scrollDispatcher.dispatchPostScroll(Offset.Zero, available - pre, NestedScrollSource.UserInput)
+    }
     AnimatedVisibility(
         visibleState = state,
         enter = (fadeIn(tween(Motion.SHORT_MS)) + scaleIn(Motion.gentleSpring(), initialScale = BUBBLE_FROM, transformOrigin = origin)).orNone(reduced),
@@ -126,6 +148,15 @@ private fun HintBubbleBody(
             Modifier
                 // The popup's size: the bubble plus its shadow room, which the tail position is measured against.
                 .onSizeChanged { width = it.width.toFloat() }
+                .draggable(
+                    dragState,
+                    Orientation.Vertical,
+                    onDragStopped = { velocity ->
+                        val available = Velocity(0f, velocity)
+                        val pre = scrollDispatcher.dispatchPreFling(available)
+                        scrollDispatcher.dispatchPostFling(Velocity.Zero, available - pre)
+                    },
+                )
                 .padding(BUBBLE_SHADOW_ROOM)
                 .widthIn(max = BUBBLE_MAX_WIDTH)
                 .glassShadow(shape, elevation = 8.dp, color = tokens.shadow)
@@ -216,6 +247,9 @@ private class BubbleShape(private val radius: Dp, private val tail: Dp, private 
         Outline.Generic(Path.combine(PathOperation.Union, body, tip))
     }
 }
+
+/** The anchor only dispatches (the bubble's drags); it consumes nothing itself. */
+private val NoNestedScroll = object : NestedScrollConnection {}
 
 /** How far the tail's tip stays from the field it points at. */
 private val BUBBLE_GAP = 2.dp

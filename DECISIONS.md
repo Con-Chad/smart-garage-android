@@ -2057,3 +2057,15 @@ App decisions use the `D-A` prefix.
     tick on the selection, drum curve mid-scroll), year error and two-line HSN error fully above the keyboard with
     the field sitting at the keyboard's edge. 327 unit tests pass; lint: same 9 issues as before.
   - Seen, not changed: a swipe that starts on the open HSN / TSN hint bubble doesn't scroll the form.
+
+- **D-A72 (2026-10-27) — A swipe on the HSN / TSN hint bubble scrolls the form.** Fixes D-A71's "Seen, not changed".
+  - **Cause**: `GlassHintBubble` floats in a `Popup`, which is its own window, so a drag that starts on it never
+    reaches the form's `verticalScroll`; the bubble's tap-to-dismiss `clickable` swallowed it.
+  - **Fix**: kept the popup (it must not push the form about, and the field keeps focus and the keyboard). The anchor
+    `Box` now carries a `NestedScrollDispatcher` (`Modifier.nestedScroll` with a no-op connection) in the form's
+    layout tree; the bubble gets a vertical `draggable` that hands each delta (pre-scroll, then the rest as
+    post-scroll) and the release velocity (pre / post fling) to it, so the scrolling parent treats it as a child's
+    leftover scroll, fling included. No `ScrollState` is passed in, so it works under any scrolling parent. A tap
+    still dismisses (the drag only starts past touch slop). Look, animation and `revealWhenFocused` unchanged; the
+    popup follows the field as the form scrolls.
+  - 327 unit tests pass; lint: same 9 issues as before. Not verified on a device (none attached).
