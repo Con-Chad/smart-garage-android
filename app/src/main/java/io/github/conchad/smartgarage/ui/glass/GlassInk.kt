@@ -37,7 +37,8 @@ fun pillInk(tokens: GlassTokens, tint: Color): Color {
  * every backdrop a panel can sit on over this aurora ([AuroraLumaMap.luminanceRange] under [GlassTokens.panel]).
  * Where the theme's colours already clear 4.5:1 (most tints) they come back unchanged; over a bright aurora on the
  * dark theme the grey secondary text lightens, over a dark one on the light theme it darkens, and where even the
- * theme's ink can't reach 4.5:1 the panel fill itself gets denser (up to [MAX_PANEL_ALPHA]). Unchanged with no map.
+ * theme's ink can't reach 4.5:1 the panel fill itself gets denser (up to [MAX_PANEL_ALPHA]). The headings' glass strip
+ * is densified the same way for their adaptive ink ([headingStripOver], D-A73). Unchanged with no map.
  */
 fun GlassTokens.legibleOnPanels(map: AuroraLumaMap?): GlassTokens {
     if (map == null) return this
@@ -77,9 +78,50 @@ fun GlassTokens.legibleOnPanels(map: AuroraLumaMap?): GlassTokens {
         textSecondary = fix(textSecondary),
         metalDim = fix(metalDim),
         metalMid = fix(metalMid),
+        headingStrip = headingStripOver(map),
     )
     return if (fixed == this) this else fixed
 }
+
+/**
+ * D-A73: [GlassTokens.headingStrip] just dense enough (up to [MAX_PANEL_ALPHA]) that one of the two adaptive inks
+ * ([GlassTokens.onPhoto], [GlassTokens.inkDark]) clears [HEADING_STRIP_CONTRAST] over every backdrop the strip can be
+ * over on this aurora ([AuroraLumaMap.luminanceRange]). The heading on it keeps the D-A70 rule ([AdaptiveInk.choose]
+ * against the aurora under the strip, [rememberHeadingStripInkSpec]), which then lands on that ink wherever it sits.
+ */
+fun GlassTokens.headingStripOver(map: AuroraLumaMap): Color {
+    fun reads(fill: Color): Boolean {
+        val r = map.luminanceRange(fill)
+        return maxOf(
+            AdaptiveInk.worstContrast(onPhoto.luminance(), r.start, r.endInclusive),
+            AdaptiveInk.worstContrast(inkDark.luminance(), r.start, r.endInclusive),
+        ) >= HEADING_STRIP_CONTRAST
+    }
+    if (reads(headingStrip)) return headingStrip
+    var a = headingStrip.alpha
+    var b = MAX_PANEL_ALPHA
+    if (reads(headingStrip.copy(alpha = b))) {
+        repeat(12) {
+            val m = (a + b) / 2f
+            if (reads(headingStrip.copy(alpha = m))) b = m else a = m
+        }
+    }
+    return headingStrip.copy(alpha = b)
+}
+
+/** The adaptive ink of a heading on its glass strip (D-A73): the D-A70 rule against the aurora under [GlassTokens.headingStrip]. */
+@Composable
+fun rememberHeadingStripInkSpec(): AuroraInkSpec {
+    val strip = glass.headingStrip
+    return remember(strip) { AuroraInkSpec { strip } }
+}
+
+/**
+ * What a heading on its glass strip aims for (D-A73): the contrast from which the adaptive ink needs no halo
+ * ([AdaptiveInk.HALO_FROM], 5.5:1), so the glyphs stay clean on the glass and keep a margin over 4.5:1 for the
+ * aurora drifting under the strip.
+ */
+const val HEADING_STRIP_CONTRAST = AdaptiveInk.HALO_FROM
 
 /**
  * Roughly what is behind a pill label: the aurora's main ribbon colour ([VehicleTint.palette]) at the ribbons' mean

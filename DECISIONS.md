@@ -2069,3 +2069,24 @@ App decisions use the `D-A` prefix.
     still dismisses (the drag only starts past touch slop). Look, animation and `revealWhenFocused` unchanged; the
     popup follows the field as the form scrolls.
   - 327 unit tests pass; lint: same 9 issues as before. Not verified on a device (none attached).
+
+- **D-A73 (2026-10-27) — Home's per-vehicle headings on a glass strip.** Closes D-A70's "Left": in dark mode the
+  headings straight on the aurora sat at 3–4.4:1 on sky, orange, gold and steel (Home's mid-tone band, where no ink
+  reaches 4.5:1). User-approved.
+  - **Where**: "Needs attention" and "Recent fill-ups" on Home (`GlassGroupHeader(onStrip = true)`), the only headings
+    there on the bare aurora. "Your vehicles" keeps D-A54's glass bar; headings on cards and other screens unchanged.
+  - **Look** (`GlassHeadingStrip`, GlassParts.kt): a full-width pill with the cards' 16 dp margin, min 48 dp, in the new
+    `GlassTokens.headingStrip` (the panel's tint, fainter than `panel` at rest: dark #141622 at 36 %, light white at
+    45 %), the panel's 1 dp border and 1 dp inset top highlight. No lift shadow and no top gloss, so it reads as a quiet
+    band of the cards' glass, not another card, and nothing brightens the backdrop under the glyphs. Title and
+    "See all" keep their paddings, one shared ink (`AuroraInkGroup`) and now `heading()` semantics.
+  - **Ink, the D-A70 rule**: the title and action keep the adaptive ink (`AdaptiveInk.choose`), aimed at the aurora
+    under the strip's fill (`rememberHeadingStripInkSpec`, an `AuroraInkSpec` overlay, as the pills do). Nothing
+    hard-coded. `legibleOnPanels` now also densifies the strip (`headingStripOver`, ≤ 0.75 alpha like the panels)
+    until one ink clears `HEADING_STRIP_CONTRAST` (= `HALO_FROM`, 5.5:1) over the map's whole luminance range, so the
+    ink lands on it wherever the heading sits, with a margin for drift and no halo. Measured on the bracket: dark needs
+    ≤ 0.55 (sky, steel the most), light needs none (stays at rest).
+  - **Test**: `TextInkRuleTest` covers it across all 12 presets × both themes, over the page, each ribbon and every
+    tenth blend between them (the mid-tones that failed): ≥ 4.5:1, no halo, alpha between rest and 0.75; rest fill
+    kept where nothing needs it. 329 unit tests pass; lint: same 9 issues as before.
+  - Not verified on a device (none attached); release APK built.

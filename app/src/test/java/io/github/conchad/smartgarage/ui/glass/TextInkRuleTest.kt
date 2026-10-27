@@ -16,10 +16,10 @@ class TextInkRuleTest {
     private fun lum(c: Color) = AdaptiveInk.relativeLuminance(c.red, c.green, c.blue)
 
     /** Each ribbon of [tint]'s palette over the page as the theme blends it (screen on dark, normal on light), and the page. */
-    private fun extremesMap(tokens: GlassTokens, tint: Color): AuroraLumaMap {
+    private fun auroraCells(tokens: GlassTokens, tint: Color): List<Color> {
         val page = tokens.pageBackground
         val a = tokens.auroraAlpha
-        val cells = listOf(page) + VehicleTint.palette(tint).map { ribbon ->
+        return listOf(page) + VehicleTint.palette(tint).map { ribbon ->
             if (tokens.dark) {
                 // Screen: 1 − (1 − a·s)(1 − d), per channel.
                 Color(
@@ -31,6 +31,10 @@ class TextInkRuleTest {
                 ribbon.copy(alpha = a).compositeOver(page)
             }
         }
+    }
+
+    private fun extremesMap(tokens: GlassTokens, tint: Color): AuroraLumaMap {
+        val cells = auroraCells(tokens, tint)
         val rgb = FloatArray(cells.size * 3)
         cells.forEachIndexed { i, c ->
             rgb[i * 3] = c.red
@@ -121,6 +125,52 @@ class TextInkRuleTest {
                     if (c < AdaptiveInk.MIN_CONTRAST) assertThat(AdaptiveInk.haloStrength(ink.luminance(), backdrop)).isGreaterThan(0f)
                 }
             }
+        }
+    }
+
+    /**
+     * D-A73: every backdrop between the page and each ribbon (the soft aurora's mid-tones, where bare text on dark sat
+     * at 3–4.4:1 for sky, orange, gold and steel) and between neighbouring ribbons, in tenths.
+     */
+    private fun blends(tokens: GlassTokens, tint: Color): List<Color> {
+        val cells = auroraCells(tokens, tint)
+        val out = ArrayList<Color>()
+        for (a in cells.indices) for (b in a until cells.size) for (t in 0..10) {
+            out += AdaptiveInk.ink(t / 10f, cells[a], cells[b])
+        }
+        return out
+    }
+
+    @Test
+    fun `headings on their glass strip clear 4_5 to 1 on every preset in both themes, without a halo`() {
+        for (tokens in listOf(DarkGlassTokens, LightGlassTokens)) {
+            for (tint in presets) {
+                val map = extremesMap(tokens, tint)
+                val strip = tokens.legibleOnPanels(map).headingStrip
+                assertThat(strip.alpha).isAtLeast(tokens.headingStrip.alpha)
+                assertThat(strip.alpha).isAtMost(0.75f)
+                // The D-A70 rule against the aurora under the strip, wherever the heading sits.
+                for (backdrop in blends(tokens, tint)) {
+                    val under = strip.compositeOver(backdrop)
+                    val l = AdaptiveInk.relativeLuminance(under.red, under.green, under.blue)
+                    val ink = AdaptiveInk.ink(AdaptiveInk.choose(l), tokens.onPhoto, tokens.inkDark)
+                    val c = AdaptiveInk.contrast(ink.luminance(), l)
+                    assertWithMessage("heading on strip over ${backdrop.value} tint ${tint.value} dark=${tokens.dark}")
+                        .that(c).isAtLeast(AdaptiveInk.MIN_CONTRAST)
+                    assertWithMessage("halo on strip, tint ${tint.value} dark=${tokens.dark}")
+                        .that(AdaptiveInk.haloStrength(ink.luminance(), l)).isWithin(0.05f).of(0f)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `the strip stays at its subtle rest fill where the aurora already reads`() {
+        // A flat page-coloured aurora: nothing to densify against.
+        for (tokens in listOf(DarkGlassTokens, LightGlassTokens)) {
+            val p = tokens.pageBackground
+            val flat = AuroraLumaMap(1, 1, floatArrayOf(p.red, p.green, p.blue))
+            assertThat(tokens.headingStripOver(flat)).isEqualTo(tokens.headingStrip)
         }
     }
 }
