@@ -88,29 +88,33 @@ object Motion {
     /**
      * Tab to tab (D-A88, retimed by D-A89): a direction-aware slide. The arriving tab comes in from the side of travel
      * (from the right going to a tab further right in the bar, from the left going back) by [NAV_TAB_SLIDE_FRACTION]
-     * of the width over [NAV_TAB_IN_MS] on [EmphasizedEasing] (most of the travel happens while it is visible), fading
-     * in over [NAV_TAB_IN_FADE_MS]; the tab being left moves the other way at once (LinearOutSlowIn) over
-     * [NAV_TAB_OUT_MS] while its fade holds early (FastOutLinearIn), so its motion is seen before it is gone.
+     * of the width over `NAV_TAB_IN_MS` on [EmphasizedEasing] (most of the travel happens while it is visible), fading
+     * in over `NAV_TAB_IN_FADE_MS`; the tab being left moves the other way at once (LinearOutSlowIn) over
+     * `NAV_TAB_OUT_MS` while its fade holds early (FastOutLinearIn), so its motion is seen before it is gone.
      * D-A89: D-A88's first timing moved both pages while they were invisible (the enter slide was ~70 % done before
      * its delayed fade began; the exit slide barely started before the fade-out took it), so it read as a cross-fade.
+     * D-A90 (owner: "a slight ramp-up before switching ... then a ramp-down into place"): the tab being left now
+     * accelerates away (FastOutLinearIn) over `NAV_TAB_OUT_MS`, holding full alpha for `NAV_TAB_OUT_FADE_DELAY_MS` so
+     * the ramp-up is seen, then fading; the arriving tab starts `NAV_TAB_IN_DELAY_MS` in, as the old one is nearly
+     * gone, and decelerates into place (LinearOutSlowIn) over `NAV_TAB_IN_MS`, solid after `NAV_TAB_IN_FADE_MS` while
+     * the last third of its travel, the slow part, is still to come. D-A92 (owner: the pages still "blink in and out a
+     * little too quickly"; slide ramp is good): both fades ~30 % longer; slide timings unchanged.
+     * D-A93 (owner: "remove the fade and just have each page slide in fluidly ... keeping the ramp-up and
+     * ramp-down"): no fade at all. The pages move as one strip, the full width ([NAV_TAB_SLIDE_FRACTION] 1), edge to
+     * edge, both over [NAV_TAB_SLIDE_MS] on [EmphasizedEasing] (a slow start that gathers speed, then a soft landing),
+     * so the leaving page pushes out as the arriving one pulls in.
      */
-    const val NAV_TAB_OUT_MS = 150
+    const val NAV_TAB_SLIDE_MS = 420
 
-    /** See [NAV_TAB_OUT_MS]. */
-    const val NAV_TAB_IN_MS = 250
-
-    /** See [NAV_TAB_OUT_MS]. */
-    const val NAV_TAB_IN_FADE_MS = 200
-
-    /** How far the tabs travel, as a fraction of the width: reads as a slide, calmer than a pushed screen's 0.3. */
-    const val NAV_TAB_SLIDE_FRACTION = 0.2f
+    /** How far the tabs travel, as a fraction of the width: the whole width, so with no fade nothing pops (D-A93). */
+    const val NAV_TAB_SLIDE_FRACTION = 1f
 
     /**
      * A screen whose cache answers within this long of it appearing shows its content at once rather than
      * cross-fading from the loading state (D-A51): longer than the tab slide (D-A88), so a tab opened for the first
-     * time arrives already filled.
+     * time arrives already filled. D-A90: follows the tab slide's length (D-A93: [NAV_TAB_SLIDE_MS]).
      */
-    const val LOADING_GRACE_MS = 250L
+    const val LOADING_GRACE_MS = (NAV_TAB_SLIDE_MS + 40).toLong()
 
     /**
      * A plain pushed screen (a form, Settings, a section, the vehicle page opened from a list) slides in from the
@@ -226,17 +230,16 @@ object Motion {
 fun <T> underHeroFadeSpec(): FiniteAnimationSpec<T> = tween(Motion.UNDER_HERO_FADE_MS, easing = Motion.EmphasizedEasing)
 
 /**
- * A tab arriving from another (D-A88): in from the side of travel while fading in. [direction] is +1 when the new tab
- * lies to the right of the old one in the bottom bar (it enters from the right), -1 when to the left.
+ * A tab arriving from another (D-A88): the whole page slides in from the side of travel, no fade, in step with
+ * [navTabExit] so the two read as one strip (D-A93). [direction] is +1 when the new tab lies to the right of the old
+ * one in the bottom bar (it enters from the right), -1 when to the left.
  */
 fun navTabEnter(direction: Int): EnterTransition =
-    slideInHorizontally(tween(Motion.NAV_TAB_IN_MS, easing = Motion.EmphasizedEasing)) { (direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() } +
-        fadeIn(tween(Motion.NAV_TAB_IN_FADE_MS, easing = LinearOutSlowInEasing))
+    slideInHorizontally(tween(Motion.NAV_TAB_SLIDE_MS, easing = Motion.EmphasizedEasing)) { (direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() }
 
-/** The tab being left (D-A88): out the other way ([direction] as in [navTabEnter]) while fading, gone fast. */
+/** The tab being left (D-A88): the whole page slides out the other way ([direction] as in [navTabEnter]), no fade (D-A93). */
 fun navTabExit(direction: Int): ExitTransition =
-    slideOutHorizontally(tween(Motion.NAV_TAB_OUT_MS, easing = LinearOutSlowInEasing)) { (-direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() } +
-        fadeOut(tween(Motion.NAV_TAB_OUT_MS, easing = FastOutLinearInEasing))
+    slideOutHorizontally(tween(Motion.NAV_TAB_SLIDE_MS, easing = Motion.EmphasizedEasing)) { (-direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() }
 
 /** A plain screen arriving (D-A46): in from the right while fading in. */
 fun navPushEnter(): EnterTransition =

@@ -2452,3 +2452,71 @@ App decisions use the `D-A` prefix.
     The pages overlap for ~150 ms moving in opposite directions — that is the slide the owner asked for, not D-A51's
     in-place overlap. Direction logic, reduced motion and the D-A88 ink gate unchanged.
   - Built, unit-tested and linted; needs a device re-check.
+
+- **D-A90 (2026-10-28) — Tab switch ramps up out and ramps down in.** Amends D-A89's timing. Owner: "the fade-out
+  motion is too quick when swapping between pages ... a slight ramp-up before switching to the next page, then a
+  ramp-down into place when the next page loads in".
+  - Exit: the tab being left slides 0.2 w away on `FastOutLinearInEasing` (accelerating; was LinearOutSlowIn, fast
+    at once) over `NAV_TAB_OUT_MS` 220 (was 150); its alpha holds at 1 for `NAV_TAB_OUT_FADE_DELAY_MS` 80 then fades
+    over the remaining 140 ms, so the ramp-up is visible (D-A89's lesson: motion while invisible reads as a cut).
+  - Enter: the arriving tab waits `NAV_TAB_IN_DELAY_MS` 140 (the old tab is ~most of the way out and fading), then
+    slides in on `LinearOutSlowInEasing` (decelerating; was EmphasizedEasing) over `NAV_TAB_IN_MS` 320 (was 250),
+    fully opaque after `NAV_TAB_IN_FADE_MS` 150, so the slow last third of its travel is seen settling into place.
+    Total 460 ms (was 250).
+  - `LOADING_GRACE_MS` now derived: in-delay + in-travel + 40 = 500 ms (was 250), so a first-opened tab still arrives
+    filled rather than cross-fading from loading (D-A51).
+  - Rejected: lengthening D-A89's curves without a delay (both pages would sit on top of each other for longer); a
+    spring (no ramp-up, and harder to keep in step with the fades).
+  - Built, unit-tested; needs a device check — timings are a first pass for the owner to tune.
+
+
+- **D-A91 (2026-10-28) — Header ink lands at its resting colour on the first frame of a page change.** Owner: "the
+  text in each header also shifts from black to white over 1/4 second when changing pages".
+  - **Cause:** the ink node sampled the aurora at the text's *current* root position (`positionInRoot`). Since D-A88
+    tabs slide in from the side (and pushed screens slide 0.3 of the width, D-A46), so the arriving page's first
+    sample — the one that "lands at once" — was taken 0.2–0.3 of the width away from where the title rests, over a
+    different part of the ribbons' horizontal colour gradient. Where that read pale the title landed dark, then the
+    settled-ink low-pass (`INK_SMOOTH_MS` 140) eased it to white as the page slid home: the ~¼ s black→white. The
+    leaving page's header re-sampled the same way on its way out. A second, smaller case on grouped ink (Home's
+    greeting + sync line, group headers' title + "See all", D-A70): the first member landed on its own sample, then
+    the next member's report in the same frame moved the group's choice and the first member *eased* out of an ink
+    that had never been drawn.
+  - **Fix (AuroraInk.kt only):** inside the shell the node takes its position from the lookahead pass
+    (`localLookaheadPositionOf` against the root, via the shell's `LocalSharedTransitionScope`); enter/exit slides
+    place pages at rest in lookahead, so the sample is the resting one from frame 1 and doesn't move during the
+    slide (a slide's per-frame re-placement is now a no-op). Scrolling still moves the lookahead position, so scroll
+    easing is unchanged. Outside the shell (previews, popups) it falls back to `positionInRoot`. And a retarget lands
+    at once until the landed ink has been drawn (`inked`), so a same-frame group re-choice snaps rather than eases.
+    The D-A88 pending gate, the RESETTLE backstop and the sheen are unchanged; Motion untouched.
+  - **Rejected:** treating the node as unsettled (snap) for the whole entrance — still the wrong ink on frame 1,
+    then a hard flip mid-slide; holding the composed steel until the slide ends (a visible pop at the end); a
+    per-page "resting origin" local from MainShell (more plumbing, same answer the lookahead pass already gives);
+    seeding from a shared "current header ink" (a different page's title can sit on a different part of the aurora).
+  - Side effect: ink on a hero shared element now reads its landing spot during the hero glide instead of easing
+    along it. Built, unit-tested and linted; needs a device check (tab switch both directions, a pushed screen).
+
+- **D-A92 (2026-10-28) — Tab-switch fades 30 % longer; Service tab band thicker.** Amends D-A90 and D-A88.
+  - Owner after the D-A90 device check: "make the fade-out and fade-in about 30% longer, it still feels like they
+    blink in and out a little too quickly. The ramp speed for the slide-out is good." Exit fade 140 -> 180 ms
+    (`NAV_TAB_OUT_FADE_MS`, new, still after the 80 ms hold, so it ends at 260 ms, 40 ms after the slide stops);
+    enter fade 150 -> 200 ms. Slides (220 ms out on FastOutLinearIn, 140 ms delay + 320 ms in) unchanged.
+  - Owner: the Service top card should be "a bit thicker ... the yellow line is too close to the edge".
+    `headerTabHeight` 52 -> 60 dp, `headerTabIndicatorInset` 8 -> 12 dp: the gold underline stays ~3 dp under the
+    label and now sits 12 dp clear of the band's bottom rim. Only the Service Upcoming / History tabs use these.
+  - Rejected: lengthening the slide with the fades (owner said the ramp is right); moving the underline without
+    growing the band (it would crowd the label instead).
+  - Built and unit-tested; needs a device check.
+
+- **D-A93 (2026-10-28) — Tab switch is a full-width slide with no fade.** Supersedes D-A90/D-A92's tab timings
+  (D-A92's Service band change stands). Owner: "remove the fade and just have each page slide in fluidly from left to
+  right, keeping the ramp-up and ramp-down".
+  - Both pages slide the whole width (`NAV_TAB_SLIDE_FRACTION` 0.2 -> 1), edge to edge, in step over
+    `NAV_TAB_SLIDE_MS` 420 on `EmphasizedEasing` (0.6, 0, 0.2, 1: slow start gathering speed = the ramp-up, long soft
+    landing = the ramp-down). No fade, no delay. Direction-aware as before (D-A88): to a tab further right the pages
+    move right-to-left, back to a tab on the left they move left-to-right. The seven `NAV_TAB_IN/OUT_*` constants are
+    gone; `LOADING_GRACE_MS` = slide + 40 = 460 ms.
+  - D-A91's ink (resting position from lookahead) is unaffected: it never read the mid-slide position.
+  - Rejected: a partial slide without fade (the page would pop in 0.2 w from its spot); separate ease-in exit /
+    ease-out enter (with no fade the pages would overlap or leave a gap mid-switch); always the same direction
+    (the bar order would no longer match the motion).
+  - Built and unit-tested; needs a device check.

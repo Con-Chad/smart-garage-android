@@ -3,6 +3,8 @@ package io.github.conchad.smartgarage.ui.glass
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Shader
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
 import androidx.compose.ui.node.DrawModifierNode
@@ -437,6 +440,7 @@ private data class AuroraInkElement(val spec: AuroraInkSpec, val sheen: State<Fl
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 private class AuroraInkNode(
     private var spec: AuroraInkSpec,
     private var sheen: State<Float>?,
@@ -461,6 +465,9 @@ private class AuroraInkNode(
     private var drawnLum = 0f
     private var active = false
     private var settled = false
+    // D-A91: whether the landed ink has been drawn yet. Until it is, a retarget lands at once too, so a group member
+    // re-aimed by a later member's report in the same frame never eases out of an ink no one saw.
+    private var inked = false
     // D-A88: when this node was attached (uptime ms); a new map landing within [RESETTLE_MS] of it lands at once.
     private var attachedAt = 0L
 
@@ -469,6 +476,8 @@ private class AuroraInkNode(
     private var holder: AuroraLumaHolder? = null
     private var group: AuroraInkGroup? = null
     private var ceiling: AuroraInkCeiling? = null
+    // D-A91: the shell's lookahead scope, where pages sit at rest while their nav slide moves them.
+    private var lookahead: SharedTransitionScope? = null
     private var map: AuroraLumaMap? = null
     private var overlay = Color.Transparent
     private var tallPx = 0f
@@ -543,7 +552,12 @@ private class AuroraInkNode(
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        val p = coordinates.positionInRoot()
+        // D-A91: sample where the text rests, not where a page's enter/exit slide has it this frame (the lookahead
+        // pass places sliding pages at rest): a tab or screen arriving from the side would otherwise land on the
+        // aurora 0.2–0.3 of the width away, then ease to its real ink as it slid home. Outside the shell (previews,
+        // popups) this is the plain root position.
+        val scope = lookahead
+        val p = if (scope == null) coordinates.positionInRoot() else with(scope) { coordinates.findRootCoordinates().localLookaheadPositionOf(coordinates) }
         val h = coordinates.size.height
         val cx = p.x + coordinates.size.width / 2f
         if (cx == centerX && p.y == top && p.y + h == bottom) return
@@ -565,6 +579,7 @@ private class AuroraInkNode(
             // Read so a change of the group's ink (another member moved) re-aims this one.
             g?.choice
             ceiling = currentValueOf(LocalAuroraInkCeiling)
+            lookahead = currentValueOf(LocalSharedTransitionScope)
             val next = holder?.map
             holder?.pending
             // D-A88: a screen re-entered (a tab switch back to Home) attaches while the aurora is still on the old
@@ -642,13 +657,14 @@ private class AuroraInkNode(
             targetTop = AdaptiveInk.choose(lumTopRaw, if (active) targetTop else AdaptiveInk.NONE)
             targetBottom = AdaptiveInk.choose(lumBottomRaw, if (active) targetBottom else AdaptiveInk.NONE)
         }
-        if (!active || !settled) {
+        if (!active || !settled || !inked) {
             // The first sample lands at once: a title doesn't fade in from white on every screen it opens.
             mixTop = targetTop
             mixBottom = targetBottom
             lum = lumTarget
             active = true
             settled = true
+            inked = false
             invalidateDraw()
             return
         }
@@ -691,6 +707,7 @@ private class AuroraInkNode(
             return
         }
         drawnLum = lum
+        inked = true
         // D-A52: how far the ink (its middle, for a shaded block) falls short of the target contrast here.
         val mid = (mixTop + mixBottom) / 2f
         if (dropShadow) {

@@ -166,15 +166,15 @@ data class GlassTokens(
     /** The visual height of a header chip (D-A87; was Material's 32 dp). Its touch target stays ≥ 48 dp. */
     val headerChipHeight: Dp get() = 40.dp
 
-    /** The height of a header tab (D-A87; was Material's 48 dp). */
-    val headerTabHeight: Dp get() = 52.dp
+    /** The height of a header tab (D-A87; was Material's 48 dp; D-A92: 52 -> 60, a thicker band). */
+    val headerTabHeight: Dp get() = 60.dp
 
     /**
      * How far the selected header tab's indicator sits above the tab's bottom edge (D-A88; Material puts it on the
-     * edge, which in dark is the tab band's rim). With [headerTabHeight] 52 and a titleMedium label it rests ~3 dp
-     * under the descenders, inside the band.
+     * edge, which in dark is the tab band's rim). D-A92: with [headerTabHeight] 60 and a titleMedium label it rests
+     * ~3 dp under the descenders and 12 dp clear of the band's bottom edge (was 8, which read as crowding the rim).
      */
-    val headerTabIndicatorInset: Dp get() = 8.dp
+    val headerTabIndicatorInset: Dp get() = 12.dp
 
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
