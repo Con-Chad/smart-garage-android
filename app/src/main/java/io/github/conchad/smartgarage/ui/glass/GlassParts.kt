@@ -1,6 +1,5 @@
 package io.github.conchad.smartgarage.ui.glass
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -9,7 +8,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,10 +36,6 @@ import io.github.conchad.smartgarage.R
  * [onGlassBar] (D-A54, Home's "Your vehicles"): the whole row sits on a full-width rounded glass strip with the
  * cards' margin, fill and rim, and the title is plain [GlassTokens.textPrimary] on it, the cards' text colour, which
  * clears 4.5:1 on the panel whatever the aurora; no adaptive ink, so no halo (D-A52) behind the glyphs.
- *
- * [onStrip] (D-A73, Home's per-vehicle headings): the row sits on a subtle glass strip ([GlassHeadingStrip]) instead of
- * the bare aurora. The title and action keep the adaptive ink (D-A70), aimed at the aurora under the strip's fill,
- * which the shell makes just dense enough for that ink to clear 5.5:1 on every theme colour ([headingStripOver]).
  */
 @Composable
 fun GlassGroupHeader(
@@ -50,16 +44,14 @@ fun GlassGroupHeader(
     action: String? = null,
     onAction: (() -> Unit)? = null,
     onGlassBar: Boolean = false,
-    onStrip: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val stripInk = if (onStrip) rememberHeadingStripInkSpec() else null
     val end: @Composable () -> Unit = {
         if (trailing != null) {
             trailing()
         } else if (onAction != null) {
             TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
-                Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk(stripInk ?: AuroraInkSpec.Text))
+                Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk())
             }
         }
     }
@@ -84,28 +76,6 @@ fun GlassGroupHeader(
     }
     // D-A70: the title and its action take one ink between them.
     val inkGroup = remember { AuroraInkGroup() }
-    if (stripInk != null) {
-        CompositionLocalProvider(LocalAuroraInkGroup provides inkGroup) {
-            GlassHeadingStrip(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    MetallicText(
-                        text,
-                        style = MaterialTheme.typography.titleMedium,
-                        animated = true,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(vertical = 8.dp).semantics { heading() },
-                        ink = stripInk,
-                    )
-                    end()
-                }
-            }
-        }
-        return
-    }
     CompositionLocalProvider(LocalAuroraInkGroup provides inkGroup) {
         Row(
             modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
@@ -124,28 +94,6 @@ fun GlassGroupHeader(
             end()
         }
     }
-}
-
-/**
- * The subtle glass strip behind a heading that would otherwise sit on the bare aurora (D-A73): a full pill in
- * [GlassTokens.headingStrip] (the panel's tint, densified by the shell where the aurora needs it), the panel's 1 dp
- * border and its 1 dp inset highlight along the top edge. No lift shadow and no top gloss: it reads as a quiet band of
- * the cards' glass rather than another card, and nothing brightens the backdrop under the glyphs.
- */
-@Composable
-fun GlassHeadingStrip(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    val tokens = glass
-    val shape = RoundedCornerShape(50)
-    Box(
-        modifier
-            .clip(shape)
-            .drawBehind {
-                drawRect(tokens.headingStrip)
-                val line = 1.dp.toPx()
-                drawLine(tokens.panelHighlight, Offset(size.height / 2f, line / 2f), Offset(size.width - size.height / 2f, line / 2f), strokeWidth = line)
-            }
-            .border(1.dp, tokens.panelBorder, shape),
-    ) { content() }
 }
 
 /**

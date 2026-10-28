@@ -141,13 +141,6 @@ data class GlassTokens(
      * below it, the field takes [frost] instead, the same surface as the list.
      */
     val fieldFill: Color,
-    /**
-     * The glass strip behind a section heading that would otherwise sit straight on the aurora (D-A73, Home's
-     * "Needs attention" / "Recent fill-ups"): the panel's tint, fainter than [panel] at rest. The shell densifies it
-     * over the aurora actually drawn ([legibleOnPanels]) until the heading's adaptive ink clears
-     * [AdaptiveInk.HALO_FROM] (no halo needed) over every backdrop the strip can be over.
-     */
-    val headingStrip: Color,
 ) {
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
@@ -222,7 +215,6 @@ val DarkGlassTokens = GlassTokens(
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x99FFFFFF),
     fieldFill = Color(0x14FFFFFF),
-    headingStrip = Color(0x5C141622),
 )
 
 val LightGlassTokens = GlassTokens(
@@ -272,7 +264,6 @@ val LightGlassTokens = GlassTokens(
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x8C141826),
     fieldFill = Color(0x73FFFFFF),
-    headingStrip = Color(0x73FFFFFF),
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

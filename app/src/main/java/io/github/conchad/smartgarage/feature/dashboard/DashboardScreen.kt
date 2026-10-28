@@ -396,8 +396,7 @@ private fun DashboardContent(
             val fuel = dashboard.recentFuelByVehicle[vehicle.id].orEmpty()
             val reminder = extras[vehicle.id]?.reminder?.takeIf { vehicle.access.canEdit }
             Column(Modifier.padding(bottom = SHADOW_ROOM)) {
-                // D-A73: these headings would sit on the bare aurora; a glass strip keeps them at 4.5:1 on every theme colour.
-                GlassGroupHeader(stringResource(R.string.dashboard_attention), onAction = onOpenMaintenance, onStrip = true)
+                GlassGroupHeader(stringResource(R.string.dashboard_attention), onAction = onOpenMaintenance)
                 if (reminder != null) {
                     OdometerReminderRow(
                         reminder,
@@ -417,7 +416,7 @@ private fun DashboardContent(
                     }
                 }
                 if (fuel.isNotEmpty()) {
-                    GlassGroupHeader(stringResource(R.string.dashboard_recent_fuel), onAction = onOpenFuel, onStrip = true)
+                    GlassGroupHeader(stringResource(R.string.dashboard_recent_fuel), onAction = onOpenFuel)
                     GlassCard {
                         fuel.forEachIndexed { i, entry ->
                             if (i > 0) RowDivider()
