@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +37,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SwitchColors
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,6 +47,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -203,32 +207,89 @@ fun GlassOutlinedButton(
  * is 32 dp; Material pads its touch target to 48 dp.
  */
 @Composable
-fun GlassFilterChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier) {
+fun GlassFilterChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier, emphasized: Boolean = false) {
     val tokens = glass
+    // D-A83: [emphasized] (the Service and Fuel vehicle filters) takes the denser header tokens.
+    val fill = if (emphasized) tokens.headerChip else tokens.pill
+    val rim = if (emphasized) tokens.headerChipBorder else tokens.pillBorder
+    val accent = if (emphasized) tokens.headerAccent else tokens.sheen
+    val selectedFill = if (emphasized) tokens.headerChipSelected else tokens.sheen.copy(alpha = 0.18f)
     val interaction = remember { MutableInteractionSource() }
     val press = rememberPressFeedback(interaction)
+    if (emphasized) {
+        HeaderFilterChip(selected, onClick, label, modifier, tokens, fill, rim, accent, selectedFill, interaction, press)
+        return
+    }
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = tokens.pill,
+            containerColor = fill,
             labelColor = tokens.textPrimary,
-            selectedContainerColor = tokens.sheen.copy(alpha = 0.18f),
-            selectedLabelColor = tokens.sheen,
-            selectedLeadingIconColor = tokens.sheen,
+            selectedContainerColor = selectedFill,
+            selectedLabelColor = accent,
+            selectedLeadingIconColor = accent,
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,
             selected = selected,
-            borderColor = tokens.pillBorder,
-            selectedBorderColor = tokens.sheen.copy(alpha = 0.6f),
+            borderColor = rim,
+            selectedBorderColor = accent.copy(alpha = 0.6f),
             borderWidth = 1.dp,
             selectedBorderWidth = 1.dp,
         ),
         interactionSource = interaction,
         modifier = modifier.pressScale(press),
+    )
+}
+
+/**
+ * The emphasized (header) chip (D-A87): [GlassTokens.headerChipHeight] tall (8 dp over Material's 32, still a ≥ 48 dp
+ * touch target), a titleMedium label, and the [headerGlass] treatment — the D-A85 dark tint as the fill under a top
+ * gloss, with a bevelled rim (specular top, shaded bottom; the accent when selected). Material's own container and
+ * border are cleared so only the glass draws.
+ */
+@Composable
+private fun HeaderFilterChip(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    modifier: Modifier,
+    tokens: GlassTokens,
+    fill: Color,
+    rim: Color,
+    accent: Color,
+    selectedFill: Color,
+    interaction: MutableInteractionSource,
+    press: PressFeedback,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp)) },
+        shape = CircleShape,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent,
+            labelColor = tokens.textPrimary,
+            selectedContainerColor = Color.Transparent,
+            selectedLabelColor = accent,
+            selectedLeadingIconColor = accent,
+        ),
+        border = null,
+        interactionSource = interaction,
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .pressScale(press)
+            .height(tokens.headerChipHeight)
+            .headerGlass(
+                tokens,
+                CircleShape,
+                fill = if (selected) selectedFill else fill,
+                rimTop = if (selected) accent.copy(alpha = 0.85f) else lerp(rim, tokens.rimLight, 0.5f),
+                rimBottom = if (selected) accent.copy(alpha = 0.4f) else rim,
+            ),
     )
 }
 

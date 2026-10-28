@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -347,11 +346,18 @@ private fun DashboardContent(
         // D-A54: on a glass bar, so the title reads as plain text (no aurora ink, no halo).
         GlassGroupHeader(stringResource(R.string.dashboard_vehicles), onGlassBar = true) {
             if (vehicles.size > 1) {
-                VehiclesHeaderPill(
-                    stringResource(R.string.dashboard_swipe_more),
-                    Icons.Outlined.ChevronRight,
-                    onClick = { scope.launch { pagerState.animateScrollToPage((page + 1) % vehicles.size) } },
-                    maxLines = 2,
+                // D-A83: on the last vehicle there is nothing more to swipe to, so the hint becomes "Add vehicle" (and
+                // back once the user swipes off it). D-A86: one glass bubble that reshapes between the two labels.
+                val atEnd = page == vehicles.lastIndex
+                VehiclesHeaderMorphPill(
+                    atEnd = atEnd,
+                    swipeLabel = stringResource(R.string.dashboard_swipe_more),
+                    addLabel = stringResource(R.string.dashboard_swipe_add_vehicle),
+                    reduced = reduced,
+                    onClick = {
+                        if (atEnd) onAddVehicle()
+                        else scope.launch { pagerState.animateScrollToPage((pagerState.currentPage + 1).coerceAtMost(vehicles.lastIndex)) }
+                    },
                 )
             } else {
                 VehiclesHeaderPill(stringResource(R.string.action_add_vehicle_short), Icons.Outlined.Add, onClick = onAddVehicle, emphasized = true)

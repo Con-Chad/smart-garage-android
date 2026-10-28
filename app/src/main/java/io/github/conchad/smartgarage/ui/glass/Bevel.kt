@@ -3,10 +3,12 @@ package io.github.conchad.smartgarage.ui.glass
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -47,3 +49,26 @@ fun Modifier.bevelFill(tokens: GlassTokens, fill: Color): Modifier = drawWithCac
         drawRect(gloss)
     }
 }
+
+/**
+ * The glass of the Service / Fuel header controls (D-A87, over D-A85's flat slate): [fill] (the dark-enough tint that
+ * keeps the labels ≥ 4.5:1 over the pale aurora), a [GlassTokens.headerChipGloss] sheen over the top half that is gone
+ * by mid-height where the label sits, a faint shade along the bottom, and a bevelled 1 dp rim — [rimTop] at the top
+ * edge (the specular lip) easing to [rimBottom] at the bottom. Clips to [shape]; brushes cached per size.
+ */
+fun Modifier.headerGlass(tokens: GlassTokens, shape: Shape, fill: Color, rimTop: Color, rimBottom: Color): Modifier = this
+    .clip(shape)
+    .drawWithCache {
+        val gloss = Brush.verticalGradient(
+            0f to tokens.headerChipGloss,
+            0.25f to tokens.headerChipGloss.copy(alpha = tokens.headerChipGloss.alpha * 0.35f),
+            0.5f to Color.Transparent,
+            0.8f to Color.Transparent,
+            1f to tokens.rimShade.copy(alpha = tokens.rimShade.alpha * 0.35f),
+        )
+        onDrawBehind {
+            drawRect(fill)
+            drawRect(gloss)
+        }
+    }
+    .border(BorderStroke(1.dp, Brush.verticalGradient(0f to rimTop, 0.5f to lerp(rimTop, rimBottom, 0.7f), 1f to rimBottom)), shape)

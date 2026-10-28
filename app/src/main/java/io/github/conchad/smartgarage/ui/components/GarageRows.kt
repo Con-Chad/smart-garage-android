@@ -177,9 +177,12 @@ fun FuelRow(entry: FuelEntry, vehicle: Vehicle?, fmt: Formatter, onClick: () -> 
     }
 }
 
-/** "All vehicles" plus one glass chip per vehicle (D-A41); hidden when there is only one vehicle. */
+/**
+ * "All vehicles" plus one glass chip per vehicle (D-A41); hidden when there is only one vehicle. [emphasized] gives the
+ * denser, darker header chips the Service and Fuel tabs use (D-A83).
+ */
 @Composable
-fun VehicleFilterRow(vehicles: List<Vehicle>, selectedId: String?, onSelect: (String?) -> Unit, modifier: Modifier = Modifier) {
+fun VehicleFilterRow(vehicles: List<Vehicle>, selectedId: String?, onSelect: (String?) -> Unit, modifier: Modifier = Modifier, emphasized: Boolean = false) {
     if (vehicles.size < 2) return
     LazyRow(
         modifier = modifier,
@@ -187,10 +190,10 @@ fun VehicleFilterRow(vehicles: List<Vehicle>, selectedId: String?, onSelect: (St
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            GlassFilterChip(selected = selectedId == null, onClick = { onSelect(null) }, label = stringResource(R.string.filter_all_vehicles))
+            GlassFilterChip(selected = selectedId == null, onClick = { onSelect(null) }, label = stringResource(R.string.filter_all_vehicles), emphasized = emphasized)
         }
         items(vehicles, key = { it.id }) { vehicle ->
-            GlassFilterChip(selected = selectedId == vehicle.id, onClick = { onSelect(vehicle.id) }, label = vehicle.shortName)
+            GlassFilterChip(selected = selectedId == vehicle.id, onClick = { onSelect(vehicle.id) }, label = vehicle.shortName, emphasized = emphasized)
         }
     }
 }

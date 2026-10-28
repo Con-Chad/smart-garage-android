@@ -221,14 +221,14 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                 // D-A46: the vehicle page opened from a Home card (the hero path, D-A34) is simply there while the
                                 // hero glides and its cards pop in, and the screen it opens over fades out over the whole glide
                                 // (D-A45); Back to Home reverses that (its cards pop out, D-A43). Tab to tab is a quick
-                                // fade-through (D-A51): the old tab is gone before the new one fades in, and nothing pops in.
+                                // slide (D-A88, was D-A51's fade-through): the pages pass left/right in bar order, and nothing pops in.
                                 // Every other navigation is plain: the new screen slides in from the right while fading in, and
                                 // Back slides it out to the right while fading, revealing the page beneath. Timings are Motion's;
                                 // under reduced motion nothing moves.
                                 enterTransition = {
                                     when {
                                         reduced || isHeroOpen(heroOrigins) -> EnterTransition.None
-                                        isTabSwitch() -> navTabEnter()
+                                        isTabSwitch() -> navTabEnter(tabDirection())
                                         else -> navPushEnter()
                                     }
                                 },
@@ -236,7 +236,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     when {
                                         reduced -> ExitTransition.None
                                         isHeroOpen(heroOrigins) -> fadeOut(underHeroFadeSpec())
-                                        isTabSwitch() -> navTabExit()
+                                        isTabSwitch() -> navTabExit(tabDirection())
                                         else -> navPushExit()
                                     }
                                 },
@@ -244,7 +244,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                     when {
                                         reduced -> EnterTransition.None
                                         isHeroBack() -> fadeIn(underHeroFadeSpec())
-                                        isTabSwitch() -> navTabEnter()
+                                        isTabSwitch() -> navTabEnter(tabDirection())
                                         else -> navPopEnter()
                                     }
                                 },
@@ -253,7 +253,7 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                         reduced -> ExitTransition.None
                                         // Back from the vehicle page to Home (D-A43): its cards pop out and its bar fades by themselves.
                                         isHeroBack() -> ExitTransition.None
-                                        isTabSwitch() -> navTabExit()
+                                        isTabSwitch() -> navTabExit(tabDirection())
                                         else -> navPopExit()
                                     }
                                 },
@@ -452,7 +452,17 @@ private fun NavDestination?.honoursScreenTint(): Boolean =
         // The vehicle form previews the aurora color being picked (D-A44).
         hasRoute<VehicleFormRoute>()
 
-/** Both ends are tabs: the bottom bar's switch (or Back from a tab to Home), a fade-through (D-A51). */
+/**
+ * D-A88: +1 when the tab arriving sits to the right of the one being left in the bottom bar ([TopLevel] order), -1
+ * when to the left; +1 if either end isn't a tab.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): Int {
+    val from = TopLevel.entries.indexOfFirst { initialState.destination.isOn(it) }
+    val to = TopLevel.entries.indexOfFirst { targetState.destination.isOn(it) }
+    return if (from >= 0 && to >= 0 && to < from) -1 else 1
+}
+
+/** Both ends are tabs: the bottom bar's switch (or Back from a tab to Home), a direction-aware slide (D-A88). */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean =
     TopLevel.entries.any { initialState.destination.isOn(it) } && TopLevel.entries.any { targetState.destination.isOn(it) }
 

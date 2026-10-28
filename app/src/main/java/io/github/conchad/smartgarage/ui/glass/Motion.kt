@@ -2,7 +2,9 @@ package io.github.conchad.smartgarage.ui.glass
 
 import android.content.Context
 import android.provider.Settings
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -10,7 +12,6 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -85,25 +86,28 @@ object Motion {
     const val SHIMMER_MS = SPIN_MS
 
     /**
-     * Tab to tab (D-A51, replaces D-A46's 700 ms cross-fade): a fade-through. The page being left fades out in
-     * [NAV_TAB_OUT_MS], dropping fastest at the start; the tab arriving waits [NAV_TAB_IN_DELAY_MS] (the old page is
-     * then nearly gone) and fades in over [NAV_TAB_IN_MS] while growing from [NAV_TAB_SCALE_FROM]. 240 ms in all, and
-     * two busy glass pages are never on screen together at any strength.
+     * Tab to tab (D-A88, retimed by D-A89): a direction-aware slide. The arriving tab comes in from the side of travel
+     * (from the right going to a tab further right in the bar, from the left going back) by [NAV_TAB_SLIDE_FRACTION]
+     * of the width over [NAV_TAB_IN_MS] on [EmphasizedEasing] (most of the travel happens while it is visible), fading
+     * in over [NAV_TAB_IN_FADE_MS]; the tab being left moves the other way at once (LinearOutSlowIn) over
+     * [NAV_TAB_OUT_MS] while its fade holds early (FastOutLinearIn), so its motion is seen before it is gone.
+     * D-A89: D-A88's first timing moved both pages while they were invisible (the enter slide was ~70 % done before
+     * its delayed fade began; the exit slide barely started before the fade-out took it), so it read as a cross-fade.
      */
-    const val NAV_TAB_OUT_MS = 80
+    const val NAV_TAB_OUT_MS = 150
 
     /** See [NAV_TAB_OUT_MS]. */
-    const val NAV_TAB_IN_DELAY_MS = 60
+    const val NAV_TAB_IN_MS = 250
 
     /** See [NAV_TAB_OUT_MS]. */
-    const val NAV_TAB_IN_MS = 180
+    const val NAV_TAB_IN_FADE_MS = 200
 
-    /** The arriving tab's starting scale: a hint of settling into place, not a zoom. */
-    const val NAV_TAB_SCALE_FROM = 0.98f
+    /** How far the tabs travel, as a fraction of the width: reads as a slide, calmer than a pushed screen's 0.3. */
+    const val NAV_TAB_SLIDE_FRACTION = 0.2f
 
     /**
      * A screen whose cache answers within this long of it appearing shows its content at once rather than
-     * cross-fading from the loading state (D-A51): longer than the tab fade-through, so a tab opened for the first
+     * cross-fading from the loading state (D-A51): longer than the tab slide (D-A88), so a tab opened for the first
      * time arrives already filled.
      */
     const val LOADING_GRACE_MS = 250L
@@ -221,13 +225,18 @@ object Motion {
 /** The fade of what the vehicle hero leaves behind or comes back to: [Motion.UNDER_HERO_FADE_MS] on the hero's curve. */
 fun <T> underHeroFadeSpec(): FiniteAnimationSpec<T> = tween(Motion.UNDER_HERO_FADE_MS, easing = Motion.EmphasizedEasing)
 
-/** A tab arriving from another (D-A51): after a beat, fades in while settling from a hair smaller. */
-fun navTabEnter(): EnterTransition =
-    fadeIn(tween(Motion.NAV_TAB_IN_MS, delayMillis = Motion.NAV_TAB_IN_DELAY_MS, easing = LinearOutSlowInEasing)) +
-        scaleIn(tween(Motion.NAV_TAB_IN_MS, delayMillis = Motion.NAV_TAB_IN_DELAY_MS, easing = LinearOutSlowInEasing), initialScale = Motion.NAV_TAB_SCALE_FROM)
+/**
+ * A tab arriving from another (D-A88): in from the side of travel while fading in. [direction] is +1 when the new tab
+ * lies to the right of the old one in the bottom bar (it enters from the right), -1 when to the left.
+ */
+fun navTabEnter(direction: Int): EnterTransition =
+    slideInHorizontally(tween(Motion.NAV_TAB_IN_MS, easing = Motion.EmphasizedEasing)) { (direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() } +
+        fadeIn(tween(Motion.NAV_TAB_IN_FADE_MS, easing = LinearOutSlowInEasing))
 
-/** The tab being left (D-A51): gone fast, before the next one shows. */
-fun navTabExit(): ExitTransition = fadeOut(tween(Motion.NAV_TAB_OUT_MS, easing = LinearOutSlowInEasing))
+/** The tab being left (D-A88): out the other way ([direction] as in [navTabEnter]) while fading, gone fast. */
+fun navTabExit(direction: Int): ExitTransition =
+    slideOutHorizontally(tween(Motion.NAV_TAB_OUT_MS, easing = LinearOutSlowInEasing)) { (-direction * it * Motion.NAV_TAB_SLIDE_FRACTION).roundToInt() } +
+        fadeOut(tween(Motion.NAV_TAB_OUT_MS, easing = FastOutLinearInEasing))
 
 /** A plain screen arriving (D-A46): in from the right while fading in. */
 fun navPushEnter(): EnterTransition =
@@ -261,6 +270,24 @@ fun drawerExpand(): EnterTransition =
 fun drawerCollapse(): ExitTransition =
     shrinkVertically(tween(Motion.HERO_MS, easing = Motion.EmphasizedEasing), shrinkTowards = Alignment.Top) +
         fadeOut(tween(Motion.SHORT_MS, easing = FastOutLinearInEasing))
+
+/**
+ * A glass pill reshaping as its label changes (D-A86, replaces D-A83's labelSwap cross-fade; [GlassMorphPillButton]):
+ * the bubble's size, and with it its stadium corners, follows the new label on [Motion.gentleSpring] (a hint of
+ * overshoot, like a bubble settling), the dominant move. The old label is gone in [Motion.QUICK_MS]; the new one
+ * fades in over [Motion.SHORT_MS] once the reshape is under way, so the text stays subordinate to the shape. No clip
+ * here: the pill's own stadium clip holds the label while it grows. A cut under reduced motion, size included.
+ */
+fun pillMorph(reduced: Boolean): ContentTransform =
+    if (reduced) {
+        ContentTransform(EnterTransition.None, ExitTransition.None, sizeTransform = SizeTransform(clip = false) { _, _ -> snap() })
+    } else {
+        ContentTransform(
+            targetContentEnter = fadeIn(tween(Motion.SHORT_MS, delayMillis = Motion.QUICK_MS, easing = LinearOutSlowInEasing)),
+            initialContentExit = fadeOut(tween(Motion.QUICK_MS, easing = FastOutLinearInEasing)),
+            sizeTransform = SizeTransform(clip = false) { _, _ -> Motion.gentleSpring() },
+        )
+    }
 
 /** [this], or a snap when [reduced]. */
 fun <T> FiniteAnimationSpec<T>.orSnap(reduced: Boolean): FiniteAnimationSpec<T> = if (reduced) snap() else this

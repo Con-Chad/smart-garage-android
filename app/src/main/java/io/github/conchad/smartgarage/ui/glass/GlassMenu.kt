@@ -1,5 +1,6 @@
 package io.github.conchad.smartgarage.ui.glass
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -247,6 +248,75 @@ fun GlassPillButton(
             )
             if (icon != null) {
                 Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+            }
+        }
+    }
+}
+
+/**
+ * A compact [GlassPillButton] whose label and icon change with [state] while the pill stays one bubble (D-A86, Home's
+ * "Swipe to / view more ›" becoming "Add vehicle +"): the stadium's width, height and corner radius (half its height,
+ * [CircleShape]) follow the label's size on [pillMorph]'s spring, the glass fill and rim redrawn at each layout size,
+ * and the label inside fades out and back in under it, clipped to the pill. Only the layout moves per frame; nothing
+ * recomposes. TalkBack reads the current state's label once, as a button. Under [reduced] the change is a cut.
+ */
+@Composable
+fun <S> GlassMorphPillButton(
+    state: S,
+    label: (S) -> String,
+    icon: (S) -> ImageVector?,
+    onClick: () -> Unit,
+    reduced: Boolean,
+    modifier: Modifier = Modifier,
+    textStyle: TextStyle = MaterialTheme.typography.labelMedium,
+    contentColor: Color = Color.Unspecified,
+    adaptiveInk: AuroraInkSpec? = null,
+    /** Lines a state's label may wrap to; the pill's height follows each state's own line count. */
+    maxLines: Int = 1,
+) {
+    val tokens = glass
+    val ink = contentColor.takeOrElse { tokens.sheen }
+    val interaction = remember { MutableInteractionSource() }
+    val press = rememberPressFeedback(interaction)
+    val description = label(state).replace('\n', ' ')
+    Box(
+        modifier
+            .minimumInteractiveComponentSize()
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier
+                .heightIn(min = 36.dp)
+                .pressScale(press)
+                .glassPillSurface(tokens, CircleShape, press)
+                .indication(interaction, ripple())
+                .padding(horizontal = 14.dp, vertical = if (maxLines > 1) 4.dp else 0.dp)
+                .then(if (adaptiveInk != null) Modifier.auroraInk(adaptiveInk) else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnimatedContent(
+                targetState = state,
+                transitionSpec = { pillMorph(reduced) },
+                contentAlignment = Alignment.Center,
+                label = "pillMorph",
+                modifier = Modifier.clearAndSetSemantics {},
+            ) { shown ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        label(shown),
+                        style = textStyle,
+                        color = ink,
+                        maxLines = maxLines,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = if (maxLines > 1) TextAlign.Center else null,
+                    )
+                    val glyph = icon(shown)
+                    if (glyph != null) {
+                        Icon(glyph, contentDescription = null, tint = ink, modifier = Modifier.padding(start = 4.dp).size(18.dp))
+                    }
+                }
             }
         }
     }

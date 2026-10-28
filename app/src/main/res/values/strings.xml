@@ -50,6 +50,8 @@
     <string name="dashboard_greeting_evening">Good evening, %1$s</string>
     <string name="dashboard_vehicles">Your Vehicles</string>
     <string name="dashboard_swipe_more">Swipe to\nview more</string>
+    <!-- D-A83: the swipe hint on the last vehicle; opens Add vehicle. -->
+    <string name="dashboard_swipe_add_vehicle">Add vehicle</string>
     <string name="action_add_vehicle_short">Add vehicle</string>
     <string name="dashboard_attention">Needs attention</string>
     <string name="dashboard_all_caught_up">All caught up</string>

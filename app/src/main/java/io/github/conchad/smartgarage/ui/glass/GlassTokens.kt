@@ -141,7 +141,41 @@ data class GlassTokens(
      * below it, the field takes [frost] instead, the same surface as the list.
      */
     val fieldFill: Color,
+    /**
+     * The stronger header controls of the Service and Fuel tabs (D-A83): their vehicle filter chips and Service's
+     * Upcoming / History tabs. [headerChip] / [headerChipBorder] are the unselected chip's fill and rim (a step
+     * denser than [pill] / [pillBorder]); [headerAccent] is the selected chip's label and rim and the selected tab's
+     * label and indicator; [headerChipSelected] the selected chip's fill; [headerTextMuted] the unselected tab label;
+     * [headerTabBar] the band behind the tabs (transparent = no band).
+     * Light: the gold darkened from the [sheen]'s 2.5:1 on its own tint to ≥ 4.8:1. Dark (D-A85): a dark, mostly opaque
+     * slate chip and tab band so the labels hold over the pale aurora glow (white on chip ≥ 7.6:1, gold on the
+     * selected chip ≥ 4.6:1, muted tab label on the band ≥ 5.5:1, measured over the palest glow).
+     */
+    val headerChip: Color,
+    val headerChipBorder: Color,
+    val headerAccent: Color,
+    val headerChipSelected: Color,
+    val headerTextMuted: Color,
+    val headerTabBar: Color,
+    /**
+     * The gloss over the top of the header chips and the tab band (D-A87): this at the top edge, gone by mid-height,
+     * so the labels (centred) sit on the plain [headerChip] / [headerChipSelected] fill and keep their contrast.
+     */
+    val headerChipGloss: Color,
 ) {
+    /** The visual height of a header chip (D-A87; was Material's 32 dp). Its touch target stays ≥ 48 dp. */
+    val headerChipHeight: Dp get() = 40.dp
+
+    /** The height of a header tab (D-A87; was Material's 48 dp). */
+    val headerTabHeight: Dp get() = 52.dp
+
+    /**
+     * How far the selected header tab's indicator sits above the tab's bottom edge (D-A88; Material puts it on the
+     * edge, which in dark is the tab band's rim). With [headerTabHeight] 52 and a titleMedium label it rests ~3 dp
+     * under the descenders, inside the band.
+     */
+    val headerTabIndicatorInset: Dp get() = 8.dp
+
     val radiusMedium: Dp get() = 14.dp
     val radiusLarge: Dp get() = 22.dp
 
@@ -221,6 +255,13 @@ val DarkGlassTokens = GlassTokens(
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x99FFFFFF),
     fieldFill = Color(0x14FFFFFF),
+    headerChip = Color(0xC71A1D2A),
+    headerChipBorder = Color(0x38FFFFFF),
+    headerAccent = Color(0xFFF5D76E),
+    headerChipSelected = Color(0xD93D3B35),
+    headerTextMuted = Color(0xFFC7CCDB),
+    headerTabBar = Color(0xC71A1D2A),
+    headerChipGloss = Color(0x1FFFFFFF),
 )
 
 val LightGlassTokens = GlassTokens(
@@ -270,6 +311,13 @@ val LightGlassTokens = GlassTokens(
     plateInk = PlateInk,
     fieldBorderStrong = Color(0x8C141826),
     fieldFill = Color(0x73FFFFFF),
+    headerChip = Color(0x24141826),
+    headerChipBorder = Color(0x4D141826),
+    headerAccent = Color(0xFF6B5200),
+    headerChipSelected = Color(0x336B5200),
+    headerTextMuted = Color(0xFF3B4566),
+    headerTabBar = Color.Transparent,
+    headerChipGloss = Color(0x99FFFFFF),
 )
 
 val LocalGlassTokens = staticCompositionLocalOf { DarkGlassTokens }

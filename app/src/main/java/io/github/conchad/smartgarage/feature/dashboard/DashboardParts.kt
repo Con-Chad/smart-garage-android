@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -31,6 +33,7 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.model.OdometerReminder
 import io.github.conchad.smartgarage.ui.glass.GlassCard
 import io.github.conchad.smartgarage.ui.glass.GlassEmphasisPill
+import io.github.conchad.smartgarage.ui.glass.GlassMorphPillButton
 import io.github.conchad.smartgarage.ui.glass.GlassPillButton
 import io.github.conchad.smartgarage.ui.glass.rememberPillInk
 import io.github.conchad.smartgarage.ui.glass.rememberPillInkSpec
@@ -87,6 +90,27 @@ internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () ->
         // On the header's glass bar (D-A54): the adaptive ink (D-A46) against the aurora under the bar and the pill.
         adaptiveInk = rememberPillInkSpec(inCard = true),
         maxLines = maxLines,
+        modifier = Modifier.padding(start = 8.dp, end = 12.dp),
+    )
+}
+
+/**
+ * The header pill with two or more vehicles (D-A83, D-A86): "Swipe to / view more ›" (two lines) until the last
+ * vehicle, then "Add vehicle +" (one line). One [GlassMorphPillButton], so the bubble reshapes between the two
+ * rather than one pill cross-fading into another. Same ink, size and margins as [VehiclesHeaderPill].
+ */
+@Composable
+internal fun VehiclesHeaderMorphPill(atEnd: Boolean, swipeLabel: String, addLabel: String, reduced: Boolean, onClick: () -> Unit) {
+    GlassMorphPillButton(
+        state = atEnd,
+        label = { end -> if (end) addLabel else swipeLabel },
+        icon = { end -> if (end) Icons.Outlined.Add else Icons.Outlined.ChevronRight },
+        onClick = onClick,
+        reduced = reduced,
+        textStyle = MaterialTheme.typography.labelMedium,
+        contentColor = rememberPillInk(),
+        adaptiveInk = rememberPillInkSpec(inCard = true),
+        maxLines = 2,
         modifier = Modifier.padding(start = 8.dp, end = 12.dp),
     )
 }

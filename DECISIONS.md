@@ -2311,3 +2311,144 @@ App decisions use the `D-A` prefix.
   - Not done: no free-form or other aspects (the photo only ever shows at the card's); no flip; TalkBack cannot pan
     (zoom actions only). If the picker's read grant is gone after process death, the screen says the photo can't be
     read and offers Cancel.
+
+- **D-A83 (2026-10-28) — Home's swipe hint turns into "Add vehicle" on the last vehicle; darker header chips and tabs
+  on Service and Fuel.**
+  - **Swipe hint** (owner: "when the end of the list is reached after swiping left, change the text smoothly to 'add
+    vehicle' that brings you to the add vehicle page"). With two or more vehicles, the pill at the end of "Your
+    vehicles" reads "Swipe to / view more ›" and steps to the next card; once the pager's current page is the last
+    vehicle it cross-fades to "Add vehicle +" (`dashboard_swipe_add_vehicle`, en "Add vehicle", de "Neues Fahrzeug"
+    as the one-car pill) and opens the existing Add vehicle screen (`onAddVehicle`); swiping back cross-fades it
+    back. It no longer wraps from the last vehicle to the first (D-A43's `% size`). The swap is one Motion helper,
+    `labelSwap(reduced)` in `ui/glass/Motion.kt`: fade out `QUICK_MS`, fade in `SHORT_MS` after `QUICK_MS / 2`, width
+    over `STANDARD_MS` on `EmphasizedEasing`; a cut under reduced motion. Same glass pill in both states (not the
+    emphasized call-to-action pill), so only the label and icon change. TalkBack reads the visible label of each
+    state as a button.
+  - **Service and Fuel headers** (owner: "the bubbles and text at the top are too light ... a bit darker"). New
+    `GlassTokens`: `headerChip`, `headerChipBorder`, `headerAccent`, `headerAccentFillAlpha`, `headerTextMuted`, taken
+    by `VehicleFilterRow(emphasized = true)` → `GlassFilterChip(emphasized = true)` and Service's Upcoming / History
+    tabs. Light theme: chip fill #141826 at 8 % → 14 %, rim 16 % → 30 %; selected chip label/rim and selected tab
+    label/indicator gold #AC880C → #6B5200 (on its own tint 2.5:1 → 4.9:1), tint 18 % → 20 %; unselected tab label
+    #4F5B80 → #3B4566. Dark theme: unchanged values (already ≥ 4.5:1: sheen on its tint 8.9:1, secondary text on the
+    pill 8.7:1). The other `VehicleFilterRow` (vehicle section screens, `SectionParts`) and the other
+    `GlassFilterChip` users (Notes, document scanner) keep the old look — opt in with `emphasized = true`.
+  - **Rejected:** darkening `pill` / `sheen` / `textSecondary` themselves (every glass pill, switch and accent in the
+    app would move); a dark-tinted chip in the dark theme (reads as a hole in the glass, and contrast was already
+    fine); keeping the wrap-around from the last vehicle (the owner asked for Add vehicle there).
+
+- **D-A84 (2026-10-28) — The top fade slides in with the scroll instead of switching on.** Amends D-A76. User report:
+  on Fuel, nudging the first card up by a pixel brought in the whole fade at once.
+  - Cause: `topFadeEdge` faded the whole 72 dp band in by alpha over `max(lift, 8 dp)` of scroll, so with no lift
+    (Fuel, Service, the More sections) it was fully on after 8 dp, 16 dp elsewhere; and a `LazyColumn` counted as
+    fully scrolled the moment item 0 left (`firstVisibleItemIndex > 0`), which snapped it in when item 0 was a short
+    group header (Service, Fuel without a summary).
+  - Now the band is always full strength but **translated**: its opaque end sits at `lift + scrolled`, sliding down
+    from above the container's top edge one pixel per pixel of scroll, and stops in place once that reaches the band
+    length (72 dp; 56 dp of scroll with the 16 dp lift). At rest still no mask and no offscreen layer. Lazy lists
+    measure the scrolled distance from the remembered spacing of the first 8 items plus the first visible item's
+    offset (`lazyScrolledPx`), so a short item 0 keeps it continuous; past items never laid out together (a jump),
+    the band is fully in. Read in the layer/draw phases only — no recomposition per frame. Pure math
+    (`fadeBandTop`, `lazyScrolledPx`) unit-tested in `TopFadeTest`.
+  - Rejected: keeping the alpha ramp but stretching it to 72 dp (the whole band would still dim uniformly, including
+    far below the content that actually moved); an animated crossfade (time-driven, not finger-driven).
+
+- **D-A85 (2026-10-28) — Dark-theme Service and Fuel header chips and tabs go dark slate.** Supersedes D-A83's "Dark
+  theme: unchanged values" (those contrast figures were against a dark card, not the pale aurora glow the header
+  actually sits on: on the owner's phone white on the chip was ~1.3:1, the gold tab/selected chip ~1.0–1.4:1). Owner,
+  dark theme: "the bubbles and text at the top are too light ... a bit darker". Dark values only: `headerChip`
+  #FFFFFF 12 % → #1A1D2A 78 %; `headerChipBorder` white 18 % → 22 % (a subtle rim on the dark fill);
+  `headerAccentFillAlpha` (gold 18 % tint) replaced by `headerChipSelected` = #3D3B35 82 % (a gold-warmed slate; the
+  light value #6B5200 at 20 % is the same colour D-A83 had); new `headerTabBar` = #1A1D2A 78 % behind Service's
+  Upcoming / History tabs as a rounded (`radiusMedium`) band inset 16 dp, light = transparent (no band, layout
+  unchanged). Measured over the palest glow (#C4D6EC blue, #E6E0C0 cream, white): white on chip ≥ 7.6:1, gold on the
+  selected chip ≥ 4.6:1, muted tab label on the band ≥ 5.5:1. Light theme unchanged.
+  - **Rejected:** the `onAurora` text halo on the tab labels (blur-dependent, no measurable contrast over a pale
+    glow); darker text alone (white/gold ink can't go darker and stay on-theme; dark ink would fail where the aurora
+    is dark); D-A83's worry that a dark chip "reads as a hole in the glass" — the bottom nav already uses this slate.
+
+- **D-A86 (2026-10-28) — Home's "Swipe to view more" / "Add vehicle" pill morphs as one bubble.** Supersedes D-A83's
+  cross-fade (`labelSwap`, removed). Owner: "have the bubble morph into its new shape instead of cross-fading". With
+  ≥ 2 vehicles the header pill is one `GlassMorphPillButton` (ui/glass/GlassMenu.kt): a single glass surface (stadium
+  clip, pill fill, 1 dp rim, press scale/glow) wrapping an `AnimatedContent` label. Its width, height and corner radius
+  (CircleShape = half the height) follow the label's size via `pillMorph` (Motion.kt): `SizeTransform` on
+  `Motion.gentleSpring()` (damping 0.75, StiffnessMediumLow — the "things that open" spring, a hint of overshoot).
+  The text is subordinate: old label fades out in QUICK_MS (120), new fades in over SHORT_MS (200) after a QUICK_MS
+  delay, clipped by the pill's own stadium (no rectangular clip). Size animates in layout only, no recomposition per
+  frame. Reduced motion: no fade and a snapped size. TalkBack reads one contentDescription per state (newline
+  flattened), inner text semantics cleared so the leaving label is never read.
+  - **Rejected:** keeping two pills in an `AnimatedContent` with a `SizeTransform` (still two glass surfaces fading
+    into each other — the cross-fade the owner disliked); `bouncySpring` (its overshoot on a header width jostles the
+    title); `animateContentSize` (adds a rectangular clipToBounds).
+
+- **D-A87 (2026-10-28) — Header chips / Service tab band become larger header glass; aurora dithered against banding.**
+  Builds on D-A85 (fills kept as the legibility floor). Owner: "make the buttons a bit larger and more glassy, there's a
+  bit of banding on the top". Emphasized `GlassFilterChip` (Service + Fuel vehicle filter) is now `HeaderFilterChip`:
+  40 dp tall (`headerChipHeight`, was 32; touch target still ≥ 48 dp via `minimumInteractiveComponentSize`), titleMedium
+  label, and `Modifier.headerGlass` (Bevel.kt): the D-A85 tint as fill, a `headerChipGloss` sheen over the top half
+  (dark 0x1F white, light 0x99 white) gone by mid-height, a faint bottom shade, and a 1 dp bevelled rim (specular top →
+  shaded bottom; accent 0.85 → 0.4 when selected). Dark `headerChipSelected` 0xD1 → 0xD9 to pay for the gloss. Service
+  tabs 52 dp (`headerTabHeight`, was 48) with titleMedium labels; in dark the tab band is the same header glass. Light
+  keeps no tab band. Estimated over the palest glow at the label's top: white on chip ≈ 8.8:1, gold on selected chip
+  ≈ 5.1:1, gold on tab band ≈ 6:1, muted tab label ≈ 5:1.
+  - **Banding cause:** the aurora is rasterised at 1/4 resolution in an 8-bit layer and bilinearly upscaled, so each
+    8-bit step of its slow dark gradient at the top of the page becomes a 4×-magnified contour (confirmed on the
+    screenshot with a high-pass: elliptical contour rings plus a 16 px stair ripple, with no TopFade layer at rest).
+    **Fix:** `Modifier.auroraDither()` (Dither.kt), a static full-screen 128 px tile of signed white/black noise
+    (alpha 0–3/255, triangular, mean ≈ 0) drawn SrcOver above the upscaled layer — no recomposition, no blend readback.
+    TopFade itself was not the cause; its smoothstep approximation goes 8 → 24 stops so segment kinks can't show as
+    lines. D-A84 behaviour (slide-in, no layer at rest, scroll read in draw/layout only) unchanged.
+  - **Rejected:** real backdrop blur (D-A24: Compose can't blur what's behind a drawn background without a dependency);
+    AURORA_DOWNSCALE 4 → 2 (4× the aurora fill cost every frame); Overlay-blend dither (advanced blend forces a
+    destination read per frame); 48 dp chips (more than "a bit larger").
+
+- **D-A88 (2026-10-28) — Service tab underline lifted into the band; Home header ink no longer starts stale on
+  re-entry; tab switches slide left/right.** Owner: "put the underline beneath 'upcoming and history' a bit further up
+  and closer to the word"; "going back to the home page, the header text … stays black with a white outline and the
+  metallic sheen before shifting back to white"; "they flash out of and flash back in instead of sliding".
+  - **Underline:** the Service tabs' `PrimaryIndicator` now sits `headerTabIndicatorInset` 8 dp above the tab's
+    bottom edge (new token, GlassTokens) — ~3 dp under the titleMedium descenders, inside the D-A87 dark band instead
+    of on its rim — and is a full pill (50 % corners; Material's has square bottom corners). Still the label's width
+    (`matchContentSize`), still `headerAccent`. Light (no band) uses the same lift: a short pill under the label above
+    the divider.
+  - **Header glitch cause:** the shell's aurora publishes its colour map (`AuroraLumaHolder.map`) asynchronously,
+    rendered off the main thread after the palette changes; the palette itself reaches Home's colour a frame late
+    (`AuroraTint` sets it in a `LaunchedEffect`, and the leaving tab had cleared it). Re-entering Home, the greeting's
+    ink node attached and took its "first sample lands at once" (D-A46/D-A70) on the *previous tab's* map, which at
+    the header row read as a pale backdrop → dark ink plus the light D-A52 halo (the "white outline") under the
+    sheen. When Home's map landed the node was already settled, so it *eased* (140 ms low-pass, and the D-A70 group
+    hysteresis held the dark choice longer) back to white.
+  - **Fix:** the holder now knows which map key the aurora is drawing (`want`, from a `SideEffect`, before that
+    frame's layout/draw) vs. which it has rendered (`publish`) and exposes `pending`. An ink node that hasn't settled
+    waits while `pending` (glyphs in their composed steel with the sheen still sweeping — no black, no halo) and
+    lands at once on the fresh map. As a backstop for a frame-order race, a new map arriving within `RESETTLE_MS`
+    600 of the node attaching re-lands the ink at once too, and `AuroraInkGroup.restartFor` drops the stale group
+    choice (once per map) so hysteresis can't carry it. Settled ink (scrolling, swiping Home's cars) still eases as
+    before. Sheen unchanged.
+  - **Tab transition:** not a regression from today's D-A83–D-A87 work — tabs have been D-A51's fade-through
+    (80 ms out, 60 ms gap, 180 ms fade + 0.98 scale in) since 2026-10-23, and never slid before (D-A46 was a 700 ms
+    cross-fade). Now a direction-aware slide in bottom-bar order (`tabDirection`, MainShell): the arriving tab slides
+    in from the side of travel by `NAV_TAB_SLIDE_FRACTION` 0.15 over `NAV_TAB_IN_MS` 200 (SlideInEasing), fading in
+    after `NAV_TAB_IN_DELAY_MS` 40; the leaving tab slides the other way over `NAV_TAB_OUT_MS` 120 while fading out
+    (fastest at the start). 240 ms total, under `LOADING_GRACE_MS` 250. `NAV_TAB_SCALE_FROM` removed. Reduced motion:
+    instant. The pages pass each other rather than overlap in place, which kept D-A51's "two busy pages at
+    strength" concern in check. The slide moves the header during entrance; the ink retargets on placement as before
+    and the D-A88 pending gate makes the first ink land on the right map.
+  - **Rejected:** keeping Home's car colour in `AuroraTintHolder` across its dispose (reopens D-A32's stale-tint
+    risk); rendering the map synchronously on the main thread (4 phases of the six-blob scene per palette change on
+    the UI thread); a 0.3 slide like pushed screens (too much travel for a sibling switch).
+  - Built, unit-tested and linted; not yet checked on the Pixel.
+
+- **D-A89 (2026-10-28) — Tab slide retimed so it is actually seen (amends D-A88's tab transition).** Device check of
+  the D-A88 APK (30 fps screenrecord, Home↔Service, Fuel→Home): a ~150 ms cross-fade with both pages at the same x.
+  - **Cause:** the D-A88 transition was the one running (NavHost `isTabSwitch` path; direction resolved, reduced
+    motion off), but its easings put the movement where nothing was visible. The enter slide (SlideInEasing, front-
+    loaded) was ~60–85 % done in the first 2 frames while its fade was still in its 40 ms delay (alpha ≈ 0–0.25);
+    the exit slide (FastOutLinearIn, slow start) had moved ~1.5 % of the width by the time its 120 ms fade-out
+    (fastest at the start) had taken it. Net visible offset: a few px.
+  - **Fix (Motion):** enter slides 0.2 of the width (`NAV_TAB_SLIDE_FRACTION`, was 0.15) over `NAV_TAB_IN_MS` 250 on
+    `EmphasizedEasing` (slow start: still ~0.18 w out at 66 ms while alpha is ~0.55), fading in over
+    `NAV_TAB_IN_FADE_MS` 200 with no delay (`NAV_TAB_IN_DELAY_MS` removed); exit moves at once (LinearOutSlowIn,
+    ~0.07 w by 33 ms) over `NAV_TAB_OUT_MS` 150 while its fade holds early (FastOutLinearIn, ~0.94 alpha at 33 ms).
+    The pages overlap for ~150 ms moving in opposite directions — that is the slide the owner asked for, not D-A51's
+    in-place overlap. Direction logic, reduced motion and the D-A88 ink gate unchanged.
+  - Built, unit-tested and linted; needs a device re-check.

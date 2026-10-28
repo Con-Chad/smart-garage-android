@@ -297,6 +297,31 @@ class AuroraLumaMap(val cols: Int, val rows: Int, private val rgb: FloatArray) {
 @Stable
 class AuroraLumaHolder {
     var map: AuroraLumaMap? by mutableStateOf(null)
+        private set
+
+    /**
+     * D-A88: true while the aurora is drawing a palette (or size, or theme) whose [map] hasn't been rendered yet, so
+     * [map] still describes the previous one (the tab just left). Ink that hasn't settled waits for the fresh map
+     * rather than snapping to a stale one. Snapshot state.
+     */
+    var pending: Boolean by mutableStateOf(false)
+        private set
+    private var wanted: Any? = null
+    private var rendered: Any? = null
+
+    /** The aurora now draws [key] (written on composition apply, before the frame's layout and draw). */
+    fun want(key: Any) {
+        if (key === wanted) return
+        wanted = key
+        if (key !== rendered) pending = true
+    }
+
+    /** The map for [key] has been rendered. */
+    fun publish(key: Any, map: AuroraLumaMap) {
+        this.map = map
+        rendered = key
+        if (key === wanted) pending = false
+    }
     internal var left = 0f
     internal var top = 0f
     internal var width = 0f
@@ -344,6 +369,18 @@ class AuroraInkGroup {
     /** The group's ink, 0 light, 1 dark; [AdaptiveInk.NONE] until a member reports. Snapshot state: members follow it. */
     var choice by mutableFloatStateOf(AdaptiveInk.NONE)
         private set
+    private var decidedOn: Any? = null
+
+    /**
+     * D-A88: a member is re-landing on a fresh [map] (see [AuroraInkNode]): forget the choice made on the stale one,
+     * once per map, so the hysteresis doesn't hold the stale ink. The members report again as they retarget.
+     */
+    internal fun restartFor(map: Any) {
+        if (map === decidedOn) return
+        decidedOn = map
+        samples.clear()
+        choice = AdaptiveInk.NONE
+    }
 
     internal fun report(member: Any, luminance: Float) {
         samples[member] = luminance
@@ -424,6 +461,8 @@ private class AuroraInkNode(
     private var drawnLum = 0f
     private var active = false
     private var settled = false
+    // D-A88: when this node was attached (uptime ms); a new map landing within [RESETTLE_MS] of it lands at once.
+    private var attachedAt = 0L
 
     // Inputs read under observation (map, theme, overlay, density) and what derives from them, refreshed only when
     // one of them changes (D-A48): a scroll re-places the node every frame, and the placement path then only samples.
@@ -477,6 +516,7 @@ private class AuroraInkNode(
 
     override fun onAttach() {
         settled = false
+        attachedAt = android.os.SystemClock.uptimeMillis()
         refreshInputs()
         retarget()
     }
@@ -525,7 +565,17 @@ private class AuroraInkNode(
             // Read so a change of the group's ink (another member moved) re-aims this one.
             g?.choice
             ceiling = currentValueOf(LocalAuroraInkCeiling)
-            map = holder?.map
+            val next = holder?.map
+            holder?.pending
+            // D-A88: a screen re-entered (a tab switch back to Home) attaches while the aurora is still on the old
+            // tab's map. If a first sample was taken on it, the fresh map replaces it within the page's entrance:
+            // land on that one at once too, with no hysteresis carried over, instead of easing out of the stale ink.
+            if (next != null && map != null && next !== map && android.os.SystemClock.uptimeMillis() - attachedAt < RESETTLE_MS) {
+                settled = false
+                active = false
+                g?.restartFor(next)
+            }
+            map = next
             tokens = currentValueOf(LocalGlassTokens)
             dropShadow = currentValueOf(LocalAuroraInkShadow)
             overlay = spec.overlay()
@@ -545,6 +595,15 @@ private class AuroraInkNode(
         val m = map
         val bounds = holder
         if (m == null || bounds == null || centerX.isNaN() || bounds.width <= 0f || bounds.height <= 0f) {
+            if (active) {
+                active = false
+                invalidateDraw()
+            }
+            return
+        }
+        // D-A88: an unsettled ink waits while the aurora's map is stale (drawn as composed meanwhile, sheen kept);
+        // the fresh map re-reads this through observation and the first sample lands on it.
+        if (!settled && bounds.pending) {
             if (active) {
                 active = false
                 invalidateDraw()
@@ -621,8 +680,14 @@ private class AuroraInkNode(
     }
 
     override fun ContentDrawScope.draw() {
-        if (!active || size.width <= 0f || size.height <= 0f) {
+        if (size.width <= 0f || size.height <= 0f) {
             drawContent()
+            return
+        }
+        if (!active) {
+            drawContent()
+            // D-A88: the sheen doesn't wait for the ink (the glyphs keep their composed steel meanwhile).
+            sheen?.let { drawSheen(it.value) }
             return
         }
         drawnLum = lum
@@ -768,6 +833,9 @@ private class AuroraInkNode(
     }
 
     private companion object {
+        /** D-A88: a fresh map within this long of attaching re-lands the ink at once (a tab's entrance, with margin). */
+        const val RESETTLE_MS = 600L
+
         /** The second sample's place across the text, from its start (D-A70). */
         const val START_SAMPLE = 0.15f
 

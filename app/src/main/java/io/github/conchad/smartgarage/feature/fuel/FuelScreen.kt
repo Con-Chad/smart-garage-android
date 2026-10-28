@@ -84,7 +84,7 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
         ) { padding ->
             Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                 WriteQueueBanner(sync, viewModel)
-                VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp))
+                VehicleFilterRow(state.vehicles, state.selectedVehicleId, viewModel::selectVehicle, Modifier.padding(bottom = 4.dp), emphasized = true)
                 RefreshBox(sync, onRefresh = viewModel::refresh, modifier = Modifier.weight(1f)) {
                     LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh, skeleton = true) {
                         if (state.months.isEmpty()) {

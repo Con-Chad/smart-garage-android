@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -141,10 +142,15 @@ fun AuroraBackground(
     val p0 = palette[0]
     val p1 = palette[1]
     val p2 = palette[2]
-    LaunchedEffect(p0, p1, p2, auroraSize, tokens) {
+    // D-A88: the map's key, announced to the holder on apply (before this frame's layout and draw), so ink attaching
+    // in this frame knows the map it would read is still the previous palette's.
+    val mapKey = remember(p0, p1, p2, auroraSize, tokens) { Any() }
+    SideEffect { holder.want(mapKey) }
+    LaunchedEffect(mapKey) {
         val target = auroraSize
         if (target.width <= 0 || target.height <= 0) return@LaunchedEffect
-        holder.map = withContext(Dispatchers.Default) { renderLumaMap(target, p0, p1, p2, tokens) }
+        val rendered = withContext(Dispatchers.Default) { renderLumaMap(target, p0, p1, p2, tokens) }
+        holder.publish(mapKey, rendered)
     }
 
     Box(
@@ -176,6 +182,8 @@ fun AuroraBackground(
                     }
                 },
         )
+        // D-A87: screen-resolution dither over the upscaled layer, so its 8-bit steps don't show as contours.
+        Spacer(Modifier.fillMaxSize().clearAndSetSemantics {}.auroraDither())
         CompositionLocalProvider(LocalAuroraLuma provides holder, content = content)
     }
 }

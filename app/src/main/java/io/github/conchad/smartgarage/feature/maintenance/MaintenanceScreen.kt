@@ -1,6 +1,7 @@
 package io.github.conchad.smartgarage.feature.maintenance
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -32,6 +32,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.ui.components.EmptyAction
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.headerGlass
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TabRowDefaults
@@ -108,17 +112,31 @@ fun MaintenanceScreen(
         ) { padding ->
             Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
                 WriteQueueBanner(sync, viewModel)
-                // Tabs on glass (D-A41): sheen for the selected label and its indicator, glass greys for the rest.
+                // Tabs on glass (D-A41); D-A83: the darker header accent for the selected label and indicator, darker muted ink for the rest.
                 val tokens = glass
+                // D-A85: in dark the tabs sit on a slate band (headerTabBar) so the labels hold over the pale glow;
+                // D-A87: the band is header glass (top gloss, bevelled rim) and the tabs are taller with larger labels.
+                val tabBand = tokens.headerTabBar
                 PrimaryTabRow(
                     selectedTabIndex = tab,
+                    modifier = if (tabBand.alpha > 0f) {
+                        Modifier
+                            .padding(horizontal = 16.dp)
+                            .headerGlass(tokens, RoundedCornerShape(tokens.radiusMedium), tabBand, rimTop = tokens.rimLight.copy(alpha = 0.4f), rimBottom = tokens.headerChipBorder)
+                    } else {
+                        Modifier
+                    },
                     containerColor = Color.Transparent,
-                    contentColor = tokens.sheen,
+                    contentColor = tokens.headerAccent,
                     indicator = {
+                        // D-A88: lifted off the band's bottom rim to just under the label, a full pill.
                         TabRowDefaults.PrimaryIndicator(
-                            Modifier.tabIndicatorOffset(tab, matchContentSize = true),
+                            Modifier
+                                .tabIndicatorOffset(tab, matchContentSize = true)
+                                .padding(bottom = tokens.headerTabIndicatorInset),
                             width = Dp.Unspecified,
-                            color = tokens.sheen,
+                            color = tokens.headerAccent,
+                            shape = RoundedCornerShape(percent = 50),
                         )
                     },
                     divider = { HorizontalDivider(color = tokens.panelBorder) },
@@ -126,16 +144,18 @@ fun MaintenanceScreen(
                     Tab(
                         selected = tab == 0,
                         onClick = { tab = 0 },
-                        selectedContentColor = tokens.sheen,
-                        unselectedContentColor = tokens.textSecondary,
-                        text = { Text(stringResource(R.string.maintenance_upcoming)) },
+                        selectedContentColor = tokens.headerAccent,
+                        unselectedContentColor = tokens.headerTextMuted,
+                        modifier = Modifier.height(tokens.headerTabHeight),
+                        text = { Text(stringResource(R.string.maintenance_upcoming), style = MaterialTheme.typography.titleMedium) },
                     )
                     Tab(
                         selected = tab == 1,
                         onClick = { tab = 1 },
-                        selectedContentColor = tokens.sheen,
-                        unselectedContentColor = tokens.textSecondary,
-                        text = { Text(stringResource(R.string.maintenance_history)) },
+                        selectedContentColor = tokens.headerAccent,
+                        unselectedContentColor = tokens.headerTextMuted,
+                        modifier = Modifier.height(tokens.headerTabHeight),
+                        text = { Text(stringResource(R.string.maintenance_history), style = MaterialTheme.typography.titleMedium) },
                     )
                 }
                 VehicleFilterRow(
@@ -143,6 +163,7 @@ fun MaintenanceScreen(
                     state.selectedVehicleId,
                     viewModel::selectVehicle,
                     Modifier.padding(top = 12.dp),
+                    emphasized = true,
                 )
                 // The web's history search (name, vendor, notes, parts); filtered in the ViewModel (D-A23).
                 if (tab == 1 && state.loaded && (state.unfilteredRecords > 0 || state.query.isNotEmpty())) {

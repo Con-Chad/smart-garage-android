@@ -46,6 +46,8 @@
     <string name="dashboard_greeting_evening">Guten Abend, %1$s</string>
     <string name="dashboard_vehicles">Deine Fahrzeuge</string>
     <string name="dashboard_swipe_more">Wischen\nfür mehr</string>
+    <!-- D-A83: the swipe hint on the last vehicle; opens Add vehicle. -->
+    <string name="dashboard_swipe_add_vehicle">Neues Fahrzeug</string>
     <string name="action_add_vehicle_short">Neues Fahrzeug</string>
     <string name="dashboard_attention">Braucht Aufmerksamkeit</string>
     <string name="dashboard_all_caught_up">Alles erledigt</string>
