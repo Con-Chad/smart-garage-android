@@ -2069,3 +2069,31 @@ App decisions use the `D-A` prefix.
     still dismisses (the drag only starts past touch slop). Look, animation and `revealWhenFocused` unchanged; the
     popup follows the field as the form scrolls.
   - 327 unit tests pass; lint: same 9 issues as before. Not verified on a device (none attached).
+
+- **D-A74 (2026-10-27) — Text on the aurora shades smoothly with the background.** Amends D-A70. User request: the
+  ink jumped from white to dark grey the moment text crossed a threshold; it should pass through the greys between.
+  - **Cause**: D-A70's `AdaptiveInk.choose` was binary (light or dark ink, whichever contrasts more, with 4 %
+    hysteresis); the only grey was the 140 ms low-pass fading between the two, so on screen it read as a flip.
+  - **Rule now** (`AdaptiveInk.mix`, ui/glass/AuroraInk.kt): the ink is a continuous function of the backdrop
+    luminance. Pure light ink up to L 0.1658 and pure dark ink from L 0.2440 (where each just reaches 4.5:1), so it
+    is unchanged wherever 4.5:1 is possible. Across that gap, where neither ink can reach it, it shades through the
+    greys: 40 % of the ramp is a slow smoothstep over the whole gap (white greys and dark lightens while they still
+    read, ≥ ~2.8:1 on the map), 60 % a quick one over the middle 8 %. A continuous ink must pass the backdrop's own
+    luminance somewhere (~1:1); this keeps that to ~5 % of the gap (under 2:1) against a third for a single
+    smoothstep. No hysteresis needed. Groups (`AuroraInkGroup`) share the mix of their mean backdrop. The 140 ms
+    low-pass stays, for smoothing in time. `choose` is kept only for `pillInk` (composed, on an estimated backdrop).
+  - **Halo** (D-A52), not strengthened: its tone now follows the glyph's luminance (`haloTone`: dark under light
+    greys, light under dark greys, turning smoothly around L 0.18) instead of a straight blend by the mix, which
+    would have put a grey halo under a mid-grey ink. Same at the ends as before.
+  - **Cost**: in-gap text now repaints on scrolled frames instead of only at a flip. The node's repaint threshold
+    and the group's write threshold went from 1/512 to 1/256 of the ramp (still under one 8-bit level), halving
+    that. Interleaved A/B on the Pixel (Home, 12 slow scrolls × 4 runs each): janky frames 0.06–0.36 % both,
+    p50 8–9 → 9–10 ms, p90 11–12 both, within run-to-run noise.
+  - **On the Pixel 10 Pro**: Home recorded while scrolling on Steel (silver), Blue, Green and a dark grey
+    (#656565, from the wheel; there is no grey preset), plus Orange and Gold, on dark; Blue, Steel and the dark grey
+    on light. Headers move white → light grey → (brief mid grey) → dark grey → dark ink, with no flip and no
+    flicker at rest. Light theme: backdrops stay above the gap, so the dark ink holds.
+  - **Left**: the colour map is the aurora averaged over its drift, and the real backdrop under a header can be
+    well off it (seen: a header mid-sweep on Blue over a backdrop much darker than the map). Text that stops mid-gap
+    shows a low-contrast grey for as long as it rests there, which a flip never did. Following the live drift would
+    fix both and is a bigger change. 330 unit tests pass; lint: same 9 issues as before.
