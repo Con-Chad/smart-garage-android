@@ -149,10 +149,16 @@ data class GlassTokens(
     val radiusField: Dp get() = 12.dp
 
     /**
-     * How far below its bounds a soft-edged top bar's glass fades out (D-A49, the vehicle page): the bar has no hard
-     * bottom line, its panel feathers into the content instead.
+     * The band at the top of a page's scrolling body over which content fades out under the top bar (D-A76,
+     * [topFadeEdge]): transparent at the mask's top edge, opaque this far below it, on a smoothstep ramp.
      */
-    val barFeather: Dp get() = 28.dp
+    val contentFade: Dp get() = 72.dp
+
+    /**
+     * How far a scroll container directly under the top bar reaches up under it (D-A76), so the fade's transparent
+     * edge sits just under the bar's title instead of at the bar's bottom; matched by as much top content padding.
+     */
+    val contentFadeLift: Dp get() = 16.dp
 }
 
 // Shared by both sets: a photo is neither light nor dark themed.

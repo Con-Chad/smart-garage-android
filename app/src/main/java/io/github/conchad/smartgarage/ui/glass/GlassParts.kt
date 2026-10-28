@@ -35,7 +35,8 @@ import io.github.conchad.smartgarage.R
  *
  * [onGlassBar] (D-A54, Home's "Your vehicles"): the whole row sits on a full-width rounded glass strip with the
  * cards' margin, fill and rim, and the title is plain [GlassTokens.textPrimary] on it, the cards' text colour, which
- * clears 4.5:1 on the panel whatever the aurora; no adaptive ink, so no halo (D-A52) behind the glyphs.
+ * clears 4.5:1 on the panel whatever the aurora; no adaptive ink, so no halo (D-A52) behind the glyphs. Its title is
+ * `titleLarge` (D-A76), a step up from the plain headers' `titleMedium`.
  */
 @Composable
 fun GlassGroupHeader(
@@ -64,7 +65,8 @@ fun GlassGroupHeader(
             ) {
                 Text(
                     text,
-                    style = MaterialTheme.typography.titleMedium,
+                    // D-A76: a step up from the other group headers, so it fills the bar beside the stacked hint pill.
+                    style = MaterialTheme.typography.titleLarge,
                     color = glass.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

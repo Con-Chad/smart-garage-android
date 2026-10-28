@@ -94,6 +94,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 @Composable
 fun SettingsScreen(
@@ -117,9 +119,11 @@ fun SettingsScreen(
     ) { padding ->
         // Below the bar, not under it: the bar's glass is see-through, so rows scrolled under it showed through the
         // title (D-A41). The bottom padding stays content padding, so the last row still clears the tray.
+        val listState = rememberLazyListState()
         LazyColumn(
-            modifier = Modifier.padding(top = padding.calculateTopPadding()),
-            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+            state = listState,
+            modifier = Modifier.padding(top = padding.calculateTopPadding()).topFadeEdge(listState, glass.contentFadeLift),
+            contentPadding = PaddingValues(top = glass.contentFadeLift, bottom = padding.calculateBottomPadding()),
         ) {
             item { SectionLabel(stringResource(R.string.settings_account)) }
             item {

@@ -69,7 +69,6 @@ import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.SkeletonFields
 import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
 import io.github.conchad.smartgarage.ui.glass.glass
-import io.github.conchad.smartgarage.ui.glass.headerDivider
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.graphicsLayer
@@ -84,6 +83,7 @@ import io.github.conchad.smartgarage.ui.glass.drawerExpand
 import io.github.conchad.smartgarage.ui.glass.orNone
 import io.github.conchad.smartgarage.ui.glass.orSnap
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * Full-screen editor (D-A20): a close button and title on top, the fields in a scrolling column. Back or close with
@@ -116,9 +116,8 @@ fun FormScreen(
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     val close = { if (dirty) confirmDiscard = true else onClose() }
     BackHandler(enabled = dirty) { confirmDiscard = true }
-    // D-A60: the header divider shows once the fields scroll under the bar; a threshold flag, not the offset.
+    // D-A76: the fields fade out under the bar once scrolled (no divider, no scrolled tint).
     val formScroll = rememberScrollState()
-    val scrolled by remember { derivedStateOf { formScroll.canScrollBackward } }
 
     // On the shell's aurora (D-A30): no surface of its own, the fields on one glass panel so they never float on
     // the ribbons, and the save bar on the same frosted fill.
@@ -127,15 +126,13 @@ fun FormScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                // D-A60: the shared header's complementary divider.
-                modifier = Modifier.headerDivider(scrolled),
                 // On the aurora: the adaptive ink (D-A46).
                 title = { Text(title, Modifier.auroraInk(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = close) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
                 },
                 actions = { TopBarSave(enabled = canSave, saving = saving, onSave = onSave) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
             )
         },
         snackbarHost = { snackbarHost?.let { SnackbarHost(it) } },
@@ -146,8 +143,9 @@ fun FormScreen(
                 .consumeWindowInsets(padding)
                 .imePadding()
                 .fillMaxSize()
+                .topFadeEdge(formScroll, glass.contentFadeLift)
                 .verticalScroll(formScroll)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp + glass.contentFadeLift, bottom = 8.dp),
         ) {
             if (grouped) {
                 Column(verticalArrangement = Arrangement.spacedBy(FORM_CARD_GAP), content = content)

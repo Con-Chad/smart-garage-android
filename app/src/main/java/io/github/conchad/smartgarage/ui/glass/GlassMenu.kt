@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -213,6 +214,8 @@ fun GlassPillButton(
     /** The pill's fill and rim; unspecified keeps the glass pill's ([GlassTokens.pill], 1 dp [GlassTokens.pillBorder]). */
     fill: Color = Color.Unspecified,
     border: BorderStroke? = null,
+    /** Lines the label may wrap to (D-A76: Home's "Swipe to / view more" stacks on two, centred). */
+    maxLines: Int = 1,
 ) {
     val tokens = glass
     val ink = contentColor.takeOrElse { tokens.sheen }
@@ -230,11 +233,18 @@ fun GlassPillButton(
                 .pressScale(press)
                 .glassPillSurface(tokens, CircleShape, press, fill, border)
                 .indication(interaction, ripple())
-                .padding(horizontal = if (compact) 14.dp else 18.dp)
+                .padding(horizontal = if (compact) 14.dp else 18.dp, vertical = if (maxLines > 1) 4.dp else 0.dp)
                 .then(if (adaptiveInk != null) Modifier.auroraInk(adaptiveInk) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, style = textStyle, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                label,
+                style = textStyle,
+                color = ink,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = if (maxLines > 1) TextAlign.Center else null,
+            )
             if (icon != null) {
                 Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.padding(start = 4.dp).size(18.dp))
             }

@@ -65,10 +65,12 @@ internal fun OdometerReminderRow(reminder: OdometerReminder.Reminder, onUpdate: 
 
 /**
  * The small glass pill at the end of Home's "Your vehicles" header (D-A43): "Swipe to view more ›" or "Add vehicle +".
+ * D-A76: the swipe hint passes [maxLines] 2 and a label with a line break ("Swipe to" over "view more"), so it takes
+ * about half the width and the title shows in full.
  * The label size is a step down from the card pills so it fits beside the title at font scale 1.3; 48 dp to touch.
  */
 @Composable
-internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () -> Unit, emphasized: Boolean = false) {
+internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () -> Unit, emphasized: Boolean = false, maxLines: Int = 1) {
     if (emphasized) {
         // D-A52 ("Add vehicle"): the call-to-action pill (white label on a strong tint of the theme colour, light rim)
         // instead of the adaptive ink on the faint glass pill, so the one call to action on an empty garage stands out.
@@ -84,6 +86,7 @@ internal fun VehiclesHeaderPill(label: String, icon: ImageVector, onClick: () ->
         contentColor = rememberPillInk(),
         // On the header's glass bar (D-A54): the adaptive ink (D-A46) against the aurora under the bar and the pill.
         adaptiveInk = rememberPillInkSpec(inCard = true),
+        maxLines = maxLines,
         modifier = Modifier.padding(start = 8.dp, end = 12.dp),
     )
 }

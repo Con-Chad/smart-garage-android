@@ -48,8 +48,8 @@
     <string name="dashboard_greeting_morning">Good morning, %1$s</string>
     <string name="dashboard_greeting_afternoon">Good afternoon, %1$s</string>
     <string name="dashboard_greeting_evening">Good evening, %1$s</string>
-    <string name="dashboard_vehicles">Your vehicles</string>
-    <string name="dashboard_swipe_more">Swipe to view more</string>
+    <string name="dashboard_vehicles">Your Vehicles</string>
+    <string name="dashboard_swipe_more">Swipe to\nview more</string>
     <string name="action_add_vehicle_short">Add vehicle</string>
     <string name="dashboard_attention">Needs attention</string>
     <string name="dashboard_all_caught_up">All caught up</string>

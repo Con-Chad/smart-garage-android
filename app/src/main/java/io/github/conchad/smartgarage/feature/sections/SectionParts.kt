@@ -44,6 +44,8 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * Frame shared by the sections under More: back arrow, write-queue banner, vehicle filter, then (inside
@@ -99,9 +101,11 @@ fun SectionScaffold(
                                 modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
                             )
                         } else {
+                            val listState = rememberLazyListState()
                             LazyColumn(
+                                state = listState,
                                 contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().topFadeEdge(listState),
                                 content = content,
                             )
                         }

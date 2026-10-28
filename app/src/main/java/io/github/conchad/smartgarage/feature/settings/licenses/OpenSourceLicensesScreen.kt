@@ -46,6 +46,9 @@ import io.github.conchad.smartgarage.ui.glass.orNone
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
+import io.github.conchad.smartgarage.ui.glass.glass
 
 /** Loading state of the bundled notices: still reading, read, or the asset could not be read. */
 private sealed interface NoticesState {
@@ -70,9 +73,11 @@ fun OpenSourceLicensesScreen(onBack: () -> Unit) {
     }
 
     AppScaffold(title = stringResource(R.string.licenses_title), onBack = onBack) { padding ->
+        val listState = rememberLazyListState()
         LazyColumn(
-            modifier = Modifier.padding(top = padding.calculateTopPadding()),
-            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+            state = listState,
+            modifier = Modifier.padding(top = padding.calculateTopPadding()).topFadeEdge(listState, glass.contentFadeLift),
+            contentPadding = PaddingValues(top = glass.contentFadeLift, bottom = padding.calculateBottomPadding()),
         ) {
             when (val s = state) {
                 NoticesState.Loading -> Unit

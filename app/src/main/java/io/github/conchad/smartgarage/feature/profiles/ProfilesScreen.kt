@@ -48,6 +48,8 @@ import io.github.conchad.smartgarage.ui.components.AppScaffold
 import io.github.conchad.smartgarage.ui.components.IconBadge
 import io.github.conchad.smartgarage.ui.components.GroupCard
 import io.github.conchad.smartgarage.ui.components.SectionLabel
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 @Composable
 fun ProfilesScreen(
@@ -68,9 +70,11 @@ fun ProfilesScreen(
         val current = state ?: return@AppScaffold
         // Below the bar, not under it: the bar's glass is see-through, so rows scrolled under it showed through the
         // title (D-A41). The bottom padding stays content padding, so the last row still clears the tray.
+        val listState = rememberLazyListState()
         LazyColumn(
-            modifier = Modifier.padding(top = padding.calculateTopPadding()),
-            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
+            state = listState,
+            modifier = Modifier.padding(top = padding.calculateTopPadding()).topFadeEdge(listState, glass.contentFadeLift),
+            contentPadding = PaddingValues(top = glass.contentFadeLift, bottom = padding.calculateBottomPadding()),
         ) {
             item { SectionLabel(stringResource(R.string.profiles_hint)) }
             item {

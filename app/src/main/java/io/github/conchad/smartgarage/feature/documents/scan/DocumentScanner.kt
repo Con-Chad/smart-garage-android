@@ -79,6 +79,7 @@ import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.glass
 import kotlin.math.hypot
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * The document scanner (D-A59), shown by the document form in place of its fields while a scan is open: the
@@ -131,7 +132,7 @@ private fun ScannerScaffold(
             TopAppBar(
                 title = { Text(title, Modifier.auroraInk(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = navigation,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
             )
         },
     ) { padding -> content(Modifier.padding(padding).consumeWindowInsets(padding)) }
@@ -274,12 +275,14 @@ private fun ReviewScreen(session: ScanSession, controller: ScanController, onClo
             IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
         },
     ) { modifier ->
+        val scroll = rememberScrollState()
         Column(
             modifier
                 .imePadding()
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .topFadeEdge(scroll, glass.contentFadeLift)
+                .verticalScroll(scroll)
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp + glass.contentFadeLift, bottom = 8.dp),
         ) {
             GlassPanel(Modifier.fillMaxWidth(), contentPadding = 16.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

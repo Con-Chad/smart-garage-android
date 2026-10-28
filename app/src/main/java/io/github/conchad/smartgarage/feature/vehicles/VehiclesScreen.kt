@@ -70,6 +70,8 @@ import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
 import java.time.Instant
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * The vehicles list on glass (D-A24, notes item 3): each card is a frosted panel with the chrome frame around the
@@ -123,10 +125,12 @@ fun VehiclesScreen(
                             } else {
                                 // D-A51: no bubble on arrival (D-A32's replayed on every tab switch); the tab's fade-through
                                 // brings the cards in with the page.
+                                val listState = rememberLazyListState()
                                 LazyColumn(
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
+                                    state = listState,
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp + glass.contentFadeLift, bottom = padding.calculateBottomPadding() + FAB_CLEARANCE),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize().topFadeEdge(listState, glass.contentFadeLift),
                                 ) {
                                     items(state.vehicles, key = { it.vehicle.id }) { summary ->
                                         val id = summary.vehicle.id

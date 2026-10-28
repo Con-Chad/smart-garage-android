@@ -65,6 +65,8 @@ import io.github.conchad.smartgarage.ui.components.WriteQueueBanner
 import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.ZoneId
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 @Composable
 fun MaintenanceScreen(
@@ -240,7 +242,8 @@ fun MaintenanceScreen(
 private fun Upcoming(due: List<DueItem>, state: MaintenanceUiState, onOpen: (DueItem) -> Unit) {
     val groups = remember(due) { due.groupBy { it.status } }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    LazyColumn(state = listState, contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize().topFadeEdge(listState)) {
         listOf(
             DueStatus.OVERDUE to R.string.status_overdue,
             DueStatus.DUE_SOON to R.string.status_due_soon,
@@ -269,7 +272,8 @@ private fun History(state: MaintenanceUiState, pendingIds: Set<String>, onOpen: 
     // Parses every record's date; kept across recompositions (a pending mark changing) until the records or zone change.
     val byYear = remember(state.records, zone) { state.records.groupBy { it.performedAt.toInstantOrNull()?.atZone(zone)?.year } }
     val showVehicle = state.selectedVehicleId == null && state.vehicles.size > 1
-    LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    LazyColumn(state = listState, contentPadding = PaddingValues(bottom = LocalBottomBarInset.current + FAB_CLEARANCE), modifier = Modifier.fillMaxSize().topFadeEdge(listState)) {
         byYear.forEach { (year, records) ->
             item(key = "y$year", contentType = "header") {
                 val total = records.groupBy { it.currency }.map { (currency, list) -> fmt.money(list.sumOf { it.costCents }, currency) }

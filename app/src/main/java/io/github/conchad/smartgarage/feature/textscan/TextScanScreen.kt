@@ -105,11 +105,11 @@ import io.github.conchad.smartgarage.ui.glass.Motion
 import io.github.conchad.smartgarage.ui.glass.auroraInk
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.glassTextButtonColors
-import io.github.conchad.smartgarage.ui.glass.headerDivider
 import io.github.conchad.smartgarage.ui.glass.orNone
 import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * "Scan text" (D-A64), from the Home fan's scan menu: take or pick a photo, the phone reads it (no upload), and the
@@ -124,7 +124,6 @@ fun TextScanScreen(onClose: () -> Unit, viewModel: TextScanViewModel = hiltViewM
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val scroll = rememberScrollState()
-    val scrolled by remember { derivedStateOf { scroll.canScrollBackward } }
     val reduced = rememberReducedMotion()
 
     val camera = rememberReceiptCamera(viewModel::startCamera, viewModel::captured, viewModel::cameraUnavailable)
@@ -145,12 +144,11 @@ fun TextScanScreen(onClose: () -> Unit, viewModel: TextScanViewModel = hiltViewM
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                modifier = Modifier.headerDivider(scrolled),
                 title = { Text(stringResource(R.string.text_scan_title), Modifier.auroraInk(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -161,8 +159,9 @@ fun TextScanScreen(onClose: () -> Unit, viewModel: TextScanViewModel = hiltViewM
                 .consumeWindowInsets(padding)
                 .imePadding()
                 .fillMaxSize()
+                .topFadeEdge(scroll, glass.contentFadeLift)
                 .verticalScroll(scroll)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp + glass.contentFadeLift, bottom = 8.dp),
         ) {
             AnimatedContent(
                 targetState = state.phase,

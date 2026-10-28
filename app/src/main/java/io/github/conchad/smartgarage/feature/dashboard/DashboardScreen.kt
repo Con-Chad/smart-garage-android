@@ -108,6 +108,7 @@ import io.github.conchad.smartgarage.ui.links.rememberAddToCalendar
 import io.github.conchad.smartgarage.ui.sync.SyncInfo
 import kotlinx.coroutines.launch
 import java.time.LocalTime
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * What the home card's Add / Update buttons and the fan FAB start (D-A31); the shell wires each to the existing
@@ -180,8 +181,6 @@ fun DashboardScreen(
         MetallicSheenHost {
             AppScaffold(
                 transparent = true,
-                // D-A60: the header divider shows while the fan is open, as the scrim divides the page from the bar.
-                showHeaderDivider = fanOpen,
                 title = {
                     // D-A70: the greeting and the sync line take one ink between them.
                     val headerInk = remember { AuroraInkGroup() }
@@ -329,8 +328,9 @@ private fun DashboardContent(
     val vehicles = dashboard.vehicles
     val page = pagerState.currentPage.coerceIn(0, vehicles.lastIndex)
 
-    // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan.
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarInset.current + 96.dp - SHADOW_ROOM)) {
+    // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan. D-A76: fades out at the top.
+    val scroll = rememberScrollState()
+    Column(Modifier.fillMaxSize().topFadeEdge(scroll, glass.contentFadeLift).verticalScroll(scroll).padding(top = glass.contentFadeLift, bottom = LocalBottomBarInset.current + 96.dp - SHADOW_ROOM)) {
         // D-A43: a small pill at the header's end says there is more to swipe to (and steps there), or, with one car, adds the next.
         // D-A54: on a glass bar, so the title reads as plain text (no aurora ink, no halo).
         GlassGroupHeader(stringResource(R.string.dashboard_vehicles), onGlassBar = true) {
@@ -339,6 +339,7 @@ private fun DashboardContent(
                     stringResource(R.string.dashboard_swipe_more),
                     Icons.Outlined.ChevronRight,
                     onClick = { scope.launch { pagerState.animateScrollToPage((page + 1) % vehicles.size) } },
+                    maxLines = 2,
                 )
             } else {
                 VehiclesHeaderPill(stringResource(R.string.action_add_vehicle_short), Icons.Outlined.Add, onClick = onAddVehicle, emphasized = true)

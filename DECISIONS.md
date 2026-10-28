@@ -2119,3 +2119,38 @@ App decisions use the `D-A` prefix.
     soft shadow that lifts them without an outline; dark headers unchanged; light theme shows dark ink, no shadow.
     327 unit tests pass; lint: same 9 issues. gfxinfo A/B against D-A74's build: unchanged (janky 0.12–0.23 %
     both, p50 9–10 ms, p90 11–12 ms).
+
+- **D-A76 (2026-10-27) — Stacked swipe hint, larger "Your Vehicles", soft top fade instead of the header divider and
+  the bar's scrolled tint.** Supersedes D-A60 (divider) and D-A49's soft bar edge; amends D-A43, D-A54. User changes.
+  - **Home header**: "Swipe to view more" stacks on two lines ("Swipe to" / "view more"; de "Wischen" / "für mehr"),
+    a line break in the string and `maxLines = 2` on `GlassPillButton` (new param, centred, 4 dp vertical padding;
+    every other pill unchanged), so the pill is about half as wide. The title reads "Your Vehicles" (en string only;
+    de "Deine Fahrzeuge" already right) and steps up from `titleMedium` to `titleLarge` on the glass bar. On the
+    Pixel at font scale 1.0 and 1.3 the title shows in full beside the pill, no ellipsis.
+  - **Header no longer darkens on scroll**: the cause was the top bars' `scrolledContainerColor = glass.panel`
+    (pinned scroll behaviour's overlap colour) in `AppScaffold` (Home, Vehicles, Service, Fuel, More, Settings,
+    Profiles, licences, the More sections) and `StepScaffold` (setup), plus the vehicle page's `softBarGlass`
+    (D-A49). All now keep the resting colour (transparent; a non-transparent `AppScaffold` keeps its container
+    colour); `softBarGlass` and `softBarEdge` are gone. Forms, text scan and the document scanner had the same colour
+    set but no scroll behaviour, so never tinted; set to transparent too.
+  - **Divider removed** (`HeaderDivider.kt`, its test and `showHeaderDivider`, D-A60), along with the old
+    `fadingTopEdge` (D-A49).
+  - **Top fade**: one shared `Modifier.topFadeEdge` (`ui/glass/TopFade.kt`), applied once per scroll container:
+    an offscreen `graphicsLayer` plus one `DstOut` rect whose smoothstep brush is cached by `drawWithCache` (rebuilt
+    on size change only). Band `GlassTokens.contentFade` = 72 dp (first try 28 dp; the user found it began too low
+    and ended too fast). Containers directly under the bar reach `contentFadeLift` = 16 dp up under it (a layout
+    modifier measures them 16 dp taller and places them 16 dp higher), with 16 dp more top content padding so
+    nothing moves at rest: the transparent edge sits 16 dp above the bar's bottom, just under its title, opaque
+    56 dp below the bar. Where fixed controls sit between bar and list (Service tabs, Fuel and section filter rows)
+    the lift is 0. Strength follows the scroll offset (full once content reaches the edge: over the lift, at least
+    8 dp), read in the layer and draw phases only: no recomposition and no animation; at rest no offscreen layer.
+  - **Covered**: Home, Vehicles, vehicle page, Service (both tabs), Fuel, More, the More sections, Settings,
+    Profiles, licences, every `FormFrame` form, text scan, document scan review, setup steps, `EmptyState`.
+  - On the Pixel 10 Pro (Dark; Steel, Blue, Green, #656565; light spot check): cards fade row by row under the
+    header, no line, no hard cut while the fade comes in. With the aurora held (animator scale 0), header rows
+    0–280 px are pixel-identical at rest and scrolled on every screen checked (Home, vehicle page, More, Settings,
+    a form). gfxinfo, Home, 12 scrolls × 3 runs: before janky 0.20–0.27 %, p50 8–9, p90 11–12 ms; after 0.06–0.13 %,
+    p50 8, p90 11 ms. 324 unit tests pass (327 less the 3 divider tests); lint: same 9 issues.
+  - **Left**: a lifted list also reaches 16 dp up over a write-queue / sync banner when one shows above it (Home,
+    Vehicles, vehicle page), at under ~12 % opacity. On Home the two-line greeting fills the bar, so content passing
+    under the sync line shows faintly behind it during the scroll.

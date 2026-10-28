@@ -45,7 +45,7 @@
     <string name="dashboard_greeting_afternoon">Guten Tag, %1$s</string>
     <string name="dashboard_greeting_evening">Guten Abend, %1$s</string>
     <string name="dashboard_vehicles">Deine Fahrzeuge</string>
-    <string name="dashboard_swipe_more">Wischen für mehr</string>
+    <string name="dashboard_swipe_more">Wischen\nfür mehr</string>
     <string name="action_add_vehicle_short">Neues Fahrzeug</string>
     <string name="dashboard_attention">Braucht Aufmerksamkeit</string>
     <string name="dashboard_all_caught_up">Alles erledigt</string>

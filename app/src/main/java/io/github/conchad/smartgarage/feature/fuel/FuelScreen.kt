@@ -56,6 +56,8 @@ import io.github.conchad.smartgarage.ui.components.forms.AddFab
 import io.github.conchad.smartgarage.ui.components.rememberSheetTarget
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.lazy.rememberLazyListState
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 @Composable
 fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewModel = hiltViewModel()) {
@@ -92,7 +94,8 @@ fun FuelScreen(onLogFillUp: (vehicleId: String?) -> Unit, viewModel: FuelViewMod
                                 title = stringResource(R.string.fuel_empty_title),
                             )
                         } else {
-                            LazyColumn(contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE), modifier = Modifier.fillMaxSize()) {
+                            val listState = rememberLazyListState()
+                            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + FAB_CLEARANCE), modifier = Modifier.fillMaxSize().topFadeEdge(listState)) {
                                 state.summary?.let { summary -> item(key = "summary") { Summary(summary, fmt, showEconomy = state.trackFuelEconomy) } }
                                 item(key = "trends-header", contentType = "header") {
                                     GroupHeader(

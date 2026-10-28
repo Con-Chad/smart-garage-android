@@ -51,6 +51,7 @@ import io.github.conchad.smartgarage.core.network.NetworkFailure
 import io.github.conchad.smartgarage.core.network.ServerProblem
 import io.github.conchad.smartgarage.ui.glass.GlassPanel
 import io.github.conchad.smartgarage.ui.glass.glass
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /**
  * Setup screen frame: top bar, scrolling form, and the step's actions in a row at the end of the form. D-A52: the
@@ -65,6 +66,7 @@ internal fun StepScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val scroll = rememberScrollState()
     // On the aurora (D-A30: AppRoot draws one behind the setup flows, the shell behind "add a server"); the form
     // sits on a glass panel with the actions at its end (D-A52).
     Scaffold(
@@ -81,7 +83,7 @@ internal fun StepScaffold(
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = glass.panel),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent),
             )
         },
     ) { padding: PaddingValues ->
@@ -91,8 +93,9 @@ internal fun StepScaffold(
                 .padding(padding)
                 .consumeWindowInsets(padding)
                 .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .topFadeEdge(scroll, glass.contentFadeLift)
+                .verticalScroll(scroll)
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp + glass.contentFadeLift, bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             GlassPanel(Modifier.widthIn(max = 560.dp).fillMaxWidth(), contentPadding = 16.dp) {

@@ -56,7 +56,6 @@ import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.core.model.toInstantOrNull
 import io.github.conchad.smartgarage.ui.components.AppScaffold
-import io.github.conchad.smartgarage.ui.components.fadingTopEdge
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
 import io.github.conchad.smartgarage.ui.components.DetailRow
 import io.github.conchad.smartgarage.ui.components.DueRow
@@ -100,6 +99,7 @@ import io.github.conchad.smartgarage.ui.glass.vehicleHero
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberTilt
 import kotlinx.coroutines.delay
+import io.github.conchad.smartgarage.ui.glass.topFadeEdge
 
 /** What the detail screen can start: the quick logs, and every editor that belongs to one vehicle (CP11 B). */
 class VehicleActions(
@@ -176,8 +176,6 @@ fun VehicleDetailScreen(
             AppScaffold(
                 transparent = true,
                 topBarModifier = Modifier.popOutFade(popOut),
-                // D-A49: no hard line under the bar's glass on this page; it feathers into the cards.
-                softBarEdge = true,
                 title = {
                     val vehicle = detail?.vehicle
                     if (titleShown && vehicle != null) {
@@ -246,7 +244,7 @@ fun VehicleDetailScreen(
                         LoadedContent(loaded = state.loaded, sync = sync, onRetry = viewModel::refresh) {
                             if (detail != null) {
                                 VehicleDetailContent(
-                                    detail, state, listState, PaddingValues(bottom = padding.calculateBottomPadding() + 24.dp),
+                                    detail, state, listState, PaddingValues(top = glass.contentFadeLift, bottom = padding.calculateBottomPadding() + 24.dp),
                                     pendingIds = pendingIds,
                                     actions = actions,
                                     cardActions = cardActions,
@@ -330,11 +328,8 @@ private fun VehicleDetailContent(
     // Every item has a stable key and a content type (D-A42), so a row appearing above (the pending mark) keeps the
     // scroll anchored and only like composes into like. The order is unchanged: the pop-in stagger is claimed in
     // first-composition order, which is still top to bottom.
-    // D-A49: once scrolled, the cards fade out under the bar's feathered glass instead of being cut on a line.
-    val scrolled by remember(listState) { derivedStateOf { listState.canScrollBackward } }
-    val edgeFade = animateFloatAsState(if (scrolled) 1f else 0f, tween<Float>(Motion.SHORT_MS).orSnap(rememberReducedMotion()), label = "edgeFade")
-    val feather = glass.barFeather
-    LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize().fadingTopEdge(feather) { edgeFade.value }) {
+    // D-A49, D-A76: once scrolled, the cards fade out under the bar, row by row, instead of being cut on a line.
+    LazyColumn(state = listState, contentPadding = contentPadding, modifier = Modifier.fillMaxSize().topFadeEdge(listState, glass.contentFadeLift)) {
         // Notes 13–15: the name inside the photo, then owner, the four immediate figures, the quick actions,
         // and the rest of the car as its own drop-downs; service, papers, fuel and history follow.
         // The photo card is the card one tapped, so it never pops or fades (D-A33, D-A34); the cards beneath slide up under it.
