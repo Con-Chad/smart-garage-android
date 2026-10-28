@@ -2247,3 +2247,39 @@ App decisions use the `D-A` prefix.
     has neither (R8 mapping and dexdump checked). The car drives only while connected, on an accelerated clock.
   - Unverified until CP5 on the phone: CDM presence events on Android 17 / GrapheneOS for a BLE adapter that stops
     advertising while connected, and which characteristic WiCAN protects (bonding is handled for both).
+
+- **D-A74 (2026-10-26) — Settings → OBD adapter: one scannable screen, advanced parts folded, dash check by clean
+  factor.** CP4 of the OBD round; the UI over D-A73's `ObdController` (`feature/settings/obd`, `ObdAdapterRoute`,
+  entered from Settings → "Car connection").
+  - **Layout**: Settings' pattern (section label + glass `GroupCard` per group): Permissions (only while something is
+    missing), Adapter, Vehicle and odometer, Read now, Uploads, Readings, Diagnostics. Profile details, the WiCAN
+    paste, the connection log, the command transcript and the raw console are `FormDisclosure`s, collapsed by default.
+    Replies, byte tables and logs use the new `MonoTextStyle` token (Type.kt).
+  - **Permissions are explained before Android asks**: the card lists only what is missing (nearby devices = scan +
+    connect, never location; notifications for the connected-device service) plus what the companion pairing brings
+    (or the autoConnect fallback when the ROM has no CDM); Allow asks at once. Scan / Connect with something missing
+    show the same explanation as a dialog first, once per visit; after a denial the card offers the app's system
+    settings, Bluetooth off offers Bluetooth settings. Re-checked on every resume.
+  - **Choosing an adapter**: scan results → `associate` → the system CDM dialog (`StartIntentSenderForResult`);
+    CDM missing, declined or failed → "Use without companion pairing?" (`useWithoutAssociation`). Forget asks first;
+    when the bond stays (CDM can only remove it on Android 16+) a dialog points to Android's Bluetooth settings (the
+    D-A73 TODO). The debug simulator row carries a DEBUG pill and is only composed when `simulatorAvailable`; with it
+    selected, a folded "Simulator" block sets its start odometer and speed (display unit). Its name is localized in
+    the UI (the core stores "Simulated adapter").
+  - **Read now** shows the value in the display unit, `expression gives value`, the raw reply and the WiCAN-numbered
+    bytes B0.. as monospace cells, so a user can write their own expression. A profile change clears the shown read.
+  - **"What does your dash say?"** (`ObdCalibration`, pure, unit-tested): the dash reading (either locale's grouping)
+    in km against the read km. Within max(3 km, 0.1 %) = matches. Otherwise a ratio within 1.5 % of ×1.609 / ×0.621 /
+    ×10 / ×0.1 / ×100 / ×0.01 offers "Fix the profile": km ↔ mi switches the unit when that is the mix-up, anything
+    else multiplies the multiplier. A built-in becomes a CUSTOM copy named "<built-in> (calibrated)", so `resolved()`
+    no longer restores the original. No clean factor: says by how much, points at the bytes. Codes-cleared: not
+    offered (its value is a counter plus the last manual log).
+  - **Uploads**: poll minutes and minimum distance save 600 ms after typing stops (as Settings' name field); the
+    stored, clamped value comes back into the field. Trip-end and cellular are switch rows. Last upload / last sent
+    under them.
+  - **Readings**: the queued count, then the newest readings (5, "Show all" up to 50) with their state as a pill
+    (On phone / Waiting / Uploaded / Replaced / Rejected); the vehicle is named only when several appear.
+  - Checked on the Pixel (debug build, dev-seed server, dark theme, font scale 1.3, English and German): simulator →
+    CR-V → Read now → a pasted WiCAN profile with `"unit":"mi"` read 181,855 mi, the dash check offered ×0.621 → km,
+    the fixed profile read 113,000 mi and "Matches"; connected with 1-min polls, two `source: "obd"` odometer logs
+    reached the server and the queue emptied. Not checkable without hardware: the CDM dialog and a real adapter scan.

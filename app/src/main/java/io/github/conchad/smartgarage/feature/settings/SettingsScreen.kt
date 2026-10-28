@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.CircularProgressIndicator
@@ -102,6 +103,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onManageProfiles: () -> Unit,
     onOpenLicenses: () -> Unit,
+    onOpenObd: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -199,6 +201,19 @@ fun SettingsScreen(
                         trailingContent = { Switch(checked = track, onCheckedChange = null, colors = glassSwitchColors()) },
                         colors = transparentRow(),
                         modifier = Modifier.toggleable(value = track, role = Role.Switch, onValueChange = viewModel::setTrackFuelEconomy),
+                    )
+                }
+            }
+
+            // D-A74: the OBD adapter has its own screen; here only the way in.
+            item { SectionLabel(stringResource(R.string.settings_vehicle_link)) }
+            item {
+                GroupCard {
+                    NavRow(
+                        icon = Icons.Outlined.Speed,
+                        title = stringResource(R.string.settings_obd),
+                        subtitle = stringResource(R.string.settings_obd_desc),
+                        onClick = onOpenObd,
                     )
                 }
             }

@@ -77,6 +77,7 @@ import io.github.conchad.smartgarage.feature.wishlist.WishlistFormScreen
 import io.github.conchad.smartgarage.feature.profiles.ProfilesScreen
 import io.github.conchad.smartgarage.feature.settings.SettingsScreen
 import io.github.conchad.smartgarage.feature.settings.licenses.OpenSourceLicensesScreen
+import io.github.conchad.smartgarage.feature.settings.obd.ObdAdapterScreen
 import io.github.conchad.smartgarage.feature.setup.SetupFlow
 import io.github.conchad.smartgarage.feature.setup.SetupMode
 import io.github.conchad.smartgarage.feature.textscan.TextScanScreen
@@ -419,9 +420,11 @@ private fun Shell(profile: ServerProfile, account: Account, shell: ShellViewMode
                                         onBack = navController::popBackStack,
                                         onManageProfiles = { navController.navigate(ProfilesRoute) },
                                         onOpenLicenses = { navController.navigate(LicensesRoute) },
+                                        onOpenObd = { navController.navigate(ObdAdapterRoute) },
                                     )
                                 }
                                 composable<LicensesRoute> { OpenSourceLicensesScreen(onBack = navController::popBackStack) }
+                                composable<ObdAdapterRoute> { ObdAdapterScreen(onBack = navController::popBackStack) }
                                 composable<ProfilesRoute> {
                                     ProfilesScreen(
                                         onBack = navController::popBackStack,
@@ -475,7 +478,7 @@ private fun fallbackTint(destination: NavDestination?): Color {
         destination.isOn(TopLevel.Maintenance) -> scheme.tertiary
         destination.isOn(TopLevel.Fuel) -> glass.sheen
         destination.isOn(TopLevel.More) || destination.hasRoute<SectionRoute>() || destination.hasRoute<SettingsRoute>() ||
-            destination.hasRoute<LicensesRoute>() || destination.hasRoute<ProfilesRoute>() || destination.hasRoute<AddProfileRoute>() -> scheme.secondary
+            destination.hasRoute<LicensesRoute>() || destination.hasRoute<ObdAdapterRoute>() || destination.hasRoute<ProfilesRoute>() || destination.hasRoute<AddProfileRoute>() -> scheme.secondary
         else -> scheme.primary
     }
 }
