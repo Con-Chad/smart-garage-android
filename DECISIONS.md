@@ -2154,3 +2154,17 @@ App decisions use the `D-A` prefix.
   - **Left**: a lifted list also reaches 16 dp up over a write-queue / sync banner when one shows above it (Home,
     Vehicles, vehicle page), at under ~12 % opacity. On Home the two-line greeting fills the bar, so content passing
     under the sync line shows faintly behind it during the scroll.
+
+- **D-A77 (2026-10-28) — Quick info closes when another vehicle settles in the Home pager.** User-reported bug: with
+  Quick info open on one card, swiping to another left a blank gap above "Needs attention" and the fill-ups.
+  - **Cause**: `HorizontalPager` (`beyondViewportPageCount = 1`) sizes itself to the tallest page it has composed,
+    and the open state lived in each card (`rememberSaveable`, kept by the pager's saveable holder). The card just
+    swiped away stayed composed beside the view with its drawer open, so the pager kept its expanded height; swiping
+    back also found the drawer still open.
+  - **Fix**: the open state moves up to `DashboardContent` as one `quickInfoFor` vehicle id (one drawer at a time,
+    still saved across rotation). When `settledPage` changes, `quickInfoAfterSettle` keeps it only if it is the
+    vehicle now in view, so the off-screen drawer closes with its existing `shrinkVertically` + fade and the sections
+    below slide up with it instead of jumping. Mid-swipe nothing changes (both pages are visible then). Swiping back
+    shows the card closed. Covered by `QuickInfoAfterSettleTest`.
+  - **Rejected**: sizing the pager to the current page only (custom layout or `beyondViewportPageCount = 0`) — it
+    would make the sections below jump during the swipe and lose the pre-composed neighbour.

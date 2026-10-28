@@ -73,7 +73,8 @@ import kotlinx.coroutines.launch
  * the mileage and the status chip, then a centred "View all" pill (haptic confirm, opens the vehicle page), then a
  * "Quick info" toggle that drops down insurance, mileage and inspection. Tap on the photo opens the vehicle page,
  * long-press the photo / rename menu; TalkBack gets the same as custom actions. [tiltEnabled] is false while the
- * pager moves or for a page that isn't the settled one: the photo then eases flat.
+ * pager moves or for a page that isn't the settled one: the photo then eases flat. [expanded] (the Quick info
+ * drawer) is held by the pager, which closes it once another page settles (D-A77).
  */
 @Composable
 internal fun VehicleCard(
@@ -82,6 +83,8 @@ internal fun VehicleCard(
     dashboard: Dashboard,
     fmt: Formatter,
     tiltEnabled: Boolean,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     cardActions: VehicleCardActions,
     actions: DashboardActions,
     onOpen: () -> Unit,
@@ -92,7 +95,6 @@ internal fun VehicleCard(
     val glow = VehicleTint.color(vehicle.color, MaterialTheme.colorScheme.primary)
     val haptics = LocalHapticFeedback.current
     var menuOpen by rememberSaveable { mutableStateOf(false) }
-    var expanded by rememberSaveable { mutableStateOf(false) }
     val nickname = cardActions.nicknameOf(vehicle)
     val title = cardActions.titleOf(vehicle)
     // The card is the hero of the vehicle page (D-A34): its last bottom edge goes with the tap, so the page's
@@ -132,7 +134,7 @@ internal fun VehicleCard(
             // The mileage over the status chip on the left, "View all" and "Quick info" beside them (D-A41, user-set).
             VehicleCardFooter(
                 expanded = expanded,
-                onToggle = { expanded = !expanded },
+                onToggle = onToggleExpanded,
                 onViewAll = {
                     // The subtlest distinct confirm the platform has; a long-press buzz would read as "held".
                     haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -161,6 +163,13 @@ internal fun VehicleCard(
         }
     }
 }
+
+/**
+ * Which card keeps Quick info open once the pager settles on [settledId] (D-A77): the open one stays open only if it
+ * is the one in view. The pager measures to its tallest composed page, so a drawer left open beside the view would
+ * hold the sections below it down.
+ */
+internal fun quickInfoAfterSettle(openId: String?, settledId: String?): String? = openId?.takeIf { it == settledId }
 
 /** The arrow on the right edge of the pager: there is another vehicle; tap to go to it. Always over a photo, so a fixed dark pill. */
 @Composable

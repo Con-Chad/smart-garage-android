@@ -39,12 +39,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -322,11 +325,19 @@ private fun DashboardContent(
 ) {
     var open by rememberSheetTarget()
     var odometerFor by rememberSaveable { mutableStateOf<String?>(null) }
+    // D-A77: one Quick info drawer at a time, held here so it closes once another vehicle settles in view.
+    var quickInfoFor by rememberSaveable { mutableStateOf<String?>(null) }
     val addToCalendar = rememberAddToCalendar(snackbar)
     val scope = rememberCoroutineScope()
     val reduced = rememberReducedMotion()
     val vehicles = dashboard.vehicles
     val page = pagerState.currentPage.coerceIn(0, vehicles.lastIndex)
+    val currentVehicles by rememberUpdatedState(vehicles)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { settled ->
+            quickInfoFor = quickInfoAfterSettle(quickInfoFor, currentVehicles.getOrNull(settled)?.vehicle?.id)
+        }
+    }
 
     // Scrolls under the glass bottom bar (D-A40); the last card still clears the bar and the fan. D-A76: fades out at the top.
     val scroll = rememberScrollState()
@@ -355,6 +366,8 @@ private fun DashboardContent(
                     dashboard = dashboard,
                     fmt = fmt,
                     tiltEnabled = pagerState.settledPage == index && !pagerState.isScrollInProgress,
+                    expanded = quickInfoFor == summary.vehicle.id,
+                    onToggleExpanded = { quickInfoFor = if (quickInfoFor == summary.vehicle.id) null else summary.vehicle.id },
                     cardActions = cardActions,
                     actions = actions,
                     onOpen = { onOpenVehicle(summary.vehicle.id) },
