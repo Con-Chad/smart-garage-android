@@ -48,7 +48,8 @@ fun GlassGroupHeader(
 ) {
     val end: @Composable () -> Unit = {
         if (trailing != null) {
-            trailing()
+            // D-A75: the shadow is the header's own text only; a trailing pill keeps its halo.
+            CompositionLocalProvider(LocalAuroraInkShadow provides false) { trailing() }
         } else if (onAction != null) {
             TextButton(onClick = onAction, colors = glassInkTextButtonColors()) {
                 Text(action ?: stringResource(R.string.action_see_all), Modifier.auroraInk())
@@ -76,7 +77,8 @@ fun GlassGroupHeader(
     }
     // D-A70: the title and its action take one ink between them.
     val inkGroup = remember { AuroraInkGroup() }
-    CompositionLocalProvider(LocalAuroraInkGroup provides inkGroup) {
+    // D-A75: the title and its text action get a soft drop shadow instead of the halo.
+    CompositionLocalProvider(LocalAuroraInkGroup provides inkGroup, LocalAuroraInkShadow provides true) {
         Row(
             modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 24.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,

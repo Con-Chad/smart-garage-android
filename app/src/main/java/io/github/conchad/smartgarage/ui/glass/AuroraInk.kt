@@ -44,19 +44,21 @@ import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.observeReads
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /*
  * Adaptive ink (D-A46): text that sits directly on the aurora (screen titles, group headers, section labels, the
  * greeting, Home's pills) takes its colour from the aurora behind it: white where white contrasts more, the dark ink
- * ([GlassTokens.inkDark]) where that does (D-A70), and since D-A74 the greys between them, continuously, across the
- * backdrops where neither reaches 4.5:1 ([AdaptiveInk.mix]); eased in time, and following the text as it scrolls.
+ * ([GlassTokens.inkDark]) where that does (D-A70, [AdaptiveInk.choose]; D-A48's resting grey is gone), easing from one
+ * to the other in time, and following the text as it scrolls.
  *
  * Cost by design:
  * - The aurora's colour is not read back from the GPU. [AuroraBackground] renders its own scene once per palette,
@@ -81,10 +83,9 @@ import kotlin.math.sin
  * The one text-colour rule for the glass screens (D-A70), pure and unit-tested. Every piece of text picks its colour
  * by WCAG contrast against what is actually behind it, aiming for [MIN_CONTRAST]:
  * - Text straight on the aurora (titles, group headers, the greeting's sync line, pill labels) takes the light ink
- *   ([GlassTokens.onPhoto]) wherever it reaches [MIN_CONTRAST] against the aurora under it, the dark ink
- *   ([GlassTokens.inkDark]) wherever that does, and between them, where neither can, a grey that follows the backdrop
- *   continuously ([mix], D-A74) rather than a flip. Where the ink falls short, a halo makes up the rest
- *   ([haloStrength], [haloTone]).
+ *   ([GlassTokens.onPhoto]) or the dark ink ([GlassTokens.inkDark]), whichever contrasts more with the aurora under
+ *   it ([choose]). It never rests on a grey between them: the low-pass only passes through grey while it fades from
+ *   one to the other. Where even the better ink falls short, a halo makes up the rest ([haloStrength]).
  * - Text on glass panels (the cards) keeps the theme's colours, each moved just far enough toward white or the dark
  *   ink to clear [MIN_CONTRAST] on every backdrop the panel can be over ([legible], [legibleOnPanels]).
  */
@@ -113,13 +114,6 @@ object AdaptiveInk {
     const val HALO_FROM = 5.5f
     const val HALO_FULL_AT = 3f
 
-    /** [mix]'s shape: the share of the ramp spent slowly across the gap, and the width of the quick middle sweep. */
-    private const val HOLD_SHARE = 0.4f
-    private const val CROSS_WIDTH = 0.08f
-
-    /** The halo tone's turn spans this factor either side of [HALO_TURN] on `L + 0.05`. */
-    private const val HALO_TONE_SPAN = 1.25f
-
     /** No ink chosen yet (a node's first sample). */
     const val NONE = -1f
 
@@ -131,7 +125,6 @@ object AdaptiveInk {
     /**
      * 0 = light ink, 1 = dark ink, for a backdrop of luminance [backdrop] (D-A70): whichever contrasts more, never
      * between. Within [HYSTERESIS] of [CENTER] the [previous] choice stands (or, with none yet, the nearer side).
-     * Since D-A74 only for a composed colour on an estimated backdrop ([pillInk]); text on the aurora map uses [mix].
      */
     fun choose(backdrop: Float, previous: Float = NONE): Float {
         val ratio = (backdrop + 0.05f) / (CENTER + 0.05f)
@@ -141,56 +134,6 @@ object AdaptiveInk {
             previous == 0f || previous == 1f -> previous
             else -> if (ratio > 1f) 1f else 0f
         }
-    }
-
-    /**
-     * The backdrop luminances where the light ink ([GlassTokens.onPhoto]) just reaches [MIN_CONTRAST] (below: it
-     * clears it) and where the dark ink ([GlassTokens.inkDark]) does (above: it clears it). Between them neither ink
-     * can (D-A70's crossover gap), and that is where [mix] shades from one to the other (D-A74).
-     */
-    const val LIGHT_UNTIL = 0.1658f
-    const val DARK_FROM = 0.2440f
-
-    private val LN_LIGHT_UNTIL = ln(LIGHT_UNTIL + 0.05f)
-    private val LN_DARK_FROM = ln(DARK_FROM + 0.05f)
-
-    /**
-     * D-A74: the ink as a continuous function of the backdrop, 0 = light ink, 1 = dark. Fully light up to
-     * [LIGHT_UNTIL] and fully dark from [DARK_FROM], so wherever either ink can reach [MIN_CONTRAST] it is that ink, as
-     * with [choose]; across the gap between, where neither can, it shades through the greys instead of flipping, so
-     * text moving over the aurora passes through the in-between shades. No hysteresis needed: there is no threshold
-     * to flicker across.
-     *
-     * The shape, over the gap's position `t` on `ln(L + 0.05)` (the contrast scale): part of the ramp is one slow
-     * smoothstep across the whole gap (40 %), the light ink greying and the dark ink lightening while they still read
-     * (≥ ~2.8:1 on the map); the rest a quick one over the middle [CROSS_WIDTH], where any ink between must pass the
-     * backdrop's own luminance. So it holds on the readable greys and only sweeps through the unreadable mid-grey,
-     * where a continuous ink can't avoid ~1:1 for an instant (under 2:1 on ~7 % of the gap, against a third for a
-     * single smoothstep).
-     */
-    fun mix(backdrop: Float): Float {
-        val t = ((ln(backdrop + 0.05f) - LN_LIGHT_UNTIL) / (LN_DARK_FROM - LN_LIGHT_UNTIL)).coerceIn(0f, 1f)
-        val c = ((t - (1f - CROSS_WIDTH) / 2f) / CROSS_WIDTH).coerceIn(0f, 1f)
-        return HOLD_SHARE * t * t * (3f - 2f * t) + (1f - HOLD_SHARE) * c * c * (3f - 2f * c)
-    }
-
-    /**
-     * The glyph luminance at which a black and a white halo contrast equally with it: `sqrt(1.05 · 0.05) − 0.05`.
-     * The halo's tone ([haloTone]) turns around here.
-     */
-    private const val HALO_TURN = 0.1791f
-    private val LN_HALO_LO = ln((HALO_TURN + 0.05f) / HALO_TONE_SPAN)
-    private val LN_HALO_HI = ln((HALO_TURN + 0.05f) * HALO_TONE_SPAN)
-
-    /**
-     * D-A74: the halo's tone for ink of luminance [ink], 0 = [GlassTokens.inkHaloDark], 1 = [GlassTokens.inkHaloLight]:
-     * whichever sets the glyph off more, so a mid-grey ink resting in the gap keeps a dark halo rather than a grey one
-     * that would vanish into the backdrop with it. At the ends it is D-A52's (dark under the light ink, light under the
-     * dark), and it turns continuously over a short span around [HALO_TURN], so it never pops.
-     */
-    fun haloTone(ink: Float): Float {
-        val t = ((ln(ink + 0.05f) - LN_HALO_LO) / (LN_HALO_HI - LN_HALO_LO)).coerceIn(0f, 1f)
-        return 1f - t * t * (3f - 2f * t)
     }
 
     /** WCAG 2 contrast between two relative luminances. */
@@ -391,14 +334,14 @@ class AuroraInkSpec(val overlay: () -> Color = { Color.Transparent }) {
 /**
  * Text that reads as one unit on the aurora (a group header's title and its "See all", Home's greeting and its sync
  * line) takes one ink between them (D-A70): each member reports the backdrop under it and all take the ink
- * [AdaptiveInk.mix] gives their mean (D-A74), so a row never shows a dark title beside a white action. Each member keeps
+ * [AdaptiveInk.choose] gives their mean, so a row never shows a dark title beside a white action. Each member keeps
  * its own halo.
  */
 @Stable
 class AuroraInkGroup {
     private val samples = HashMap<Any, Float>()
 
-    /** The group's ink, 0 light, 1 dark, greys between (D-A74); [AdaptiveInk.NONE] until a member reports. Snapshot state: members follow it. */
+    /** The group's ink, 0 light, 1 dark; [AdaptiveInk.NONE] until a member reports. Snapshot state: members follow it. */
     var choice by mutableFloatStateOf(AdaptiveInk.NONE)
         private set
 
@@ -413,21 +356,21 @@ class AuroraInkGroup {
 
     private fun rechoose() {
         if (samples.isEmpty()) return
-        // D-A74: the continuous ink of the members' mean backdrop. Written only on a step of [GROUP_STEP] (under one 8-bit level
-        // of the ramp) or on landing at an end, so a scroll doesn't churn the state, and the members it re-aims, with
-        // moves no one could see.
-        var sum = 0f
-        for (v in samples.values) sum += v
-        val next = AdaptiveInk.mix(sum / samples.size)
-        if (choice == AdaptiveInk.NONE || abs(next - choice) >= GROUP_STEP || (next != choice && (next == 0f || next == 1f))) choice = next
+        val next = AdaptiveInk.choose(samples.values.average().toFloat(), choice)
+        if (next != choice) choice = next
     }
 }
 
-/** A group's ink is rewritten only on a step of this (under one 8-bit level of the ramp, as [AuroraInkNode]'s snap). */
-private const val GROUP_STEP = 1f / 256f
-
 /** The [AuroraInkGroup] the adaptive ink in this slot belongs to; null: each text decides alone. */
 val LocalAuroraInkGroup = staticCompositionLocalOf<AuroraInkGroup?> { null }
+
+/**
+ * D-A75: adaptive ink in this slot (the glass group headers' title and text action) draws a soft drop shadow
+ * instead of the D-A52 halo: [GlassTokens.inkHaloDark] at [AuroraInkNode]'s shadow alpha, blurred and nudged down,
+ * under the light ink only, fading out with it as the ink turns dark (nothing under the dark ink). False elsewhere:
+ * the rest of the adaptive ink keeps its halo.
+ */
+val LocalAuroraInkShadow = staticCompositionLocalOf { false }
 
 /**
  * Set where everything in a slot sits on the aurora (a top bar's title): [MetallicText] and [onAuroraInk] inside it
@@ -505,7 +448,12 @@ private class AuroraInkNode(
     private var glyphLayer: GraphicsLayer? = null
     private var haloLayer: GraphicsLayer? = null
     private var haloBlurPx = -1f
+    // The last halo / shadow tint set on the layer: a new colour filter only when it changes, not every draw.
+    private var haloTint = Color.Unspecified
     private var tokens: GlassTokens? = null
+    // D-A75: a soft drop shadow instead of the halo ([LocalAuroraInkShadow]).
+    private var dropShadow = false
+    private var shadowOffsetPx = -1
 
     // Draw state reused every frame: one paint, one 0..1 gradient re-aimed by a local matrix.
     private val paint = Paint().apply { blendMode = android.graphics.BlendMode.SRC_IN }
@@ -545,6 +493,8 @@ private class AuroraInkNode(
         glyphLayer = null
         haloLayer = null
         haloBlurPx = -1f
+        haloTint = Color.Unspecified
+        shadowOffsetPx = -1
     }
 
     override fun onObservedReadsChanged() {
@@ -577,6 +527,7 @@ private class AuroraInkNode(
             ceiling = currentValueOf(LocalAuroraInkCeiling)
             map = holder?.map
             tokens = currentValueOf(LocalGlassTokens)
+            dropShadow = currentValueOf(LocalAuroraInkShadow)
             overlay = spec.overlay()
             tallPx = TALL_BLOCK_DP * currentValueOf(androidx.compose.ui.platform.LocalDensity).density
         }
@@ -615,9 +566,8 @@ private class AuroraInkNode(
         val lumTopRaw = (m.luminanceAt(x, yTop, overlay) + m.luminanceAt(xs, yTop, overlay)) / 2f
         val lumBottomRaw = (m.luminanceAt(x, yBottom, overlay) + m.luminanceAt(xs, yBottom, overlay)) / 2f
         lumTarget = (lumTopRaw + lumBottomRaw) / 2f
-        // D-A74 (amends D-A70): the ink is a continuous function of the backdrop ([AdaptiveInk.mix]): the light or the
-        // dark ink wherever one reaches 4.5:1, shading through the greys across the gap where neither can; the
-        // low-pass below only smooths it in time. A short block (a line or two) takes one ink from its mean backdrop, so it
+        // D-A70: the ink is light or dark, whichever contrasts more, never resting on a grey between; the low-pass
+        // below fades between them in time. A short block (a line or two) takes one ink from its mean backdrop, so it
         // never shades top-light / bottom-dark within a line; a tall one may take a different ink at each end.
         val g = group
         if (bottom - top < tallPx && g != null) {
@@ -626,12 +576,12 @@ private class AuroraInkNode(
             targetTop = c
             targetBottom = c
         } else if (bottom - top < tallPx) {
-            val c = AdaptiveInk.mix(lumTarget)
+            val c = AdaptiveInk.choose(lumTarget, if (active) targetTop else AdaptiveInk.NONE)
             targetTop = c
             targetBottom = c
         } else {
-            targetTop = AdaptiveInk.mix(lumTopRaw)
-            targetBottom = AdaptiveInk.mix(lumBottomRaw)
+            targetTop = AdaptiveInk.choose(lumTopRaw, if (active) targetTop else AdaptiveInk.NONE)
+            targetBottom = AdaptiveInk.choose(lumBottomRaw, if (active) targetBottom else AdaptiveInk.NONE)
         }
         if (!active || !settled) {
             // The first sample lands at once: a title doesn't fade in from white on every screen it opens.
@@ -678,9 +628,12 @@ private class AuroraInkNode(
         drawnLum = lum
         // D-A52: how far the ink (its middle, for a shaded block) falls short of the target contrast here.
         val mid = (mixTop + mixBottom) / 2f
+        if (dropShadow) {
+            drawWithShadow(mid)
+            return
+        }
         val inkColor = AdaptiveInk.ink(mid, light, dark)
-        val inkLum = AdaptiveInk.relativeLuminance(inkColor.red, inkColor.green, inkColor.blue)
-        val strength = AdaptiveInk.haloStrength(inkLum, lum)
+        val strength = AdaptiveInk.haloStrength(AdaptiveInk.relativeLuminance(inkColor.red, inkColor.green, inkColor.blue), lum)
         if (strength < HALO_MIN) {
             drawContent()
             drawInk()
@@ -701,10 +654,53 @@ private class AuroraInkNode(
             halo.blendMode = BlendMode.DstOver
             haloBlurPx = blur
         }
-        val tone = lerp(haloDark, haloLight, AdaptiveInk.haloTone(inkLum))
-        halo.colorFilter = ColorFilter.tint(tone.copy(alpha = HALO_MAX_ALPHA * strength), BlendMode.SrcIn)
+        if (halo.topLeft != IntOffset.Zero) halo.topLeft = IntOffset.Zero
+        setHaloTint(halo, lerp(haloDark, haloLight, mid).copy(alpha = HALO_MAX_ALPHA * strength))
         halo.record { drawLayer(glyphs) }
         drawLayer(halo)
+    }
+
+    private fun setHaloTint(layer: GraphicsLayer, tint: Color) {
+        if (tint == haloTint) return
+        layer.colorFilter = ColorFilter.tint(tint, BlendMode.SrcIn)
+        haloTint = tint
+    }
+
+    /**
+     * D-A75: the glyphs in the ink over a soft drop shadow of themselves: [haloDark] at [SHADOW_ALPHA] scaled by how
+     * light the ink is (full under the light ink, none under the dark), blurred [SHADOW_BLUR_DP] and moved down
+     * [SHADOW_OFFSET_DP], drawn `DstOver` so it only shows outside the glyphs. Layers, blur and tint are made once
+     * and changed only when the density or the ink's fade moves them.
+     */
+    private fun ContentDrawScope.drawWithShadow(mix: Float) {
+        val alpha = SHADOW_ALPHA * (1f - mix)
+        if (alpha < SHADOW_MIN) {
+            drawContent()
+            drawInk()
+            sheen?.let { drawSheen(it.value) }
+            return
+        }
+        val context = requireGraphicsContext()
+        val glyphs = glyphLayer ?: context.createGraphicsLayer().also { glyphLayer = it }
+        glyphs.record { this@drawWithShadow.drawContent() }
+        drawLayer(glyphs)
+        drawInk()
+        sheen?.let { drawSheen(it.value) }
+        val shadow = haloLayer ?: context.createGraphicsLayer().also { haloLayer = it }
+        val blur = SHADOW_BLUR_DP * density
+        if (blur != haloBlurPx) {
+            shadow.renderEffect = BlurEffect(blur, blur, TileMode.Decal)
+            shadow.blendMode = BlendMode.DstOver
+            haloBlurPx = blur
+        }
+        val offset = (SHADOW_OFFSET_DP * density).roundToInt()
+        if (offset != shadowOffsetPx) {
+            shadow.topLeft = IntOffset(0, offset)
+            shadowOffsetPx = offset
+        }
+        setHaloTint(shadow, haloDark.copy(alpha = alpha))
+        shadow.record { drawLayer(glyphs) }
+        drawLayer(shadow)
     }
 
     private fun ContentDrawScope.drawInk() {
@@ -780,8 +776,7 @@ private class AuroraInkNode(
 
         /**
          * Mix differences below this are invisible: the light→dark ramp spans ~213 8-bit levels, so this is ~0.8 of
-         * one. D-A74: was 1/512; with a continuous ink, text in the gap re-aims on every scrolled frame, and this
-         * halves the repaints of its offscreen layer (and halo) for no visible difference.
+         * one (D-A74, kept by D-A75; was 1/512). Halves the fade's repaints of the offscreen layer.
          */
         const val SNAP = 1f / 256f
 
@@ -797,6 +792,12 @@ private class AuroraInkNode(
         /** The halo's opacity at full strength and its blur radius (D-A52): a soft glow, not an outline. */
         const val HALO_MAX_ALPHA = 0.7f
         const val HALO_BLUR_DP = 2.5f
+
+        /** The headers' drop shadow (D-A75): soft and low, a lift rather than an outline. */
+        const val SHADOW_ALPHA = 0.45f
+        const val SHADOW_BLUR_DP = 3f
+        const val SHADOW_OFFSET_DP = 1f
+        const val SHADOW_MIN = 0.02f
 
         /** The band's strength over the ink: a glint that reads on white and on near-black alike. */
         const val SHEEN_ALPHA = 0.85f

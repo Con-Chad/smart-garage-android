@@ -2097,3 +2097,25 @@ App decisions use the `D-A` prefix.
     well off it (seen: a header mid-sweep on Blue over a backdrop much darker than the map). Text that stops mid-gap
     shows a low-contrast grey for as long as it rests there, which a flip never did. Following the live drift would
     fix both and is a bigger change. 330 unit tests pass; lint: same 9 issues as before.
+
+- **D-A75 (2026-10-27) — Headers flip ink again; soft drop shadow instead of the halo.** Supersedes D-A74, amends
+  D-A70. User change of direction after seeing D-A74's continuous greys (and a live-drift follow-up, dropped
+  uncommitted).
+  - **Ink**: D-A74 reverted. Text on the aurora is the light or the dark ink again (`AdaptiveInk.choose`, 4 %
+    hysteresis, the 140 ms fade between). Kept from D-A74: the node repaints the fade only on a 1/256 step of the
+    ramp (was 1/512; still under one 8-bit level), halving its repaints for no visible difference.
+  - **Group headers** (`GlassGroupHeader` on the aurora: the title and its text action, e.g. "Needs attention" /
+    "See all"): no halo (D-A52). Instead a soft drop shadow, provided by `LocalAuroraInkShadow` and drawn in the ink
+    node. A `TextStyle` shadow can't be used, because the node recolours every glyph pixel `SrcIn` and so would ink the shadow too.
+    Values: `inkHaloDark` (black) at 0.45 alpha, 3 dp blur, 1 dp down, under the light ink only and fading out
+    with it as the ink turns dark. Nothing under the dark ink: the dark ink sits on light aurora where it already
+    reads, and a light lift there looked like a glow. A trailing pill in the header slot (Home's "Swipe to view more")
+    keeps its halo. Layers, blur and offset are made once per node/density; the tint's colour filter is rebuilt only
+    when the ink's fade changes it (the halo's now too, instead of every draw).
+  - **Still with the halo** (unchanged, not asked): Home's greeting and sync line, top-bar titles (`MetallicText` /
+    `onAuroraInk` in the app bars, forms, document and text scan), `SectionLabel` (More / Settings / Profiles),
+    pill labels on the aurora (`GlassMenu` pills, Quick Info, "Swipe to view more").
+  - On the Pixel 10 Pro (Dark; Steel, Blue, Green, #656565; light spot check on Blue): white headers sit on a faint
+    soft shadow that lifts them without an outline; dark headers unchanged; light theme shows dark ink, no shadow.
+    327 unit tests pass; lint: same 9 issues. gfxinfo A/B against D-A74's build: unchanged (janky 0.12–0.23 %
+    both, p50 9–10 ms, p90 11–12 ms).
