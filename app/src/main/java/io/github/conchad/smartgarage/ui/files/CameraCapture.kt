@@ -89,6 +89,12 @@ object CameraCapture {
         android.media.ExifInterface(path).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, ORIENTATION_NORMAL)
     }.getOrDefault(ORIENTATION_NORMAL)
 
+    /** The EXIF orientation read from a stream (a picked photo's content URI, D-A82); normal when there is none. */
+    @SuppressLint("ExifInterface")
+    internal fun exifOrientation(stream: java.io.InputStream): Int = runCatching {
+        android.media.ExifInterface(stream).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, ORIENTATION_NORMAL)
+    }.getOrDefault(ORIENTATION_NORMAL)
+
     // The EXIF orientation values (the same constants in both ExifInterface classes).
     private const val ORIENTATION_NORMAL = 1
     private const val ORIENTATION_FLIP_HORIZONTAL = 2
@@ -99,7 +105,8 @@ object CameraCapture {
     private const val ORIENTATION_TRANSVERSE = 7
     private const val ORIENTATION_ROTATE_270 = 8
 
-    private fun orientationMatrix(orientation: Int): Matrix? = when (orientation) {
+    /** The matrix that makes a photo with this EXIF orientation upright; null when it already is. */
+    internal fun orientationMatrix(orientation: Int): Matrix? = when (orientation) {
         ORIENTATION_ROTATE_90 -> Matrix().apply { postRotate(90f) }
         ORIENTATION_ROTATE_180 -> Matrix().apply { postRotate(180f) }
         ORIENTATION_ROTATE_270 -> Matrix().apply { postRotate(270f) }

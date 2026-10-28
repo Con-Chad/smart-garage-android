@@ -1219,4 +1219,11 @@
         <item quantity="one">%d entry</item>
         <item quantity="other">%d entries</item>
     </plurals>
+    <!-- Vehicle photo crop step (D-A82) -->
+    <string name="photo_crop_title">Crop photo</string>
+    <string name="photo_crop_hint">Pinch to zoom and drag to move the photo. What\'s inside the frame is what the card shows.</string>
+    <string name="photo_crop_rotate">Rotate 90°</string>
+    <string name="photo_crop_reset">Reset</string>
+    <string name="photo_crop_zoom_in">Zoom in</string>
+    <string name="photo_crop_zoom_out">Zoom out</string>
 </resources>

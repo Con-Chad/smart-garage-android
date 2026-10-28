@@ -55,6 +55,7 @@ import io.github.conchad.smartgarage.core.format.Formatter
 import io.github.conchad.smartgarage.core.model.Vehicle
 import io.github.conchad.smartgarage.core.model.VehicleDetail
 import io.github.conchad.smartgarage.ui.components.RowDivider
+import io.github.conchad.smartgarage.ui.components.VEHICLE_PHOTO_ASPECT
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
@@ -91,7 +92,7 @@ internal fun PhotoCard(vehicle: Vehicle, cardActions: VehicleCardActions, modifi
                     cornerRadius = tokens.radiusMedium,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
+                        .aspectRatio(VEHICLE_PHOTO_ASPECT)
                         .vehicleCardSemantics(vehicle, cardActions, onOpen = null),
                 ) {
                     Box(

@@ -51,6 +51,12 @@ class PhotoLoader(private val profileId: String, private val store: PhotoStore) 
     }
 }
 
+/**
+ * The aspect the vehicle photo is shown at on the Home card and the vehicle page (16:9, both `ContentScale.Crop`);
+ * the photo crop step frames to it (D-A82). The vehicles list's 2:1 strip shows a band of the same crop.
+ */
+const val VEHICLE_PHOTO_ASPECT = 16f / 9f
+
 val LocalPhotoLoader = staticCompositionLocalOf<PhotoLoader?> { null }
 
 /**

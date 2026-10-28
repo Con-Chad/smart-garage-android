@@ -50,6 +50,7 @@ import io.github.conchad.smartgarage.feature.vehicles.VehicleCardActions
 import io.github.conchad.smartgarage.feature.vehicles.VehicleCardMenu
 import io.github.conchad.smartgarage.feature.vehicles.vehicleCardSemantics
 import io.github.conchad.smartgarage.ui.components.RowDivider
+import io.github.conchad.smartgarage.ui.components.VEHICLE_PHOTO_ASPECT
 import io.github.conchad.smartgarage.ui.components.VehiclePhoto
 import io.github.conchad.smartgarage.ui.components.VehicleStatusChip
 import io.github.conchad.smartgarage.ui.glass.GlassCard
@@ -124,7 +125,7 @@ internal fun VehicleCard(
                     tilt = rememberCardTilt(followGyro = tiltEnabled),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
+                        .aspectRatio(VEHICLE_PHOTO_ASPECT)
                         .vehicleCardSemantics(vehicle, cardActions, onOpen),
                 ) {
                     Box(

@@ -2283,3 +2283,31 @@ App decisions use the `D-A` prefix.
     CR-V → Read now → a pasted WiCAN profile with `"unit":"mi"` read 181,855 mi, the dash check offered ×0.621 → km,
     the fixed profile read 113,000 mi and "Matches"; connected with 1-min polls, two `source: "obd"` odometer logs
     reached the server and the queue emptied. Not checkable without hardware: the CDM dialog and a real adapter scan.
+
+- **D-A82 (2026-10-28) — Vehicle photo: a crop step with Rotate 90° between picking and uploading.**
+  - After "Change photo" / "Upload photo" (Home card and vehicles list long-press menu, `VehicleCardMenu`) the system
+    photo picker's result opens a **full-screen crop screen** (`feature/vehicles/photo/VehiclePhotoCropScreen`) on
+    the aurora, glass buttons: the photo under a fixed frame (outside shaded, rule-of-thirds guides), pinch to zoom
+    (1–5×, about the fingers) and drag to move; the frame can never leave the photo. **Rotate 90°** turns the photo
+    clockwise (shown turning over `Motion.STANDARD_MS`, a snap under reduced motion) and starts the frame over;
+    **Reset** returns to the photo as picked; **Cancel**, the close icon and Back upload nothing; **Done** uploads.
+    TalkBack gets "Zoom in" / "Zoom out" custom actions on the photo.
+  - **Frame aspect 16:9** = how the photo is shown on the Home card and the vehicle page (`ContentScale.Crop`), now
+    one token `VEHICLE_PHOTO_ASPECT` in `ui/components/VehiclePhoto.kt` used by both cards. The vehicles list's 2:1
+    strip keeps showing a centred band of it.
+  - Imaging (`PhotoCropImaging`, platform `android.graphics` only): decoded from the content URI with power-of-two
+    sampling, long edge ≤ 2048 px, upright per EXIF (the platform `ExifInterface` on a stream, sharing
+    `CameraCapture`'s orientation matrix). Done renders the crop + turns with one `Bitmap.createBitmap(…, matrix)` to
+    JPEG q90 in `cache/captures/`, then the same file checks (readable, image type, size) and `setVehiclePhoto` as
+    before, named "vehicle-photo.jpg", image/jpeg; the file is deleted once queued (the outbox stages its own copy).
+    The old direct `setPhoto(uri)` path is gone: every vehicle photo now passes the crop step.
+  - State: the picked uri and vehicle id, and the crop (turns, zoom, centre as fractions of the turned photo) are in
+    saved state, so a rotation or process death reopens the same crop. The geometry is pure and unit-tested
+    (`PhotoCropGeometry`: frame size/clamp, pinch about a point, drag, crop rect mapped back through 0–3 turns).
+  - **Rejected:** uCrop / CanHub Android-Image-Cropper (new dependencies, View-based, their own styling — the app adds
+    none); the system crop intent (`com.android.camera.action.CROP`, not a public API, missing on many devices);
+    cropping in the document scanner's corner editor (free quadrilateral, wrong tool for a fixed card aspect);
+    rotation by EXIF tag only (the server and Coil would have to honour it; baking it into pixels is certain).
+  - Not done: no free-form or other aspects (the photo only ever shows at the card's); no flip; TalkBack cannot pan
+    (zoom actions only). If the picker's read grant is gone after process death, the screen says the photo can't be
+    read and offers Cancel.

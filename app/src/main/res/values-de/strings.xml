@@ -1205,4 +1205,11 @@
         <item quantity="one">%d Eintrag</item>
         <item quantity="other">%d Einträge</item>
     </plurals>
+    <!-- Vehicle photo crop step (D-A82) -->
+    <string name="photo_crop_title">Foto zuschneiden</string>
+    <string name="photo_crop_hint">Zum Zoomen zwei Finger spreizen, zum Verschieben ziehen. Was im Rahmen ist, zeigt die Karte.</string>
+    <string name="photo_crop_rotate">90° drehen</string>
+    <string name="photo_crop_reset">Zurücksetzen</string>
+    <string name="photo_crop_zoom_in">Vergrößern</string>
+    <string name="photo_crop_zoom_out">Verkleinern</string>
 </resources>

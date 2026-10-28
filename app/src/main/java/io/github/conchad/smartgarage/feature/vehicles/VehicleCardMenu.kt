@@ -1,7 +1,7 @@
 package io.github.conchad.smartgarage.feature.vehicles
 
 import android.content.Context
-import android.net.Uri
+import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,7 +43,11 @@ import io.github.conchad.smartgarage.R
 import io.github.conchad.smartgarage.core.data.GarageWriter
 import io.github.conchad.smartgarage.core.data.VehicleLocalPrefs
 import io.github.conchad.smartgarage.core.model.Vehicle
+import io.github.conchad.smartgarage.feature.vehicles.photo.CropState
+import io.github.conchad.smartgarage.feature.vehicles.photo.PhotoCropImaging
+import io.github.conchad.smartgarage.feature.vehicles.photo.VehiclePhotoCropScreen
 import io.github.conchad.smartgarage.ui.components.DeniedSnackbar
+import io.github.conchad.smartgarage.ui.files.CameraCapture
 import io.github.conchad.smartgarage.ui.files.UploadKind
 import io.github.conchad.smartgarage.ui.files.fileProblemText
 import io.github.conchad.smartgarage.ui.files.inspect
@@ -60,7 +65,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -85,14 +93,23 @@ class VehicleCardActionsViewModel @Inject constructor(
         photoPickState.value = null
     }
 
-    /** Same checks as the detail screen: readable, an accepted image type, under the size limit, then queued. */
-    fun setPhoto(vehicleId: String, uri: Uri) {
+    /**
+     * The crop step's result (D-A82): [crop] of [source] rendered to a JPEG in `cache/captures/`, then the same checks
+     * as before (readable, an accepted image type, under the size limit) and the same queue, as "vehicle-photo.jpg" /
+     * image/jpeg. The outbox copies the bytes while queueing, so the file is deleted straight after either way.
+     */
+    fun setCroppedPhoto(vehicleId: String, source: Bitmap, crop: CropState, aspect: Float) {
         viewModelScope.launch {
-            val resolver = context.contentResolver
-            val file = resolver.inspect(uri) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
-            file.problem(UploadKind.VehiclePhoto)?.let { photoPickState.value = PhotoPick.Rejected(it); return@launch }
-            val stream = resolver.open(file) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
-            report(writer.setVehiclePhoto(vehicleId, file.name, file.mimeType ?: "application/octet-stream", stream))
+            val rendered = PhotoCropImaging.render(context, source, crop, aspect) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
+            try {
+                val resolver = context.contentResolver
+                val file = resolver.inspect(CameraCapture.uriFor(context, rendered)) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
+                file.problem(UploadKind.VehiclePhoto)?.let { photoPickState.value = PhotoPick.Rejected(it); return@launch }
+                val stream = resolver.open(file) ?: return@launch run { photoPickState.value = PhotoPick.Unreadable }
+                stream.use { report(writer.setVehiclePhoto(vehicleId, CROPPED_PHOTO_NAME, CROPPED_PHOTO_TYPE, it)) }
+            } finally {
+                withContext(NonCancellable + Dispatchers.IO) { rendered.delete() }
+            }
         }
     }
 
@@ -107,6 +124,9 @@ class VehicleCardActionsViewModel @Inject constructor(
         viewModelScope.launch { prefs.setOwnerName(vehicleId, name) }
     }
 }
+
+private const val CROPPED_PHOTO_NAME = "vehicle-photo.jpg"
+private const val CROPPED_PHOTO_TYPE = "image/jpeg"
 
 /** What a card's long-press menu can start, wired once per screen with [rememberVehicleCardActions]. */
 @Stable
@@ -134,8 +154,9 @@ class VehicleCardActions internal constructor(
 }
 
 /**
- * Hosts the photo picker, the rename dialog and the "photo refused" snackbar for a screen. The picker result
- * arrives after the launching card may have gone, so the vehicle id is kept in saved state until it does.
+ * Hosts the photo picker, the crop step (D-A82), the rename dialog and the "photo refused" snackbar for a screen. The
+ * picker result arrives after the launching card may have gone, so the vehicle id is kept in saved state until it
+ * does; the picked photo's uri and vehicle id stay in saved state while the crop screen is open.
  */
 @Composable
 fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar: SnackbarHostState): VehicleCardActions {
@@ -157,10 +178,31 @@ fun rememberVehicleCardActions(viewModel: VehicleCardActionsViewModel, snackbar:
     }
 
     var pendingPhotoFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var cropFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var cropUri by rememberSaveable { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val vehicleId = pendingPhotoFor
         pendingPhotoFor = null
-        if (uri != null && vehicleId != null) viewModel.setPhoto(vehicleId, uri)
+        if (uri != null && vehicleId != null) {
+            cropFor = vehicleId
+            cropUri = uri.toString()
+        }
+    }
+    val cropVehicle = cropFor
+    val cropSource = cropUri
+    if (cropVehicle != null && cropSource != null) {
+        val close = {
+            cropFor = null
+            cropUri = null
+        }
+        VehiclePhotoCropScreen(
+            uri = remember(cropSource) { cropSource.toUri() },
+            onCancel = close,
+            onDone = { source, crop, aspect ->
+                viewModel.setCroppedPhoto(cropVehicle, source, crop, aspect)
+                close()
+            },
+        )
     }
 
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
