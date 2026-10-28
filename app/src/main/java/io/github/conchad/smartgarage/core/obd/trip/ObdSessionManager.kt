@@ -65,7 +65,7 @@ data class ReadNowResult(
 data class RawResult(val command: String, val reply: ElmReply? = null, val error: ObdError? = null, val detail: String? = null)
 
 /**
- * Owns the adapter connection (D-A73), independent of any screen or service: [start] runs the standby loop (connect,
+ * Owns the adapter connection (D-A80), independent of any screen or service: [start] runs the standby loop (connect,
  * run a [TripRunner], and when [start]'s `keepWaiting` is set wait for the adapter again), [stop] ends it. The
  * foreground service only keeps the process alive and mirrors [status] in its notification; the settings screen's
  * [readNow] and [sendRaw] use the running session when there is one and a short one-off connection otherwise.

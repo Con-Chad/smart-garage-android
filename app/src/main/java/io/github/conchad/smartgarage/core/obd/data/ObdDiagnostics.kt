@@ -12,7 +12,7 @@ import java.time.Instant
 data class ConnectionEvent(val atMillis: Long, val message: String)
 
 /**
- * The diagnostics screen's data (D-A73): the last [TRANSCRIPT_SIZE] commands and replies and the last [LOG_SIZE]
+ * The diagnostics screen's data (D-A80): the last [TRANSCRIPT_SIZE] commands and replies and the last [LOG_SIZE]
  * connection events, in memory for the process (the foreground service keeps it alive while connected). Thread-safe.
  */
 class ObdDiagnostics(private val clock: () -> Long = System::currentTimeMillis) : ElmTranscript {

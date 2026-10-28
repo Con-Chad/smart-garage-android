@@ -11,7 +11,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.conchad.smartgarage.core.obd.ObdController
 
 /**
- * Bound by the system while an associated adapter is near (D-A73). Appearing starts the foreground service (an app
+ * Bound by the system while an associated adapter is near (D-A80). Appearing starts the foreground service (an app
  * with a companion association may start one from the background); disappearing lets it wind down once the trip is
  * over. Android 16+ reports [DevicePresenceEvent]s, 13–15 the [AssociationInfo] callbacks, 12 the MAC ones; each
  * handler is idempotent, so a release that calls more than one does no harm.

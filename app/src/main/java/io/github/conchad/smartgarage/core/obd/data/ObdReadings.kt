@@ -28,7 +28,7 @@ enum class ReadingState {
 }
 
 /**
- * Every odometer value read from an adapter, stored before anything else happens to it (D-A73). [km] is the odometer
+ * Every odometer value read from an adapter, stored before anything else happens to it (D-A80). [km] is the odometer
  * in whole km; null when the codes-cleared profile had no manual reading to add [counterKm] to. [profileId] is the
  * server profile, [readAt] epoch ms, [tripId] one connection session.
  */
@@ -81,7 +81,7 @@ interface ObdReadingDao {
 }
 
 /**
- * The OBD readings database (D-A73). Its own file, not the profile cache (D-A12): the cache is dropped on any schema
+ * The OBD readings database (D-A80). Its own file, not the profile cache (D-A12): the cache is dropped on any schema
  * change and refilled from the server, but a reading not yet uploaded exists nowhere else. So: no destructive
  * fallback here, ever. A schema change adds a `Migration` (and the exported schema in app/schemas) instead.
  */

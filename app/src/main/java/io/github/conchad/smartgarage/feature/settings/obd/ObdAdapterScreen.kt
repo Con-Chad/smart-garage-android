@@ -97,7 +97,7 @@ import java.time.Instant
 private enum class AfterPermissions { SCAN, CONNECT }
 
 /**
- * Settings → OBD adapter (D-A74): the adapter, the vehicle and odometer profile, "Read now" with the dash check,
+ * Settings → OBD adapter (D-A81): the adapter, the vehicle and odometer profile, "Read now" with the dash check,
  * uploads, readings and diagnostics, one glass card each; the advanced parts (profile details, WiCAN paste, logs,
  * raw console) folded away. Permissions are explained before Android asks for them.
  */
@@ -118,7 +118,7 @@ fun ObdAdapterScreen(onBack: () -> Unit, viewModel: ObdAdapterViewModel = hiltVi
         onPauseOrDispose { }
     }
 
-    // ── Permissions: explained first, then asked for (D-A74) ──
+    // ── Permissions: explained first, then asked for (D-A81) ──
     var asked by rememberSaveable { mutableStateOf(false) }
     var explainFor by rememberSaveable { mutableStateOf<AfterPermissions?>(null) }
     var after by rememberSaveable { mutableStateOf<AfterPermissions?>(null) }

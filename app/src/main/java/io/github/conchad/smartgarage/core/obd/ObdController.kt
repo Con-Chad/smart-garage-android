@@ -64,7 +64,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The OBD feature's one entry point (D-A73), for the CP4 settings screens and for the services. Settings flows and
+ * The OBD feature's one entry point (D-A80), for the CP4 settings screens and for the services. Settings flows and
  * setters act on the active server profile; the background side (presence, service, uploads) uses the profile that
  * has an adapter set ([obdProfileId]: the active one when it has, else the first that does). Everything works with
  * or without [ObdForegroundService] running: the session manager lives on the application scope, the service only

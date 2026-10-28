@@ -1008,7 +1008,7 @@
     <string name="scan_delete_page">Seite löschen</string>
     <string name="scan_discard_title">Diesen Scan verwerfen?</string>
     <string name="scan_discard_body">Die fotografierten Seiten werden gelöscht.</string>
-    <!-- OBD-Adapter (D-A73): Benachrichtigung des Vordergrunddienstes -->
+    <!-- OBD-Adapter (D-A80): Benachrichtigung des Vordergrunddienstes -->
     <string name="obd_channel_name">OBD-Adapter</string>
     <string name="obd_channel_desc">Wird angezeigt, solange die App auf den OBD-Adapter im Auto wartet oder mit ihm spricht.</string>
     <string name="obd_notification_connected">Verbunden mit %1$s</string>
@@ -1019,7 +1019,7 @@
     <string name="obd_notification_pairing_failed">Kopplung mit dem OBD-Adapter fehlgeschlagen</string>
     <string name="obd_notification_error">OBD-Adapter: keine Verbindung</string>
     <string name="obd_notification_stop">Trennen</string>
-    <!-- Settings → OBD adapter (D-A74) -->
+    <!-- Settings → OBD adapter (D-A81) -->
     <string name="settings_vehicle_link">Fahrzeugverbindung</string>
     <string name="settings_obd">OBD-Adapter</string>
     <string name="settings_obd_desc">Kilometerstand per Bluetooth auslesen und eintragen</string>

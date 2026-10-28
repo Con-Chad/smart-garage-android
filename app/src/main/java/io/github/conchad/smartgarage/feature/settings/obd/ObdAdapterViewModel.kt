@@ -83,7 +83,7 @@ sealed interface ObdEvent {
 enum class DirectReason { UNAVAILABLE, DECLINED, FAILED }
 
 /**
- * Settings → OBD adapter (D-A74). Everything is the controller's ([ObdController], D-A73); this only shapes it for
+ * Settings → OBD adapter (D-A81). Everything is the controller's ([ObdController], D-A80); this only shapes it for
  * the screen and keeps the transient bits (the read, the dash check, the raw console).
  */
 @HiltViewModel

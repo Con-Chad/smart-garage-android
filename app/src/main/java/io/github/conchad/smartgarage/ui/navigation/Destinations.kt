@@ -34,7 +34,7 @@ import kotlinx.serialization.Serializable
 
 /** Settings → About → Open-source licenses (D-A65). */
 @Serializable object LicensesRoute
-/** Settings → OBD adapter (D-A74): adapter, odometer profile, read now, uploads, diagnostics. */
+/** Settings → OBD adapter (D-A81): adapter, odometer profile, read now, uploads, diagnostics. */
 @Serializable object ObdAdapterRoute
 @Serializable object AddProfileRoute
 @Serializable data class VehicleDetailRoute(val vehicleId: String)

@@ -1022,7 +1022,7 @@
     <string name="scan_delete_page">Delete page</string>
     <string name="scan_discard_title">Discard this scan?</string>
     <string name="scan_discard_body">The pages you photographed will be deleted.</string>
-    <!-- OBD adapter (D-A73): foreground service notification -->
+    <!-- OBD adapter (D-A80): foreground service notification -->
     <string name="obd_channel_name">OBD adapter</string>
     <string name="obd_channel_desc">Shown while the app waits for or talks to the car\'s OBD adapter.</string>
     <string name="obd_notification_connected">Connected to %1$s</string>
@@ -1033,7 +1033,7 @@
     <string name="obd_notification_pairing_failed">Pairing with the OBD adapter failed</string>
     <string name="obd_notification_error">OBD adapter: can\'t connect</string>
     <string name="obd_notification_stop">Disconnect</string>
-    <!-- Settings → OBD adapter (D-A74) -->
+    <!-- Settings → OBD adapter (D-A81) -->
     <string name="settings_vehicle_link">Car connection</string>
     <string name="settings_obd">OBD adapter</string>
     <string name="settings_obd_desc">Read the odometer over Bluetooth and log it</string>

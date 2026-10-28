@@ -205,7 +205,7 @@ fun SettingsScreen(
                 }
             }
 
-            // D-A74: the OBD adapter has its own screen; here only the way in.
+            // D-A81: the OBD adapter has its own screen; here only the way in.
             item { SectionLabel(stringResource(R.string.settings_vehicle_link)) }
             item {
                 GroupCard {

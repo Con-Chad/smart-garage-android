@@ -357,7 +357,7 @@ class GarageWriter @Inject constructor(
 
     /**
      * [GarageWrites] for [profileId] whether or not it is the active profile, for writers that run in the background
-     * (OBD readings, D-A73). Nothing syncs on its own: the caller decides when and on which network.
+     * (OBD readings, D-A80). Nothing syncs on its own: the caller decides when and on which network.
      */
     fun writesFor(profileId: String): GarageWrites = GarageWrites { sessionFor(profiles, stores, profileId) }
 

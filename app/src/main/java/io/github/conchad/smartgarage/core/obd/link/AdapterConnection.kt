@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 enum class ObdTransportKind {
     @SerialName("ble") BLE,
 
-    /** Debug builds only (D-A72/D-A73): [io.github.conchad.smartgarage.core.obd.SimulatedElmLink], no car needed. */
+    /** Debug builds only (D-A79/D-A80): [io.github.conchad.smartgarage.core.obd.SimulatedElmLink], no car needed. */
     @SerialName("simulated") SIMULATED,
 }
 
@@ -19,7 +19,7 @@ data class ObdAdapter(
     /** Bluetooth MAC ("AA:BB:CC:DD:EE:FF"); [SIMULATED_ADDRESS] for the simulator. */
     val address: String,
     val name: String? = null,
-    /** Associated through CompanionDeviceManager; false = the autoConnect fallback (D-A73). */
+    /** Associated through CompanionDeviceManager; false = the autoConnect fallback (D-A80). */
     val associated: Boolean = false,
     /** The association's id (API 33+; Android 12 only reports the MAC). */
     val associationId: Int? = null,

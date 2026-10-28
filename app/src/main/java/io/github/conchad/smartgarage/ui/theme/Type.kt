@@ -36,7 +36,7 @@ val PlateTextStyle = TextStyle(
 )
 
 /**
- * Adapter replies, byte tables and command logs (D-A74): the platform monospace at body-small size, so hex columns
+ * Adapter replies, byte tables and command logs (D-A81): the platform monospace at body-small size, so hex columns
  * line up. Sizes in sp, so it follows the user's font scale.
  */
 val MonoTextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 18.sp)

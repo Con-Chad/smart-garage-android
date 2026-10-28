@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
-        OBD adapter over BLE (D-A73). Scanning never derives location, so no location permission. The companion
+        OBD adapter over BLE (D-A80). Scanning never derives location, so no location permission. The companion
         permissions are normal ones: presence callbacks, and starting the connected-device service from them.
     -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
@@ -80,7 +80,7 @@
             </intent-filter>
         </service>
 
-        <!-- OBD (D-A73): the connection while the adapter is near, the system's presence callbacks, re-arm after boot. -->
+        <!-- OBD (D-A80): the connection while the adapter is near, the system's presence callbacks, re-arm after boot. -->
         <service
             android:name=".core.obd.service.ObdForegroundService"
             android:exported="false"

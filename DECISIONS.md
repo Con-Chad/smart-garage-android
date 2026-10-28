@@ -2184,7 +2184,7 @@ App decisions use the `D-A` prefix.
     transitions become `orNone(reduced)`, as elsewhere. Covered by `QuickInfoRevealTest`.
   - **Rejected**: animating the close on `currentPage` change (still lags the finger, and fights a drag back).
 
-- **D-A72 (2026-10-24) — OBD odometer core: WiCAN byte numbering, debug-only simulator.** CP2 of the OBD round
+- **D-A79 (2026-10-24) — OBD odometer core: WiCAN byte numbering, debug-only simulator.** CP2 of the OBD round
   (adapter: WiCAN Pro, also OBDLink CX / generic BLE ELM327/STN; car: 2016 Honda HR-V). Pure Kotlin in `core/obd`, no
   BLE, UI or service yet (CP3/CP4).
   - **Byte numbering is WiCAN's**, so a vehicle profile from wican-fw's `vehicle_profiles.json` evaluates the same when
@@ -2209,7 +2209,7 @@ App decisions use the `D-A` prefix.
   - **Simulator is debug-only**: `SimulatedElmLink` lives in `src/debug`, its tests in `src/testDebug`; the release
     APK's dex has no trace of it (checked with dexdump).
 
-- **D-A73 (2026-10-24) — OBD adapter: BLE link, companion presence, readings kept locally first, uploads on the
+- **D-A80 (2026-10-24) — OBD adapter: BLE link, companion presence, readings kept locally first, uploads on the
   user's network.** CP3 of the OBD round; the settings screens are CP4. Entry point: `core/obd/ObdController`.
   - **BLE** (`core/obd/ble`): `BleElmLink` over `BluetoothGatt`, one GATT operation at a time (mutex + callback). The
     serial service is picked by `ElmGattProfiles.choose`: FFF0 (FFF1 notify / FFF2 write: WiCAN Pro, OBDLink CX, most
@@ -2248,8 +2248,8 @@ App decisions use the `D-A` prefix.
   - Unverified until CP5 on the phone: CDM presence events on Android 17 / GrapheneOS for a BLE adapter that stops
     advertising while connected, and which characteristic WiCAN protects (bonding is handled for both).
 
-- **D-A74 (2026-10-26) — Settings → OBD adapter: one scannable screen, advanced parts folded, dash check by clean
-  factor.** CP4 of the OBD round; the UI over D-A73's `ObdController` (`feature/settings/obd`, `ObdAdapterRoute`,
+- **D-A81 (2026-10-26) — Settings → OBD adapter: one scannable screen, advanced parts folded, dash check by clean
+  factor.** CP4 of the OBD round; the UI over D-A80's `ObdController` (`feature/settings/obd`, `ObdAdapterRoute`,
   entered from Settings → "Car connection").
   - **Layout**: Settings' pattern (section label + glass `GroupCard` per group): Permissions (only while something is
     missing), Adapter, Vehicle and odometer, Read now, Uploads, Readings, Diagnostics. Profile details, the WiCAN
@@ -2263,7 +2263,7 @@ App decisions use the `D-A` prefix.
   - **Choosing an adapter**: scan results → `associate` → the system CDM dialog (`StartIntentSenderForResult`);
     CDM missing, declined or failed → "Use without companion pairing?" (`useWithoutAssociation`). Forget asks first;
     when the bond stays (CDM can only remove it on Android 16+) a dialog points to Android's Bluetooth settings (the
-    D-A73 TODO). The debug simulator row carries a DEBUG pill and is only composed when `simulatorAvailable`; with it
+    D-A80 TODO). The debug simulator row carries a DEBUG pill and is only composed when `simulatorAvailable`; with it
     selected, a folded "Simulator" block sets its start odometer and speed (display unit). Its name is localized in
     the UI (the core stores "Simulated adapter").
   - **Read now** shows the value in the display unit, `expression gives value`, the raw reply and the WiCAN-numbered

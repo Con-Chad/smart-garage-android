@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 
-/** What the OBD feature can do on this phone right now, for CP4's explanation screen (D-A73). */
+/** What the OBD feature can do on this phone right now, for CP4's explanation screen (D-A80). */
 data class ObdPermissionState(
     /** Runtime permissions still to ask for, in [ObdPermissions.RUNTIME] order. */
     val missing: List<String>,

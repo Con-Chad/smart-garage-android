@@ -8,7 +8,7 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * "What does your dash say?" (D-A74): the user's dash reading against the adapter's, and when they differ by a clean
+ * "What does your dash say?" (D-A81): the user's dash reading against the adapter's, and when they differ by a clean
  * factor (mi read as km, a missing /10 …) the profile change that makes them agree.
  */
 sealed interface Calibration {

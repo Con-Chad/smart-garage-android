@@ -8,7 +8,7 @@ import io.github.conchad.smartgarage.core.obd.OdometerProfiles
 import io.github.conchad.smartgarage.core.obd.OdometerUnits
 import org.junit.Test
 
-/** D-A74: the dash check behind "What does your dash say?" and the screen's number parsing. */
+/** D-A81: the dash check behind "What does your dash say?" and the screen's number parsing. */
 class ObdCalibrationTest {
 
     private val honda = OdometerProfiles.HONDA_CLUSTER
