@@ -326,6 +326,7 @@ private fun DashboardContent(
     var open by rememberSheetTarget()
     var odometerFor by rememberSaveable { mutableStateOf<String?>(null) }
     // D-A77: one Quick info drawer at a time, held here so it closes once another vehicle settles in view.
+    // D-A78: by then the swipe has already folded it (quickInfoReveal), so clearing it here shows no second animation.
     var quickInfoFor by rememberSaveable { mutableStateOf<String?>(null) }
     val addToCalendar = rememberAddToCalendar(snackbar)
     val scope = rememberCoroutineScope()
@@ -368,6 +369,8 @@ private fun DashboardContent(
                     tiltEnabled = pagerState.settledPage == index && !pagerState.isScrollInProgress,
                     expanded = quickInfoFor == summary.vehicle.id,
                     onToggleExpanded = { quickInfoFor = if (quickInfoFor == summary.vehicle.id) null else summary.vehicle.id },
+                    // D-A78: lambda, so the pager offset is read in the card's layout/draw phase, not here every frame.
+                    quickInfoReveal = { quickInfoReveal(pagerState.currentPage - index + pagerState.currentPageOffsetFraction, reduced) },
                     cardActions = cardActions,
                     actions = actions,
                     onOpen = { onOpenVehicle(summary.vehicle.id) },

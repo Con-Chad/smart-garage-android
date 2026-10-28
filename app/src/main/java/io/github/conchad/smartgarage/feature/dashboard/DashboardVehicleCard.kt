@@ -29,6 +29,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -65,7 +67,11 @@ import io.github.conchad.smartgarage.ui.glass.VehicleTint
 import io.github.conchad.smartgarage.ui.glass.glass
 import io.github.conchad.smartgarage.ui.glass.rememberCardTilt
 import io.github.conchad.smartgarage.ui.glass.tiltLayer
+import io.github.conchad.smartgarage.ui.glass.orNone
+import io.github.conchad.smartgarage.ui.glass.rememberReducedMotion
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * One vehicle on a glass card (D-A30, D-A31): only the chrome-framed photo tilts toward the gyroscope, with the
@@ -74,7 +80,8 @@ import kotlinx.coroutines.launch
  * "Quick info" toggle that drops down insurance, mileage and inspection. Tap on the photo opens the vehicle page,
  * long-press the photo / rename menu; TalkBack gets the same as custom actions. [tiltEnabled] is false while the
  * pager moves or for a page that isn't the settled one: the photo then eases flat. [expanded] (the Quick info
- * drawer) is held by the pager, which closes it once another page settles (D-A77).
+ * drawer) is held by the pager, which closes it once another page settles (D-A77). [quickInfoReveal] (1 at rest,
+ * 0 a full page away) folds an open drawer in step with the swipe (D-A78); it is read in layout and draw only.
  */
 @Composable
 internal fun VehicleCard(
@@ -85,6 +92,7 @@ internal fun VehicleCard(
     tiltEnabled: Boolean,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    quickInfoReveal: () -> Float = { 1f },
     cardActions: VehicleCardActions,
     actions: DashboardActions,
     onOpen: () -> Unit,
@@ -108,6 +116,7 @@ internal fun VehicleCard(
 
     // Opening the page, the card's own plate gives way to the arriving card's under it (D-A45).
     val plateOff = heroPlateOff()
+    val reduced = rememberReducedMotion()
     GlassCard(modifier = Modifier.vehicleHero(vehicle.id).heroAnchor(anchor), glow = glow, elevated = !plateOff, plate = !plateOff) {
         HeroContent {
             Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
@@ -146,7 +155,25 @@ internal fun VehicleCard(
                 VehicleStatusChip(summary)
             }
             // The drawer slides open and closed under the footer (D-A34); the card's height follows it frame by frame.
-            AnimatedVisibility(expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            // D-A78: while the pager moves, the open drawer folds by how far its page is from centre, so the card
+            // (and the pager, and the sections below) shrink in step with the swipe. Read in layout/draw, no recomposition.
+            AnimatedVisibility(
+                expanded,
+                modifier = Modifier
+                    .graphicsLayer {
+                        alpha = quickInfoReveal()
+                        clip = true
+                    }
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(constraints)
+                        val reveal = quickInfoReveal()
+                        val height = if (reveal >= 1f) placeable.height else (placeable.height * reveal).roundToInt()
+                        // Bottom-anchored like shrinkVertically(): the drawer slides up under the footer.
+                        layout(placeable.width, height) { placeable.place(0, height - placeable.height) }
+                    },
+                enter = (expandVertically() + fadeIn()).orNone(reduced),
+                exit = (shrinkVertically() + fadeOut()).orNone(reduced),
+            ) {
                 Column {
                     RowDivider()
                     QuickInfoDetails(
@@ -170,6 +197,20 @@ internal fun VehicleCard(
  * hold the sections below it down.
  */
 internal fun quickInfoAfterSettle(openId: String?, settledId: String?): String? = openId?.takeIf { it == settledId }
+
+/**
+ * How much of an open Quick info drawer shows while the pager moves (D-A78), from its page's signed distance to the
+ * centre in pages: 1 at rest, 0 a full page (or more) away, linear in between so it tracks the finger. With reduced
+ * motion it snaps: open until the page is half-way out, then closed.
+ */
+internal fun quickInfoReveal(pageDistance: Float, reduced: Boolean): Float {
+    val distance = abs(pageDistance)
+    return if (reduced) {
+        if (distance < 0.5f) 1f else 0f
+    } else {
+        (1f - distance).coerceIn(0f, 1f)
+    }
+}
 
 /** The arrow on the right edge of the pager: there is another vehicle; tap to go to it. Always over a photo, so a fixed dark pill. */
 @Composable

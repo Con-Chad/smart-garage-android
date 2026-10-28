@@ -2168,3 +2168,18 @@ App decisions use the `D-A` prefix.
     shows the card closed. Covered by `QuickInfoAfterSettleTest`.
   - **Rejected**: sizing the pager to the current page only (custom layout or `beyondViewportPageCount = 0`) — it
     would make the sections below jump during the swipe and lose the pre-composed neighbour.
+
+- **D-A78 (2026-10-28) — Quick info folds in step with the Home pager swipe.** Supersedes the settle-delay part of
+  D-A77 (the drawer only started closing once `settledPage` changed, ~0.5 s after the swipe landed, so the next
+  vehicle arrived with a lag). User feedback on the phone.
+  - **Now**: `VehicleCard` takes `quickInfoReveal: () -> Float`, from `quickInfoReveal(currentPage - index +
+    currentPageOffsetFraction, reduced)`: 1 at rest, 0 a full page away, linear in between. The drawer's
+    `AnimatedVisibility` wraps a `Modifier.layout` that reports `height × reveal` (content bottom-anchored, as
+    `shrinkVertically`) and a `graphicsLayer` with `alpha = reveal`, `clip = true`. The card, the pager (tallest
+    composed page) and the sections below shrink with the finger; releasing back on the same card re-expands it.
+  - The offset is read only inside those layout/draw lambdas, so nothing recomposes per frame. `quickInfoFor` is
+    still cleared by `quickInfoAfterSettle` on settle (D-A77); the card is then already at 0 height a page away, so
+    the exit animation is invisible: no second animation, no jump. Taps keep `expandVertically`/`shrinkVertically`.
+  - **Reduced motion**: the reveal snaps (open until the page is half-way out, then 0), and the tap open/close
+    transitions become `orNone(reduced)`, as elsewhere. Covered by `QuickInfoRevealTest`.
+  - **Rejected**: animating the close on `currentPage` change (still lags the finger, and fights a drag back).
